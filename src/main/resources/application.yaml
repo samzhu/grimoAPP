@@ -1,0 +1,6 @@
+spring:
+  application:
+    name: grimo
+  threads:
+    virtual:
+      enabled: true            # P7 / architecture §4
