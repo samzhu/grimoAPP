@@ -42,3 +42,4 @@ out/
 ### Grimo local state (safety net; real state lives in ~/.grimo) ###
 .grimo/
 grimo-home/
+backlog
