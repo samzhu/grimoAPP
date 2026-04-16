@@ -123,21 +123,116 @@ io.github.samzhu.grimo
 
 ## 7. Testing conventions
 
-Detailed in `qa-strategy.md`. Highlights:
+Detailed rationale in `qa-strategy.md`. The rules below are distilled
+from upstream `spring-ai-community/agent-client`'s production-proven
+strategy — see memory entry `reference_agent_client_testing.md` for
+provenance.
 
-- Framework: **JUnit Jupiter 5.11+** + **AssertJ 3.26+** + Spring Boot
-  Test.
-- **Slices** preferred:
+### 7.1 Framework & slices
+
+- Framework: **JUnit Jupiter 5.11+** + **AssertJ 3.26+** + Spring Boot Test.
+- **Slices** preferred over `@SpringBootTest`:
   - `@ApplicationModuleTest` (Modulith) for per-module integration.
   - `@DataJdbcTest` for repository adapters.
   - `@WebMvcTest` for controller adapters.
   - Plain JUnit for `domain/` — no Spring.
-- Full-context integration via `@SpringBootTest` is **last resort**
-  and must be marked `@Tag("integration")` so CI can fan out.
-- **Testcontainers** is fine on the JVM side; every class using it
-  must be `@DisabledInNativeImage`.
-- **Given / When / Then** comment blocks inside every test method,
-  mirroring the SBE examples in `PRD.md` and per-spec docs.
+- Full-context `@SpringBootTest` is **last resort**. When used, the
+  class must end in `IT` (see §7.2).
+
+### 7.2 Unit vs Integration — split by class-name suffix
+
+- **`*Test.java`** — unit. Runs on every `./gradlew test`. No real
+  CLI subprocess, no Docker daemon, no real credentials. Pure
+  translation logic, record validation, builders, mappers.
+- **`*IT.java`** — integration. Runs on `./gradlew integrationTest`
+  (a dedicated task that filters by `include "**/*IT.class"`; source
+  files live alongside unit tests, no separate source-set).
+- Do NOT use `@Tag("integration")` — the name-based suffix is cleaner
+  and matches the upstream pattern.
+
+### 7.3 Do NOT mock CLI subprocesses
+
+- **Never** `Mockito.mock(Process.class)` or similar for CLI pipes.
+  Mocking a subprocess hides real failure modes (stdin/stdout
+  encoding, timeouts, signal handling, partial streaming).
+- Unit tests cover **pure logic only**: prompt serialization, JSON
+  parsing, option builders, registry maps. Stub inputs, real
+  translation code, real assertions.
+- CLI integration tests use the **real binary on the host** (see §7.4).
+  There is no fake intermediate layer.
+
+### 7.4 CLI integration — host binary, not Testcontainers
+
+- For CLI **functional correctness** (did claude-code actually
+  produce what we expected?), invoke the **host binary** directly.
+  Faster, simpler, inherits the developer's own `claude login` /
+  `gemini auth` / `codex login` session — matches the P10
+  subscription-native auth principle.
+- Testcontainers is reserved for **sandbox-infrastructure**
+  validation: did the container spawn with the right bind-mount, did
+  worktree isolation hold, did cleanup remove the container. NOT for
+  asserting CLI output content.
+- Every class touching Testcontainers stays `@DisabledInNativeImage`.
+
+### 7.5 Three-tier skip strategy for real-CLI ITs
+
+Combine these per scenario; do not collapse to one:
+
+1. **Class-level** `@DisabledIfEnvironmentVariable(named = "CI",
+   matches = "true", disabledReason = "…")` — kill an entire IT
+   class on CI runners where the CLI isn't installed (e.g., Codex).
+2. **Opt-in** `@EnabledIfSystemProperty(named = "grimo.it.docker",
+   matches = "true")` — for sandbox-infra ITs that need Docker.
+3. **Graceful per-test** `Assumptions.assumeTrue(cliAvailable() &&
+   credentialsPresent())` in `@BeforeEach` — the default for claude
+   and gemini ITs (inherit the developer's shell auth).
+
+Each provider module contributes a static
+`<Provider>CliDiscovery.isCliAvailable()` helper used by #3.
+
+### 7.6 TCK pattern for per-provider behavior
+
+When ≥ 2 providers share behavioral contracts (stream tokens, surface
+`CliUnavailable`, honor timeout), put the behavioral tests in an
+abstract TCK class under `src/test/java/.../shared/`. Per-provider
+ITs extend it and only wire the provider-specific object in
+`@BeforeEach`.
+
+Naming: `AbstractAgentCliAdapterTCK` (the TCK) →
+`ClaudeAgentCliAdapterIT`, `CodexAgentCliAdapterIT`,
+`GeminiAgentCliAdapterIT`.
+
+Adding a 4th provider ≈ 30 LOC of new IT.
+
+### 7.7 Secrets / API keys
+
+Injected via the Gradle test task's `environment(...)` block; **never**
+`System.setProperty`, **never** a checked-in `.env`:
+
+```kotlin
+tasks.withType<Test> {
+    listOf("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY")
+        .forEach { k -> System.getenv(k)?.let { environment(k, it) } }
+}
+```
+
+CI maps its `secrets:` straight to env. Missing key → IT self-skips
+via `assumeTrue` (§7.5 tier 3).
+
+### 7.8 Flaky-retry at task level, not in test code
+
+For `integrationTest` only, enable
+[org.gradle.test-retry](https://plugins.gradle.org/plugin/org.gradle.test-retry)
+with `maxRetries = 2`. Acknowledges CLI streaming flakiness (token
+races, socket resets) without polluting test bodies.
+
+Unit tests do **NOT** retry — flaky unit tests are bugs, fix them.
+
+### 7.9 Given / When / Then
+
+Every test method carries a `// Given / When / Then` comment block
+mirroring the SBE example in the owning spec file. The block is for
+humans auditing the AC ↔ test mapping, not runtime behavior.
 
 ## 8. Error & exception handling
 
@@ -191,14 +286,23 @@ Detailed in `qa-strategy.md`. Highlights:
   translation to a domain exception.
 - Any use of `System.getenv(...)` / `System.getProperty(...)` outside
   `core/domain/GrimoHomePaths` and `GrimoApplication.main`.
+- **Mocking a CLI subprocess** — `Mockito.mock(Process.class)`,
+  stubbed `ProcessBuilder`, faked stdin/stdout streams. Test pure
+  translation in `*Test`; exercise the real binary in `*IT` with a
+  graceful skip (§7.3–7.5). No fake middle layer.
 
 ## 12. Code-review checklist (applied on every PR)
 
-- [ ] `./gradlew check` green (compile + tests + Modulith verify).
+- [ ] `./gradlew check` green (compile + unit tests + Modulith verify).
 - [ ] No new dependency without a corresponding row in
       `architecture.md` Framework Dependency Table.
 - [ ] New domain term → glossary entry (zh-TW + English).
 - [ ] New public API → tests cover happy path + error path + boundary.
+- [ ] **CLI / subprocess adapter changes** — `*Test` covers pure
+      translation; `*IT` exercises the real binary with
+      `assumeTrue(cliAvailable && credentialsPresent)` in
+      `@BeforeEach`. NO `Mockito.mock(Process…)`. If 2nd+ provider
+      added, promote shared behavior into a TCK (§7.6).
 - [ ] No new direct cross-module class reference — events or ports only.
 - [ ] `package-info.java` `allowedDependencies` updated when a new
       dep is intentional.
