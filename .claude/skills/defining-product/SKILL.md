@@ -42,7 +42,11 @@ Next:   /planning-project
 ```
 - [ ] Explore — competitors, references, technical landscape
 - [ ] Challenge — stress-test every assumption (built-in devil's advocate)
-- [ ] Define — write spec with SBE acceptance criteria
+- [ ] Rank critical path — force a user-approved, priority-ordered list
+      of 3–7 demo-able capabilities. Everything else in "in-scope" is a
+      supporting concern, not a critical deliverable.
+- [ ] Define — write PRD with SBE acceptance criteria + Critical Path
+      section
 - [ ] Validate — user review; consult Tech Lead subagent if needed
 ```
 
@@ -76,9 +80,67 @@ Loop rules:
    approved. The "Mandatory line-drawing questions" below are the
    minimum floor, not the ceiling.
 
-Also parallelize low-risk research (competitor analysis, ecosystem
-scans) via subagents while the interview loop runs — don't block the
-loop on slow external reads.
+### Dispatch research subagents FIRST, then grill in parallel
+
+**Direction uncertainty cascades.** If you start grilling the user
+before researching the market / tech / competitor landscape, every
+subsequent step tends to need correction once reality surfaces. Front-
+load uncertainty reduction by dispatching research BEFORE the first
+grill question, and let it run alongside the grill loop.
+
+Concrete sequence (every /defining-product invocation):
+
+1. **Dispatch 2–4 research subagents in parallel IMMEDIATELY** —
+   before the first grill question. Topics vary by product, but
+   typical ones:
+   - Competitor landscape — who solves this problem? What do they
+     do well / badly? Named references in the user's brief.
+   - Ecosystem scan — for the problem domain (not stack yet), what
+     existing libraries / SDKs / open standards are mature enough
+     to build on vs. fight?
+   - Emerging tech — any approach that's newer than what the user's
+     brief assumes? Actively surface better options.
+   - Any named dependency in the user's brief — latest version,
+     maintenance status, known gotchas.
+
+2. **Begin grill-me loop with the user.** The user will be thinking
+   / typing while subagents run — that's the whole point.
+
+3. **Integrate findings as they return.** When a subagent completes,
+   read its report and let it reshape the next grill question
+   ("Subagent reports X exists — does that change your requirement Y?").
+   Do NOT block the grill loop waiting for a subagent; dispatch,
+   continue, fold in findings asynchronously.
+
+4. **Flag contradictions early.** If a subagent finds evidence that
+   directly contradicts a user assumption in the brief, surface it as
+   the NEXT grill question, not silently.
+
+**Subagent prompt template** (portable; adapt topic + budget):
+
+```
+Research [topic] for a product I'm defining. Goal: surface facts
+that might reshape the product's requirements.
+
+Investigate:
+1. [specific question 1, e.g., "top 3 competitors and their
+   differentiators"]
+2. [specific question 2, e.g., "emerging approaches not in the
+   user's brief"]
+3. [specific question 3, e.g., "recent maintenance status of
+   <named dependency>"]
+
+For each claim, cite a URL. If a URL returns empty / anti-bot / 404,
+say so — do not fabricate.
+
+Output a tight report (≤ 500 words):
+- Findings (bulleted, each with citation)
+- Direct implications for the product's requirements or scope
+- Gaps — questions you couldn't resolve
+
+Budget: ≤ 10 tool calls. Prefer registry / repo / official-doc
+URLs over blog posts.
+```
 
 ### Challenge (built-in devil's advocate)
 
@@ -101,9 +163,16 @@ fails?" / "Cheapest failure mode?" Document rationale for each decision.
   end-of-task review, role-based permission, offline-only?" The
   tradeoff between approval fatigue and isolation is itself a
   first-class product decision, not an implementation detail.
-- **MVP trimming** — "If forced to cut 30% of the In-scope list, what
-  goes first?" Reveals the true priority hierarchy and exposes
-  hidden must-haves the user did not articulate.
+- **Critical path ranking** — "Of your in-scope list, if you could
+  demo only 3 capabilities to prove the product works, which 3 and
+  in what order? Expand to 5–7 if natural." The answer becomes the
+  PRD's Critical Path section and determines downstream milestone
+  order. This is the single most important line-drawing question —
+  without it, the Tech Lead invents a priority order in
+  /planning-project and the user discovers mis-alignment mid-build.
+- **MVP trimming** — "If forced to cut 30% of the remaining in-scope
+  list, what goes first?" Reveals the true priority hierarchy of
+  supporting concerns (items not on the Critical Path).
 
 ### Define with SBE
 
@@ -128,6 +197,11 @@ Must contain:
 - Core principles with rationale
 - SBE acceptance criteria (concrete examples, ≥3)
 - MVP scope (explicit in/out)
+- **Critical Path** — a numbered, user-approved list of 3–7
+  capabilities in priority order. This is the spine the roadmap will
+  be built around. Items in "in-scope" that do NOT appear on the
+  Critical Path are supporting concerns and default to Backlog; they
+  are promoted into MVP milestones only on explicit user demand.
 - Decision log (decision + why + alternatives rejected)
 
 **Glossary**: When introducing new domain concepts, add them to

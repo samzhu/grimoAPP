@@ -89,26 +89,97 @@ module skeleton, CI config, etc.
 - [ ] QA strategy → qa-strategy doc + verification scripts
 - [ ] Spec breakdown → each spec validates one assumption
 - [ ] Agile estimation → six dimensions → story points
-- [ ] Milestones → group specs into deliverable milestones
+- [ ] Milestones — **milestone N corresponds to PRD Critical Path
+      item N**, one-to-one. Supporting concerns (in-scope but not on
+      the Critical Path) default to Backlog; promote only on explicit
+      user demand. Do NOT re-order the Critical Path based on
+      technical-dependency feel — if item K's dependencies aren't
+      ready, insert a "foundation for K" sub-milestone before M(K),
+      never a re-ranking.
 - [ ] Prioritize → dependency graph + execution order
 - [ ] ADR (only if needed) → adr directory
+- [ ] **Write CLAUDE.md "Where things live" index.** Claude Code
+      auto-loads CLAUDE.md every session (zero tool calls). Without
+      an artefact directory index there, every future session spends
+      3–5 tool calls re-discovering layout. Preserve any user-
+      supplied principles / workflow sections; **add or refresh** the
+      "Where things live" section using the template below.
 ```
 
-### Market & Technical Landscape Research
+### Market & Technical Landscape Research — parallel with early grill, not after
 
-**First step before any architecture decision.** Dispatch parallel
-subagents to research:
+**Direction uncertainty cascades.** If you lock stack decisions
+before researching what the ecosystem actually looks like today,
+every downstream spec tends to need correction when reality surfaces
+(e.g., a library's v2 exists and the v1 API is deprecated, or a
+mainstream alternative sidesteps an entire concern). Front-load
+uncertainty reduction by dispatching research **before** the first
+grill question in Inventory / Packaging / Dep-style, and let
+subagents run alongside those early grill questions.
 
-1. **Competitor analysis** — how do similar tools solve this? What can
-   we learn or avoid?
-2. **Ecosystem scan** — for each technical domain (communication,
-   persistence, async, testing, serialization, etc.), list 2-3
-   candidates and compare trade-offs
-3. **Emerging tech** — are there newer approaches that didn't exist when
-   the PRD was written? Actively seek out better options.
+Concrete sequence (every /planning-project invocation):
 
-> Use Agent tool (subagent_type: Explore) to research [topic].
-> Run multiple research agents in parallel for different topics.
+1. **Dispatch 3–5 research subagents in parallel IMMEDIATELY** —
+   before the first user grill question. Typical topics:
+   - **Competitor analysis** — how do similar tools solve this? What
+     can we learn or avoid?
+   - **Ecosystem scan** — for each technical domain surfaced by the
+     PRD (persistence, communication, async, testing, serialization,
+     observability, etc.), list 2-3 candidates with trade-offs and
+     current maintenance status.
+   - **Emerging tech** — approaches that didn't exist or weren't
+     mainstream when the PRD was written.
+   - **Per-named-dependency deep dives** — for every library,
+     SDK, or framework the PRD names, fetch the registry page for
+     latest version, read release notes, and verify primary API is
+     not deprecated. Cross-check Maven Central / npm / PyPI /
+     crates.io / NuGet directly (do NOT trust a single subagent
+     claim on coordinates — pair with WebFetch verification).
+
+2. **Begin the early grill questions** (Inventory, Packaging target,
+   Dep-adoption style). User will be thinking while subagents run.
+
+3. **Integrate findings as they return.** When a subagent reports,
+   let its findings reshape subsequent grill questions
+   ("Subagent found X supersedes Y — does that shift the packaging
+   target?"). Do NOT block grilling on subagent completion.
+
+4. **Flag contradictions aggressively.** If research contradicts a
+   PRD assumption, surface it as a grill question BEFORE writing the
+   architecture doc — easier to correct at PRD level than after a
+   roadmap is locked.
+
+**Subagent prompt template** (portable; adapt topic + specific
+questions):
+
+```
+Research [topic] for a project I'm architecting. Goal: surface facts
+that could reshape framework selection or scope.
+
+Investigate:
+1. [question 1 — current stable version + maintenance status of
+   <named dependency>; check the canonical registry page directly]
+2. [question 2 — deprecated APIs or migration guides in recent
+   releases]
+3. [question 3 — alternative libraries with meaningful trade-offs]
+
+For every version, groupId / package name, API signature, cite a
+registry URL or source link. If the page returns anti-bot or 404,
+say so — do not fabricate.
+
+Output (≤ 600 words):
+- Findings per question, each with citation
+- Implications for architecture decisions
+- Gaps / items needing a second opinion
+
+Budget: ≤ 15 tool calls. Prefer: canonical package registry pages,
+official docs, the project's own README / CHANGELOG. Avoid blog
+summaries as primary evidence.
+```
+
+**Never write a Maven/npm/PyPI coordinate into architecture.md based
+on a single subagent claim.** Verify via a second WebFetch to the
+registry before pinning.
 
 ### Framework Version Pinning & API Validation
 
@@ -233,6 +304,23 @@ Done when: S001-S003 all done
 
 Each milestone → version tag when complete.
 
+### Critical Path anchor
+
+The PRD is expected to contain a **Critical Path** section — an
+ordered list of demo-able capabilities, ranked by the user. The
+roadmap MUST mirror that order, one milestone per Critical Path item.
+
+If a Tech Lead instinct says "technically X should come before Y", but
+the user ranked Y higher, insert a tiny "prepare for Y" milestone
+instead of re-ranking. The roadmap's milestone sequence is the user's
+priority made concrete; the Tech Lead's job is to fill in the
+engineering gaps between each critical step, not to re-shuffle them.
+
+If the PRD lacks a Critical Path section, STOP and route back to
+`/defining-product` — inventing a priority order here and having the
+user correct it mid-build is the single largest source of waste in
+this pipeline.
+
 ### QA Strategy — prefer ecosystem, scripts are last resort
 
 Decide the verification pipeline in this order; stop at the first "yes":
@@ -285,6 +373,53 @@ xunit theory, a Go test, ...), not with grep-the-markdown scripts.
 Maintain `docs/grimo/glossary.md` as the project's ubiquitous language.
 When architecture decisions introduce new domain concepts, add entries.
 
+### CLAUDE.md "Where things live" — template
+
+Drop this section into the project's top-level `CLAUDE.md`, between
+the user's principles and any workflow-pipeline reference. Preserve
+everything else that's already there.
+
+Replace `<project>` with the actual project directory name and adapt
+paths to the language/ecosystem. The left-column paths are the
+**promise** — new files of that kind land there; readers know where
+to look.
+
+```markdown
+## Where things live (read this before ls-ing)
+
+**Project artefacts (in repo):**
+
+| Path | What |
+| --- | --- |
+| `docs/<project>/PRD.md` | Product vision, Critical Path, MVP scope, decision log |
+| `docs/<project>/architecture.md` | Tech decisions, framework table, module map, data flows |
+| `docs/<project>/development-standards.md` | Code conventions, testing rules, forbidden patterns |
+| `docs/<project>/qa-strategy.md` | Test pipeline + verification commands |
+| `docs/<project>/glossary.md` | Domain terms (bilingual if the team works across languages) |
+| `docs/<project>/specs/spec-roadmap.md` | Live roadmap — specs, milestones, Backlog |
+| `docs/<project>/specs/YYYY-MM-DD-S<NNN>-<slug>.md` | In-flight spec (§1-5 design, §6 task plan, §7 results) |
+| `docs/<project>/specs/archive/` | Shipped specs (permanent record) |
+| `docs/<project>/tasks/` | **Temporary** BDD task files; only exist during a spec's loop; deleted at Phase 3 |
+| `docs/<project>/CHANGELOG.md` | What shipped and when |
+| `docs/<project>/adr/ADR-NNN-<slug>.md` | In-development decisions that extend or contradict PRD |
+| `<production-source-root>` | Production code (language-specific root) |
+| `<test-source-root>` | Tests. If an integration-test split is used, state the naming rule here (e.g., `*Test` vs `*IT`) |
+| `.claude/skills/` | Workflow skills — rarely edited, portable |
+
+**User runtime state (if any, outside repo, never committed):**
+
+List any external state dirs the project uses (`~/.<project>/`,
+cloud-storage paths, etc.), and the env var / property used to
+override their location.
+```
+
+Rationale: CLAUDE.md is the only 0-tool-call session entrypoint.
+Skills that read it benefit immediately (no ls / glob round-trip);
+skills that write artefacts have a canonical destination (no
+convention drift between specs). The table format keeps entries
+skim-able and forces "what" alongside "where" — paths without
+semantics are noise.
+
 ## Doc Sync — after ADR changes
 
 ```
@@ -292,6 +427,8 @@ When architecture decisions introduce new domain concepts, add entries.
 - [ ] PRD.md scope affected?
 - [ ] development-standards.md affected?
 - [ ] spec-roadmap.md needs new/modified specs?
+- [ ] CLAUDE.md "Where things live" — still matches reality?
+      (new convention, moved directory, new source root?)
 ```
 
 ## Status check

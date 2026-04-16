@@ -104,6 +104,16 @@ Loop rules:
 
 Focus topics for the loop:
 
+- **Deliverable smell test** (ask FIRST, before implementation
+  details). For each item in the roadmap entry's deliverable list,
+  question its fit: "does this spec really need it, or is it
+  misfiled?" Common misfits: a cross-cutting primitive that only
+  1–2 modules consume (belongs to one owning module); a feature-
+  specific type that happens to be mentioned in the roadmap (belongs
+  to the feature's own spec). Moving an item out of the spec (to
+  Backlog or to its true owning spec) costs less than over-designing
+  it here. Grill implementation detail only on deliverables that
+  pass the smell test.
 - **Scope boundaries** — "This spec covers X but not Y — correct?"
 - **Constraints** — performance, compatibility, deployment,
   concurrency, platform limits.
@@ -140,7 +150,7 @@ For every major design decision, briefly challenge:
 
 | Size | Depth | User interaction |
 |------|-------|------------------|
-| XS | Skip approach comparison. Recommend directly. | Mandatory 3-question intake: (a) what's already on disk / what has been scaffolded? (b) what's the packaging target for the final artifact? (c) pre-populate configs for future specs, or lazy-add per spec? Plus up to 1 spec-specific question. |
+| XS | Skip approach comparison. Recommend directly. | 3-question intake: (a) on-disk state, (b) packaging target, (c) pre-populate configs for future specs vs lazy-add per spec. **If prior context (earlier specs, memory, recent session) already answers a question, state the answer in §2 Approach and skip asking — do not re-ask what the source already reveals.** Plus up to 1 spec-specific grill question on a deliverable that passed the smell test. |
 | S | Brief comparison. | 3-4 questions, confirm approach |
 | M | Full comparison + interface definition. | Confirm approach + key interfaces |
 | L+ | Deep design + PoC spike may be needed. | Confirm at each phase boundary |

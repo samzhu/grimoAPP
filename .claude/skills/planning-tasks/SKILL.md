@@ -261,9 +261,28 @@ Procedure:
 3. **Resume the loop.** Re-enter Phase 2 against the new task graph.
    Find the next pending task.
 4. **Audit downstream impact.** If the change touches
-   project-level decisions (architecture, dev-standards, qa-strategy,
-   PRD), update those docs in the same sweep. A scope change that
-   doesn't propagate creates stale references.
+   project-level decisions, update the relevant docs in the same
+   sweep. A scope change that doesn't propagate creates stale
+   references. Walk this checklist explicitly for every scope change
+   — state either "touched" or "intentionally not touched — reason:
+   …" for each entry. No silent skips.
+
+   ```
+   - [ ] The in-flight spec file (§3 ACs, §4 interfaces, §5 file
+         plan, §6 task plan, §7 results)
+   - [ ] The roadmap doc (entry description, dependency graph,
+         milestone table, AC summary)
+   - [ ] The architecture doc (module map, ports, framework table,
+         data flows, storage)
+   - [ ] The development-standards doc (if a convention changes)
+   - [ ] The QA strategy doc (if test pipeline changes)
+   - [ ] The PRD decision log (if a prior decision is reversed or
+         refined; note date + reason)
+   - [ ] The glossary (if domain terms added / renamed / removed)
+   - [ ] The memory directory (add a project memory entry when the
+         change is load-bearing for future sessions — scope
+         re-plans, stack migrations, policy reversals)
+   ```
 
 ## Handoff
 
