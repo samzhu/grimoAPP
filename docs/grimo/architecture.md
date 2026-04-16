@@ -34,7 +34,10 @@
 ```
 io.github.samzhu.grimo                                   # root (GrimoApplication)
 ├── core                                    # @ApplicationModule (open)
-│   └── domain/ { Session, Turn, TaskId, AgentRole, Cost, ... }
+│   └── domain/ { SessionId, TurnId, TaskId, CorrelationId,
+│                 AgentRole, ProviderId, GrimoHomePaths, NanoIds }
+│                                           # Cost is owned by the
+│                                           # `cost` module — NOT here.
 │                                           # shared domain primitives
 ├── session                                 # SessionMemoryAdvisor wiring
 ├── cli                                     # CLI adapter (claude/codex/gemini)

@@ -13,3 +13,28 @@ IMPORTANT: Follow these in every session.
 7 skills form the development pipeline:
 
 `/defining-product` → `/planning-project` → `/planning-spec S00N` → `/planning-tasks S00N` ⟺ `/implementing-task` (loop) → `/verifying-quality S00N` → `/shipping-release`
+
+## Where things live (read this before ls-ing)
+
+**Project artefacts (in repo):**
+
+| Path | What |
+| --- | --- |
+| `docs/grimo/PRD.md` | Product vision, **Critical Path**, MVP scope (Critical / Supporting / Backlog / Out), decision log |
+| `docs/grimo/architecture.md` | Tech decisions, framework dependency table, module map, data flows |
+| `docs/grimo/development-standards.md` | Code conventions, package layout, testing rules (§7), forbidden patterns |
+| `docs/grimo/qa-strategy.md` | Test pipeline, verification commands (ecosystem-native preferred) |
+| `docs/grimo/glossary.md` | Bilingual (zh-TW + English) domain terms |
+| `docs/grimo/specs/spec-roadmap.md` | Live roadmap — all specs, milestones, Backlog |
+| `docs/grimo/specs/YYYY-MM-DD-S<NNN>-<slug>.md` | In-flight spec (§1-5 design, §6 task plan, §7 results) |
+| `docs/grimo/specs/archive/` | Shipped specs — permanent record |
+| `docs/grimo/tasks/` | **Temporary** BDD task files; only exist between `/planning-tasks` and Phase 3; deleted on ship |
+| `docs/grimo/CHANGELOG.md` | What shipped + when (appended by `/shipping-release`) |
+| `docs/grimo/adr/ADR-NNN-<slug>.md` | In-development decisions that extend or contradict PRD |
+| `src/main/java/io/github/samzhu/grimo/` | Production Java (root package `io.github.samzhu.grimo`) |
+| `src/test/java/...` | Tests. **`*Test.java`** = unit, **`*IT.java`** = real-CLI integration (per dev-standards §7.2) |
+| `.claude/skills/` | The 7 workflow skills — rarely edited, portable across projects |
+
+**User runtime state (outside repo, never committed):**
+
+`~/.grimo/` — `memory/`, `skills/`, `sessions/`, `worktrees/`, `logs/`, `config/`, `db/`. Honored via `$GRIMO_HOME` env var or `grimo.home` JVM system property.

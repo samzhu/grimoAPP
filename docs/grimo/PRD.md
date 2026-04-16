@@ -353,53 +353,96 @@ And    a generated module diagram is available at build/spring-modulith-docs/.
 
 ## 7. MVP scope
 
-### In (v1 / MVP)
+### Critical Path (user-ranked 2026-04-16 — drives milestone order)
+
+The seven capabilities below form the vertical-slice demo for Grimo
+v1. They are listed in priority order; each becomes one milestone in
+`spec-roadmap.md` (M1 ↔ item 1, … M7 ↔ item 7). Items NOT on this
+list but in-scope are supporting concerns; items absent entirely
+default to Backlog.
+
+1. **Container operations** — Grimo can spawn, exec, bind-mount, and
+   clean up Docker containers from Java.
+2. **Containerized CLI** — a `grimo-runtime` image ships with
+   `claude-code`, `codex`, and `gemini` pre-installed; a Java adapter
+   invokes each via `docker exec`.
+3. **CLI configuration** — per-CLI config surveyed and Grimo policy
+   applied to every containerized invocation (Claude-Code memory off,
+   host credential store pass-through via read-only mounts, telemetry
+   disabled where togglable).
+4. **Main-agent chat** — `grimo chat` pipes stdin/stdout between the
+   user's terminal and a containerized `claude-code`. CLI passthrough
+   only; no web UI, no TUI in MVP.
+5. **Task dispatch to sub-agent** — main-agent structurally delegates;
+   Grimo spawns a sub-agent container with a per-task git worktree
+   bind-mounted; captures the diff for user review before merge.
+6. **Skill management** — Grimo lists / enables / disables skills
+   under `~/.grimo/skills/`.
+7. **Skill injection** — before sub-agent dispatch, relevant enabled
+   skills are copied into the sub-agent container at each CLI's native
+   skill path so the inner CLI picks them up.
+
+### Supporting concerns (in MVP, not on Critical Path)
+
+Infrastructure needed to deliver the Critical Path but not demo-level
+capabilities on their own:
 
 - Local-first single-user deployment, started with `./gradlew bootRun`
   or the native-image binary.
-- `main-agent` conversational entry with CLI-switch (claude ↔ codex ↔
-  gemini) via Grimo-owned session + compacted replay.
-- Read-only tool surface for main-agent (Read / Glob / Grep / WebFetch
-  / WebSearch).
-- `sub-agent` execution in a Docker sandbox with per-task git worktree
-  bind-mounted.
-- Cost router (heuristic v1: task class × size × user override).
-- Jury command for N-way parallel review.
-- `AutoMemoryTools`-backed memory under `~/.grimo/memory/`.
-- Skill registry unified across CLIs; skill distillation in "propose-
-  only" mode.
-- Local Web UI (Spring MVC + HTMX or Thymeleaf + server-sent events
-  for streaming). Not TUI in v1.
 - Spring Modulith 2.0.5 module verification in tests.
 - `native` Gradle profile that compiles the app to a native binary (a
   nightly smoke-test gate proves it still builds). Production-grade
-  native binary UX — fast startup, reduced RSS, shipped artifact — is
-  a **sprint-2 (M7) hardening milestone**, not a v1 launch gate.
+  native UX — fast startup, reduced RSS, shipped artifact — is a
+  post-MVP hardening concern, not a v1 launch gate.
 - Virtual-thread executors for I/O-bound work
   (`spring.threads.virtual.enabled=true`).
-- Fail-soft boot when any subset of CLIs is installed.
+- Fail-soft boot when any subset of CLIs is installed on the host.
 - **Subscription-native auth (P10).** Grimo drives the underlying
   `claude` / `codex` / `gemini` CLIs through their own OAuth/login
-  flows — no API-key form in the Web UI, no `ANTHROPIC_API_KEY` env
-  expected. The user configures their CLI normally (`claude login`
-  etc.) and Grimo just uses it.
+  flows — no API-key form, no `ANTHROPIC_API_KEY` env expected. The
+  user configures their CLI normally (`claude login` etc.) and Grimo
+  reads the host credential store read-only inside the containerized
+  CLI (per item 3 of the Critical Path).
 
-### Out (deferred)
+### Backlog (was v0.1 MVP; deferred 2026-04-16 when Critical Path was ranked)
 
-- TUI adapter (owned terminal UI — post-MVP P2).
-- Discord / Telegram / LINE adapters (post-MVP P3). Hex ports will be
-  shaped to receive them without core changes.
-- A2A **client-side** consumption (the Spring AI A2A integration is
+Each of these items will re-enter MVP only on explicit user demand,
+and at that point gets a fresh `/planning-spec` grill loop. See
+`spec-roadmap.md` §Backlog for effort estimates.
+
+- `main-agent` CLI switch (claude ↔ codex ↔ gemini) via Grimo-owned
+  session + compacted replay.
+- Explicit read-only tool allowlist enforced on main-agent — in MVP
+  this is handled structurally by container isolation plus the CLI
+  configuration in Critical-Path item 3.
+- Persistent session store (`spring-ai-session-jdbc` + H2 file). MVP
+  accepts fresh session per `grimo chat` invocation.
+- Cost router (heuristic v1), `Cost` domain type, cost telemetry panel.
+- Jury command for N-way parallel review.
+- `AutoMemoryTools`-backed memory under `~/.grimo/memory/`.
+- Skill distillation proposer (harness-level auto-evolution).
+- Local Web UI (Spring MVC + Thymeleaf + HTMX + SSE). MVP interface
+  is CLI passthrough.
+- Module boundary CI job (the in-test `ModuleArchitectureTest` covers
+  it in MVP; a dedicated CI job is a luxury).
+- E2E integration test suite.
+
+### Out of scope (always)
+
+- TUI adapter (owned terminal UI).
+- Discord / Telegram / LINE adapters. Hexagonal inbound ports will be
+  shaped to receive them without core changes when added.
+- A2A **client-side** consumption (Spring AI A2A integration is
   currently server-side only; expose-as-server is a nice-to-have).
-- Multi-user / multi-tenant. No accounts, no auth in MVP beyond a
-  localhost bind.
+- Multi-user / multi-tenant. No accounts, no auth beyond localhost
+  bind.
 - Autonomous guide-tuning / rule-learning (self-evolution layer 2+).
 - Mobile / Electron / native-platform UI.
 - Remote agent pool / distributed sub-agents.
 - Cloud-hosted session sync.
 - Automated skill-execution without user review.
-- Built-in VCS operations beyond worktree create/merge (no PR-creation
-  UI in v1).
+- Built-in VCS operations beyond worktree create/merge (no PR-
+  creation UI in v1).
 
 ## 8. Architecture at a glance
 
@@ -445,7 +488,7 @@ wrap `AgentClient`, Testcontainers, and JGit/shell.
 | D8 | CLI-switch uses **compacted-history replay** | User explicitly confirmed: "將過往對話跟新訊息一起派發給新 CLI". Pragmatic, bounded, no custom CLI protocol. | Full CLI-neutral session protocol (reinvents A2A); switch-only-at-task-boundary (too restrictive for UX). |
 | D9 | Grimo owns a `Sandbox` port; **default impl wraps Testcontainers `GenericContainer` directly** (NOT `DockerSandbox`) with `withFileSystemBind(worktree, "/work", RW)` called before `start()` | Confirmed by source spike (2026-04-16): `org.springaicommunity.sandbox.docker.DockerSandbox` **0.9.1** starts its container in the constructor, so there is no API hook (`withBindMount`, `volume(...)`, customizer) to inject a bind-mount before startup. Subclassing also fails. Testcontainers directly works; `DockerSandbox` remains usable for the *ephemeral file-copy* case via `sandbox.files()` if we ever need it. | Upstream PR to agent-sandbox (still required long-term, but not a v1 blocker); raw Docker Java API (more code, no Testcontainers helpers); Podman (fewer users). |
 | D10 | Include all three `agent-claude`/`-codex`/`-gemini` starters; rely on the stack's **call-time (not boot-time) CLI probe**; disable per-provider via `spring.autoconfigure.exclude=...` when needed (revised 2026-04-16 after autoconfig source spike) | Spike confirms auto-configs are gated only by `@ConditionalOnClass`, with no `enabled` property; but they do NOT eagerly probe the CLI binary (`GeminiClient.create` / `ClaudeAgentModel` etc. defer CLI discovery until first call). Therefore P5 (fail-soft boot) is already satisfied by the library's natural behavior — a missing CLI surfaces as a clean `CliNotFoundException` at call-time. Grimo wraps each adapter to translate that into a user-visible "install `<cli>` or run /grimo switch <other>" message. Note property prefix is `spring.ai.agents.claude-code.*` (hyphen), not `claude.*`. | Invent a `grimo.cli.<provider>.enabled=true` gate — redundant given library already defers; adds config noise. Enable none by default — hurts new-user UX. |
-| D11 | v1 external channel = **Local Web UI** (Spring MVC + HTMX) | User chose it. More demo-friendly than TUI; hex ports keep core neutral for later channels. | TUI (simpler but less inviting for screenshots/demos); all channels day-1 (overscoped). |
+| D11 | **REVISED 2026-04-16: v1 external channel = CLI passthrough** (`grimo chat` pipes stdin/stdout between the user's terminal and a containerized `claude-code`). Original decision "Local Web UI" is moved to Backlog per §7 re-plan. | User ranked "main-agent CLI chat" as Critical Path item 4 with no UI layer below it; building Spring MVC + HTMX just to host a chat form when the containerized CLI already owns terminal I/O is over-scoped for v1. Hex ports are still shaped to receive a Web UI later without core changes. | Original D11 "Local Web UI"; TUI (still out of scope); all channels day-1 (still overscoped). |
 | D12 | Self-evolution scope = **Memory + Skills** (propose-only) | User chose it. Smallest credible self-evolving loop. Proposal-review-commit keeps human in control. | Memory-only (barely "self-evolving"); Memory+Skills+Guides (auto-tuning guides is R&D, not MVP). |
 | D13 | Cost router is **heuristic v1** with user override | Avoid building a classifier model on day 1. Start with task-pattern + size + explicit override; learn from telemetry. | LLM-based classifier for routing (extra call per turn, latency hit); manual-only (no cost savings). |
 | D14 | `~/.grimo/` is the single persistent state root | One place to back up, inspect, git-ignore. Matches `~/.claude`, `~/.codex`, `~/.gemini` user mental model. | Scatter state under XDG dirs — harder for users to reason about. |
