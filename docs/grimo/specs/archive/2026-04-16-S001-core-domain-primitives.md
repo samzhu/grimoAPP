@@ -1,6 +1,6 @@
 # S001: Core domain primitives + GrimoHomePaths
 
-> Spec: S001 | Size: XS (7) | Status: ⏳ Design
+> Spec: S001 | Size: XS (7) | Status: ✅ Done
 > Date: 2026-04-16
 
 ---
@@ -286,7 +286,161 @@ libraries (`spring-modulith-starter-test` transitively supplies
 ArchUnit; `spring-boot-starter-test` supplies JUnit + AssertJ +
 `@TempDir`).
 
-## 6–7
+## 6. Task Plan
 
-_(Sections 6 and 7 are written later by `/planning-tasks S001` and
-`/implementing-task`. Do not fill in here.)_
+**POC: not required.** No new packages or SDKs — only JDK APIs and
+ArchUnit (already transitively provided by `spring-modulith-starter-test`
+from S000). Vendored NanoID is ~30 lines of standard Java; no
+integration risk worth isolating.
+
+Temporary task files live under `docs/grimo/tasks/` and are deleted
+after Phase 3 consolidates results into §7.
+
+| Task | Topic | Target files | Covers | Depends |
+| --- | --- | --- | --- | --- |
+| T01 | `NanoIds` vendored generator | `NanoIds.java` | (foundation for AC-1) | — |
+| T02 | ID records (×4) + `SessionIdTest` | `SessionId.java`, `TurnId.java`, `TaskId.java`, `CorrelationId.java`, `SessionIdTest.java` | **AC-1** | T01 |
+| T03 | Enums | `AgentRole.java`, `ProviderId.java` | (downstream consumers) | — |
+| T04 | `GrimoHomePaths` + test | `GrimoHomePaths.java`, `GrimoHomePathsTest.java` | **AC-2** | — |
+| T05 | ArchUnit rule | `DomainArchitectureTest.java` | **AC-3** | T01–T04 |
+
+**Execution order.** T01 → T02 → T03 → T04 → T05. T03 and T04 have no
+hard dependency on T01/T02 and could run in parallel, but the linear
+order matches XS-spec simplicity and keeps the task loop trivial.
+
+**AC coverage.**
+
+| AC | Task | Test class | @DisplayName prefix |
+| --- | --- | --- | --- |
+| AC-1 | T02 | `SessionIdTest` | `AC-1 …` |
+| AC-2 | T04 | `GrimoHomePathsTest` | `AC-2 …` |
+| AC-3 | T05 | `DomainArchitectureTest` | `AC-3 …` |
+
+Every live AC has exactly one primary test. AC-4 (Cost arithmetic) was
+deferred out of scope per D3 — not represented in this task plan.
+
+## 7. Implementation Results
+
+**Completed:** 2026-04-16.
+
+### Verification
+
+- `./gradlew check` → `BUILD SUCCESSFUL` (compile + unit tests).
+- JUnit tally (across this spec + carry-over `GrimoApplicationTests`
+  from S000): **11/11 passing**, 0 failures, 0 skipped, 0 errors.
+
+| Test class | Tests | Covers |
+| --- | --- | --- |
+| `SessionIdTest` | 4 | AC-1 (length, alphabet, distinctness, validation) |
+| `GrimoHomePathsTest` | 4 | AC-2 (override, idempotence, all subdirs, fallback) |
+| `DomainArchitectureTest` | 1 | AC-3 (no Spring / jakarta.annotation in domain) |
+| `GrimoApplicationTests` | 2 | (pre-existing S000 scaffold — unaffected) |
+
+AC-to-test binding confirmed by `@DisplayName` prefixes (`AC-1 …`,
+`AC-2 …`, `AC-3 …`) per the QA AC-to-test contract.
+
+### AC results
+
+| AC | Status | Evidence |
+| --- | --- | --- |
+| AC-1 | ✅ | `SessionIdTest#randomProduces21CharNanoId` + `…#randomValuesAreDistinct` |
+| AC-2 | ✅ | `GrimoHomePathsTest#memoryReturnsCreatedDirUnderOverride` (+3 more) |
+| AC-3 | ✅ | `DomainArchitectureTest#noSpringDependenciesInDomain` |
+| AC-4 | (deferred — see §2 D3; owned by cost module, land in S019) |
+
+### Files delivered
+
+```
+src/main/java/io/github/samzhu/grimo/core/domain/
+├── AgentRole.java
+├── CorrelationId.java
+├── GrimoHomePaths.java
+├── NanoIds.java
+├── ProviderId.java
+├── SessionId.java
+├── TaskId.java
+└── TurnId.java
+
+src/test/java/io/github/samzhu/grimo/core/domain/
+├── DomainArchitectureTest.java
+├── GrimoHomePathsTest.java
+└── SessionIdTest.java
+```
+
+No new Gradle dependencies were added (everything used comes from JDK
+25 + `spring-boot-starter-test` + `spring-modulith-starter-test`
+transitive ArchUnit 1.4.1). No build-script changes were required.
+
+### Key usage patterns (for future specs)
+
+**Generate a typed id.** Consumers in downstream modules should always
+use the typed factory, never re-construct from a raw string:
+
+```java
+SessionId sid = SessionId.random();          // OK — 21-char NanoID inside
+TurnId    tid = TurnId.random();
+TaskId    xid = TaskId.random();
+CorrelationId cid = CorrelationId.random();
+// sid = new SessionId(someExternalString); // only at an adapter edge
+```
+
+**Resolve a well-known subdir.** Prefer the typed accessors (they
+create the directory on first call):
+
+```java
+Path memoryDir = GrimoHomePaths.memory();    // always exists on return
+Path worktreesDir = GrimoHomePaths.worktrees();
+```
+
+**Override the home directory in tests** (canonical recipe):
+
+```java
+@TempDir Path tempDir;
+
+@BeforeEach
+void setSystemProperty() {
+    System.setProperty("grimo.home", tempDir.toString());
+}
+
+@AfterEach
+void clearSystemProperty() {
+    System.clearProperty("grimo.home");
+}
+```
+
+Do **not** reach for env-var manipulation in tests — JUnit cannot
+portably tamper with env; the system-property path is the intended
+test-friendly override per D7.
+
+**ArchUnit rule snippet** (reusable template for future per-module
+architecture tests):
+
+```java
+new ClassFileImporter()
+    .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+    .importPackages("io.github.samzhu.grimo.<module>");
+// …
+noClasses()
+    .that().resideInAPackage("io.github.samzhu.grimo.<module>..")
+    .should().dependOnClassesThat()
+    .resideInAnyPackage("<banned.package>..");
+```
+
+### Findings / follow-ups
+
+- **Glossary entries.** `SessionId`, `TurnId`, `TaskId`,
+  `CorrelationId`, `AgentRole`, `ProviderId` are new code-level
+  terms; the glossary currently defines the higher-level concepts
+  (Session, Task) but not the typed id records. Not promoted during
+  S001 to stay within the task's BDD scope — consider adding brief
+  entries in S002 or a later docs-only spec if future readers ask.
+- **`NanoIds` self-test.** Intentionally not added. AC-1 exercises
+  `NanoIds.generate()` end-to-end via `SessionId.random()`; a bespoke
+  `NanoIdsTest` would duplicate the same assertions on a lower-level
+  surface.
+- **`$GRIMO_HOME` env-var path.** Not directly tested (see T04 notes);
+  the system-property override is the primary, covered path. If a
+  future spec needs env-var coverage, introduce `junit-pioneer` (or
+  fork the JVM) at that time — don't pre-tool.
+- **No adapter / application / port code** ships in this spec. S002
+  will add `package-info.java` with `@ApplicationModule`.

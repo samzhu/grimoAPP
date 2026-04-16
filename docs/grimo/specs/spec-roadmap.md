@@ -1,22 +1,19 @@
-# Grimo — Spec Roadmap (v2 · re-prioritized 2026-04-16)
+# Grimo — 規格藍圖（v2 · 重新排序於 2026-04-16）
 
-**Status:** v0.2 · **Date:** 2026-04-16
-**Source:** `docs/grimo/PRD.md` + `architecture.md`
+**狀態：** v0.2 · **日期：** 2026-04-16
+**來源：** `docs/grimo/PRD.md` + `architecture.md`
 
-> **Re-plan note.** This roadmap was rewritten on 2026-04-16 to focus
-> the MVP on a single vertical-slice proof: **container ops →
-> containerized CLI → CLI config → main-agent chat → task dispatch →
-> skill management → skill injection into sub-agent**. Every other
-> capability (web UI, persistent session, CLI switch, cost router,
-> jury, memory, native hardening, E2E test suite, …) is pushed to
-> the Backlog below. When a backlog item is promoted, it gets a
-> fresh spec id and a fresh grill-me loop.
+> **重新規劃說明。** 本藍圖於 2026-04-16 重寫，將 MVP 聚焦於單一垂直切片驗證：
+> **容器操作 → 容器化 CLI → CLI 配置 → 主代理對話 → 任務派送 →
+> Skill 管理 → Skill 注入至子代理**。其他所有功能
+> （Web UI、持久化 Session、CLI 切換、成本路由、評審團、記憶體、原生加固、E2E 測試套件……）
+> 均移至下方 Backlog。當 Backlog 項目被晉升時，會取得新的規格 ID 並重新進行 grill-me 循環。
 
-> Estimation scale (six-dimension rubric, each 1–3):
-> `Tech risk · Uncertainty · Dependencies · Scope · Testing · Reversibility`
-> 6–8 → XS · 9–11 → S · 12–14 → M · 15–16 → L · 17–18 → XL (must decompose)
+> 估算量表（六維評分，每維 1–3）：
+> `技術風險 · 不確定性 · 依賴關係 · 範疇 · 測試 · 可逆性`
+> 6–8 → XS · 9–11 → S · 12–14 → M · 15–16 → L · 17–18 → XL（必須分解）
 
-## Dependency graph (MVP)
+## 依賴關係圖（MVP）
 
 ```
                                   S000 ✅
@@ -25,372 +22,364 @@
                                   S001 ── S002
                                     │      │
                                     ▼      ▼
-                                  S003 (container ops)
+                                  S003（容器操作）
                                     │
                          ┌──────────┼──────────┐
                          ▼          ▼          ▼
-                       S004  (runtime image with 3 CLIs)
+                       S004（含 3 個 CLI 的執行映像）
                          │
                          ▼
-                       S005  (CLI adapter via docker exec)
+                       S005（透過 docker exec 的 CLI 適配器）
                          │
                          ▼
-                       S006  (CLI config research + policy)
+                       S006（CLI 配置研究 + 策略）
                          │
                          ▼
-                       S007  (main-agent CLI passthrough)
+                       S007（主代理 CLI 直通）
                          │
                          ▼
-                       S008 (dispatch protocol) ─┐
-                         │                       │
-                         ▼                       │
-                       S009 (worktree mgmt)      │
-                         │                       │
-                         ▼                       │
-                       S010 (sub-agent lifecycle)│
-                                                 │
-                       S011 (skills registry) ◄──┘
+                       S008（派送協議）─┐
+                         │              │
+                         ▼              │
+                       S009（工作樹管理）│
+                         │              │
+                         ▼              │
+                       S010（子代理生命週期）
+                                        │
+                       S011（Skill 登錄檔）◄──┘
                          │
                          ▼
-                       S012 (skill → container install)
+                       S012（Skill → 容器安裝）
 ```
 
-## Milestone map (MVP)
+## 里程碑地圖（MVP）
 
-| M# | Name | Prio (user) | Specs | Goal |
+| M# | 名稱 | 優先級（使用者） | 規格 | 目標 |
 | --- | --- | --- | --- | --- |
-| M0 | Foundation | — | S000–S002 | Buildable Spring Boot 4.0 modulith skeleton on JDK 25 |
-| M1 | Container ops | 能操作容器 | S003 | Grimo can spawn / exec / bind-mount / stop Docker containers from Java |
-| M2 | Containerized CLI | 能在容器內用 3 個 CLI | S004–S005 | `grimo-runtime` image ships with `claude` + `codex` + `gemini`; Java adapter invokes them via `docker exec` |
-| M3 | CLI configuration | 研究 CLI 配置 | S006 | Claude-Code memory off, per-provider config conventions applied to all containerized invocations |
-| M4 | Main-agent chat | main-agent 跟使用者對話 | S007 | `grimo chat` → containerized claude-code ↔ user terminal (CLI passthrough) |
-| M5 | Task dispatch | 派送任務給 sub-agent | S008–S010 | Main-agent structurally delegates; Grimo spawns sub-agent container with a worktree; diff returned to user |
-| M6 | Skill management | 管理 skill | S011 | Grimo lists/enables/disables skills under `~/.grimo/skills/` |
-| M7 | Skill injection | 派送前安裝 skill 到 sub-agent | S012 | Relevant skills copied into sub-agent container before task runs |
+| M0 | 基礎建設 | — | S000–S002 | 可建置的 Spring Boot 4.0 模組化骨架，運行於 JDK 25 |
+| M1 | 容器操作 | 能操作容器 | S003 | Grimo 可從 Java 啟動 / exec / bind-mount / 停止 Docker 容器 |
+| M2 | 容器化 CLI | 能在容器內用 3 個 CLI | S004–S005 | `grimo-runtime` 映像內建 `claude` + `codex` + `gemini`；Java 適配器透過 `docker exec` 呼叫 |
+| M3 | CLI 配置 | 研究 CLI 配置 | S006 | Claude-Code 記憶體關閉、各提供者配置慣例套用至所有容器化呼叫 |
+| M4 | 主代理對話 | main-agent 跟使用者對話 | S007 | `grimo chat` → 容器化 claude-code ↔ 使用者終端（CLI 直通） |
+| M5 | 任務派送 | 派送任務給 sub-agent | S008–S010 | 主代理結構化委派；Grimo 建立帶工作樹的子代理容器；將 diff 返回給使用者 |
+| M6 | Skill 管理 | 管理 skill | S011 | Grimo 列出/啟用/停用 `~/.grimo/skills/` 下的 Skill |
+| M7 | Skill 注入 | 派送前安裝 skill 到 sub-agent | S012 | 任務執行前將相關 Skill 複製至子代理容器 |
 
 ---
 
-## Milestone 0: Foundation
+## 里程碑 0：基礎建設
 
-**Goal.** Buildable scaffold; Modulith verify green on empty module graph.
-**Done when.** S000, S001, S002 all ✅.
+**目標。** 可建置的骨架；空模組圖上的 Modulith verify 通過。
+**完成條件。** S000、S001、S002 均 ✅。
 
-| # | Spec | Points | Status |
+| # | 規格 | 點數 | 狀態 |
 | --- | --- | --- | --- |
-| S000 | Project Init — Gradle KTS + Spring Boot 4.0 scaffold | XS (7) | ✅ |
-| S001 | Core domain primitives + GrimoHomePaths | XS (7) | ⏳ Design |
-| S002 | Module skeleton + Modulith verify green | S (9) | 🔲 |
+| S000 | 專案初始化 — Gradle KTS + Spring Boot 4.0 骨架 | XS (7) | ✅ |
+| S001 | 核心領域原語 + GrimoHomePaths | XS (7) | ✅ |
+| S002 | 模組骨架 + Modulith verify 通過 | S (9) | 🔲 |
 
-### S001 — Core domain primitives + GrimoHomePaths · XS (7)
+### S001 — 核心領域原語 + GrimoHomePaths · XS (7)
 
-**Description.** Create the `io.github.samzhu.grimo.core.domain`
-package: records for `SessionId`, `TurnId`, `TaskId`, `CorrelationId`,
-`AgentRole` (enum: `MAIN` / `SUB` / `JURY_MEMBER`), `ProviderId`
-(enum: `CLAUDE` / `CODEX` / `GEMINI`), `NanoIds` generator, and
-`GrimoHomePaths` utility. Zero Spring annotations on any of these.
-**`Cost` is NOT in this spec** — it is owned by whatever spec later
-promotes cost telemetry out of backlog.
+**描述。** 建立 `io.github.samzhu.grimo.core.domain`
+套件：包含 `SessionId`、`TurnId`、`TaskId`、`CorrelationId`、
+`AgentRole`（列舉：`MAIN` / `SUB` / `JURY_MEMBER`）、`ProviderId`
+（列舉：`CLAUDE` / `CODEX` / `GEMINI`）、`NanoIds` 產生器，以及
+`GrimoHomePaths` 工具類。以上任何類別均不加 Spring 注解。
+**`Cost` 不在本規格中** — 它由後續晉升成本遙測的規格所有。
 
-**Dependencies.** S000 ✅.
+**依賴。** S000 ✅。
 
-**SBE.** See the in-progress spec file at
-`docs/grimo/specs/2026-04-16-S001-core-domain-primitives.md` for the
-full acceptance criteria (AC-1 SessionId 21-char NanoID · AC-2
-GrimoHomePaths.memory() with `grimo.home` + `$GRIMO_HOME` override ·
-AC-3 ArchUnit "no Spring in domain").
+**SBE。** 詳見進行中的規格檔案
+`docs/grimo/specs/2026-04-16-S001-core-domain-primitives.md`，
+含完整驗收標準（AC-1 SessionId 21 字元 NanoID · AC-2
+GrimoHomePaths.memory() 支援 `grimo.home` + `$GRIMO_HOME` 覆寫 ·
+AC-3 ArchUnit「領域層不使用 Spring」）。
 
-**Estimation.** Tech 1 · Uncert 1 · Deps 1 · Scope 2 · Test 1 · Rev 1 = **7 / XS**
+**估算。** 技術 1 · 不確定性 1 · 依賴 1 · 範疇 2 · 測試 1 · 可逆性 1 = **7 / XS**
 
-### S002 — Module skeleton + Modulith verify green · S (9)
+### S002 — 模組骨架 + Modulith verify 通過 · S (9)
 
-**Description.** Declare `package-info.java` with
-`@ApplicationModule` for every module named in `architecture.md` §2
-(`core`, `sandbox`, `cli`, `agent`, `subagent`, `skills`, `web` (stub),
-`native` (stub)). `core` is `type = Type.OPEN`. Wire
-`spring-modulith-starter-core` + `spring-modulith-starter-test`. Add
-`ModuleArchitectureTest` that runs
-`ApplicationModules.of(GrimoApplication.class).verify()` and generates
-the module canvas.
+**描述。** 為 `architecture.md` §2 中所有命名模組
+（`core`、`sandbox`、`cli`、`agent`、`subagent`、`skills`、`web`（存根）、
+`native`（存根））各自宣告帶有 `@ApplicationModule` 的 `package-info.java`。
+`core` 為 `type = Type.OPEN`。引入
+`spring-modulith-starter-core` + `spring-modulith-starter-test`。
+新增 `ModuleArchitectureTest`，執行
+`ApplicationModules.of(GrimoApplication.class).verify()` 並產生模組畫布。
 
-**Dependencies.** S001.
+**依賴。** S001。
 
-**SBE (draft).**
-- **AC-1** `./gradlew test` runs `ModuleArchitectureTest` which
-  passes `ApplicationModules.verify()` on the current module graph.
-- **AC-2** Illegal cross-module reference (tested on a throwaway
-  branch) fails the test with a clear `Violations detected:` message.
+**SBE（草稿）。**
+- **AC-1** `./gradlew test` 執行 `ModuleArchitectureTest`，在目前模組圖上通過 `ApplicationModules.verify()`。
+- **AC-2** 非法的跨模組引用（在臨時分支上測試）使測試失敗，並顯示清楚的 `Violations detected:` 訊息。
 
-**Estimation.** Tech 1 · Uncert 1 · Deps 2 · Scope 2 · Test 2 · Rev 1 = **9 / S**
+**估算。** 技術 1 · 不確定性 1 · 依賴 2 · 範疇 2 · 測試 2 · 可逆性 1 = **9 / S**
 
 ---
 
-## Milestone 1: Container operations (priority "能操作容器")
+## 里程碑 1：容器操作（優先級「能操作容器」）
 
-**Goal.** Java code can spawn Docker containers, exec commands, bind-mount host dirs, and clean up — all with deterministic tests.
-**Done when.** S003 ✅.
+**目標。** Java 程式碼可啟動 Docker 容器、執行命令、bind-mount 主機目錄，並進行清理 — 全部使用確定性測試。
+**完成條件。** S003 ✅。
 
-| # | Spec | Points | Status |
+| # | 規格 | 點數 | 狀態 |
 | --- | --- | --- | --- |
-| S003 | `Sandbox` port + Testcontainers adapter with bind-mount | M (13) | 🔲 |
+| S003 | `Sandbox` 埠 + 帶 bind-mount 的 Testcontainers 適配器 | M (13) | 🔲 |
 
-### S003 — Sandbox port + Testcontainers adapter · M (13)
+### S003 — Sandbox 埠 + Testcontainers 適配器 · M (13)
 
-**Description.** Define `SandboxPort` (methods: `spawn(SpawnSpec) → Sandbox`, `exec(Sandbox, Command) → ExecResult`, `close(Sandbox)`). Default impl `TestcontainersSandboxAdapter` uses `GenericContainer<>(...).withWorkingDirectory("/work").withFileSystemBind(hostPath, "/work", BindMode.READ_WRITE).withCommand("sleep","infinity")` per PRD D9 — **not** `DockerSandbox`. All tests `@DisabledInNativeImage` (Testcontainers is JVM-only per `architecture.md`).
+**描述。** 定義 `SandboxPort`（方法：`spawn(SpawnSpec) → Sandbox`、`exec(Sandbox, Command) → ExecResult`、`close(Sandbox)`）。預設實作 `TestcontainersSandboxAdapter` 使用 `GenericContainer<>(...).withWorkingDirectory("/work").withFileSystemBind(hostPath, "/work", BindMode.READ_WRITE).withCommand("sleep","infinity")`，依 PRD D9 — **非** `DockerSandbox`。所有測試加 `@DisabledInNativeImage`（Testcontainers 為 JVM 專用，見 `architecture.md`）。
 
-**Dependencies.** S002.
+**依賴。** S002。
 
-**SBE (draft).**
-- **AC-1** `spawn` with a prepared host dir produces a container whose `/work` is the bind-mounted host dir (asserted via `exec "ls -la /work"`).
-- **AC-2** Writes inside the container appear on the host immediately.
-- **AC-3** Two parallel sandboxes cannot see each other's bind-mounts.
-- **AC-4** `close` stops and removes the container; host dir survives.
+**SBE（草稿）。**
+- **AC-1** 以準備好的主機目錄呼叫 `spawn`，產生的容器 `/work` 即為 bind-mounted 的主機目錄（透過 `exec "ls -la /work"` 斷言）。
+- **AC-2** 容器內的寫入立即反映於主機。
+- **AC-3** 兩個並行沙盒無法看到彼此的 bind-mount。
+- **AC-4** `close` 停止並刪除容器；主機目錄保留。
 
-**Estimation.** Tech 3 · Uncert 2 · Deps 2 · Scope 2 · Test 3 · Rev 1 = **13 / M**
+**估算。** 技術 3 · 不確定性 2 · 依賴 2 · 範疇 2 · 測試 3 · 可逆性 1 = **13 / M**
 
 ---
 
-## Milestone 2: Containerized CLI (priority "能在容器內用 3 個 CLI")
+## 里程碑 2：容器化 CLI（優先級「能在容器內用 3 個 CLI」）
 
-**Goal.** A Grimo-managed Docker image ships `claude-code`, `codex`, and `gemini` CLIs; a Java adapter invokes each via `docker exec`.
-**Done when.** S004, S005 ✅.
+**目標。** 由 Grimo 管理的 Docker 映像內建 `claude-code`、`codex` 與 `gemini` CLI；Java 適配器透過 `docker exec` 呼叫每個 CLI。
+**完成條件。** S004、S005 ✅。
 
-| # | Spec | Points | Status |
+| # | 規格 | 點數 | 狀態 |
 | --- | --- | --- | --- |
-| S004 | `grimo-runtime` Docker image with 3 CLIs pre-installed | S (10) | 🔲 |
-| S005 | `AgentCliAdapter` via `docker exec` (containerized adapter) | M (12) | 🔲 |
+| S004 | 預安裝 3 個 CLI 的 `grimo-runtime` Docker 映像 | S (10) | 🔲 |
+| S005 | 透過 `docker exec` 的 `AgentCliAdapter`（容器化適配器） | M (12) | 🔲 |
 
-### S004 — `grimo-runtime` Docker image · S (10)
+### S004 — `grimo-runtime` Docker 映像 · S (10)
 
-**Description.** Dockerfile under `docker/runtime/` produces an image installing Node.js (needed by claude-code), Python (codex), and Google Cloud SDK components as required (gemini). Publishes as `grimo-runtime:<version>` locally via a Gradle task (`./gradlew buildRuntimeImage`). Documents exact install commands + versions in a README adjacent to the Dockerfile.
+**描述。** `docker/runtime/` 下的 Dockerfile 產生一個映像，安裝 Node.js（claude-code 需要）、Python（codex）以及必要的 Google Cloud SDK 元件（gemini）。透過 Gradle 任務（`./gradlew buildRuntimeImage`）在本地發佈為 `grimo-runtime:<version>`。在 Dockerfile 旁的 README 中記錄精確的安裝命令與版本。
 
-**Dependencies.** S003.
+**依賴。** S003。
 
-**SBE (draft).**
-- **AC-1** `./gradlew buildRuntimeImage` succeeds and tags `grimo-runtime:<version>` locally.
-- **AC-2** `docker run --rm grimo-runtime:<version> claude-code --version` prints a version.
-- **AC-3** Same for `codex --version` and `gemini --version`.
-- **AC-4** Image size < 1 GB (soft target; documented).
+**SBE（草稿）。**
+- **AC-1** `./gradlew buildRuntimeImage` 成功並在本地標記 `grimo-runtime:<version>`。
+- **AC-2** `docker run --rm grimo-runtime:<version> claude-code --version` 印出版本號。
+- **AC-3** `codex --version` 與 `gemini --version` 同上。
+- **AC-4** 映像大小 < 1 GB（軟性目標；已記錄）。
 
-**Estimation.** Tech 2 · Uncert 2 · Deps 2 · Scope 2 · Test 1 · Rev 1 = **10 / S**
+**估算。** 技術 2 · 不確定性 2 · 依賴 2 · 範疇 2 · 測試 1 · 可逆性 1 = **10 / S**
 
-### S005 — `AgentCliAdapter` via `docker exec` · M (12)
+### S005 — 透過 `docker exec` 的 `AgentCliAdapter` · M (12)
 
-**Description.** Port `AgentCliPort` with `stream(SpawnSpec, Prompt): Flux<Token>`. Default impl uses `SandboxPort` from S003 to start a `grimo-runtime` container, then `docker exec -i <container> <cli> ...` to pipe the prompt, capturing stdout streamingly. Supports all three providers (CLAUDE / CODEX / GEMINI) selected via `ProviderId`. Stub impl `StubAgentCliAdapter` for tests.
+**描述。** 實作 `AgentCliPort`，提供 `stream(SpawnSpec, Prompt): Flux<Token>`。預設實作使用 S003 的 `SandboxPort` 啟動 `grimo-runtime` 容器，再以 `docker exec -i <container> <cli> ...` 導入 prompt，串流擷取 stdout。透過 `ProviderId` 支援三個提供者（CLAUDE / CODEX / GEMINI）。測試用存根實作 `StubAgentCliAdapter`。
 
-**Dependencies.** S004.
+**依賴。** S004。
 
-**SBE (draft).**
-- **AC-1** `StubAgentCliAdapter.stream("hello", CLAUDE)` returns a `Flux<Token>` with canned tokens for test use.
-- **AC-2** Real adapter against a locally-running `grimo-runtime` container passes a manual integration test (skipped in CI without Docker).
-- **AC-3** Missing CLI (e.g., CLI binary not installed in image) surfaces a clean `CliNotFoundException`, not a raw docker-exec stderr dump.
+**SBE（草稿）。**
+- **AC-1** `StubAgentCliAdapter.stream("hello", CLAUDE)` 回傳含預設 token 的 `Flux<Token>`，供測試使用。
+- **AC-2** 針對本地運行的 `grimo-runtime` 容器的真實適配器，通過手動整合測試（無 Docker 的 CI 環境中跳過）。
+- **AC-3** 缺少 CLI（例如映像中未安裝 CLI 二進位檔）時，顯示清楚的 `CliNotFoundException`，而非原始的 docker-exec stderr 輸出。
 
-**Estimation.** Tech 2 · Uncert 3 · Deps 3 · Scope 2 · Test 2 · Rev 2 = **14 / M**
+**估算。** 技術 2 · 不確定性 3 · 依賴 3 · 範疇 2 · 測試 2 · 可逆性 2 = **14 / M**
 
 ---
 
-## Milestone 3: CLI configuration (priority "研究 CLI 配置")
+## 里程碑 3：CLI 配置（優先級「研究 CLI 配置」）
 
-**Goal.** Document each CLI's config surface; apply Grimo's harness policy (e.g., Claude-Code memory off) to every containerized invocation.
-**Done when.** S006 ✅.
+**目標。** 記錄各 CLI 的配置介面；將 Grimo 的框架策略（例如 Claude-Code 記憶體關閉）套用至每個容器化呼叫。
+**完成條件。** S006 ✅。
 
-| # | Spec | Points | Status |
+| # | 規格 | 點數 | 狀態 |
 | --- | --- | --- | --- |
-| S006 | CLI configuration research + harness policy application | S (11) | 🔲 |
+| S006 | CLI 配置研究 + 框架策略套用 | S (11) | 🔲 |
 
-### S006 — CLI configuration research + policy · S (11)
+### S006 — CLI 配置研究 + 策略 · S (11)
 
-**Description.** Phase 1: WebFetch official docs for each CLI's config (env vars, config file, CLI flags). Document findings in a reference doc (`docs/grimo/cli-config-matrix.md`). Phase 2: express Grimo's policy as a reusable `CliInvocationOptions` record that each adapter applies at `docker exec` time. Specific policies in MVP: **Claude-Code memory disabled** (no CLAUDE.md auto-read, no project-level memory), **API-key / credential store pass-through** from host `~/.claude` / `~/.codex` / `~/.gemini` read-only mounts, **no telemetry** if each CLI exposes a toggle.
+**描述。** 第一階段：以 WebFetch 查詢各 CLI 配置的官方文件（環境變數、設定檔、CLI 旗標）。將研究結果記錄於參考文件（`docs/grimo/cli-config-matrix.md`）。第二階段：將 Grimo 的策略表達為可重用的 `CliInvocationOptions` record，由各適配器在 `docker exec` 時套用。MVP 中的具體策略：**Claude-Code 記憶體停用**（不自動讀取 CLAUDE.md，不使用專案層級記憶體）、**API 金鑰 / 憑證儲存從主機傳遞**（只讀掛載 `~/.claude` / `~/.codex` / `~/.gemini`）、**停用遙測**（若各 CLI 有此開關）。
 
-**Dependencies.** S005.
+**依賴。** S005。
 
-**SBE (draft).**
-- **AC-1** `docs/grimo/cli-config-matrix.md` exists and lists every config surface for all 3 CLIs with linked official-docs URLs.
-- **AC-2** When `AgentCliAdapter` invokes claude-code via S005 with `harness=true`, the spawned container has memory disabled (asserted by running a known-memory-trigger prompt and observing no memory retrieval in the reply).
-- **AC-3** Adapter never crashes if a credential dir is absent on the host; surfaces a clean `CredentialsNotFoundException`.
+**SBE（草稿）。**
+- **AC-1** `docs/grimo/cli-config-matrix.md` 存在，列出三個 CLI 的所有配置介面，並附有官方文件 URL 連結。
+- **AC-2** 使用 S005 以 `harness=true` 呼叫 claude-code 時，產生的容器已停用記憶體（透過執行已知的記憶體觸發 prompt 並確認回應中無記憶體擷取來斷言）。
+- **AC-3** 若主機上缺少憑證目錄，適配器不會崩潰；顯示清楚的 `CredentialsNotFoundException`。
 
-**Estimation.** Tech 2 · Uncert 3 · Deps 2 · Scope 2 · Test 1 · Rev 1 = **11 / S**
+**估算。** 技術 2 · 不確定性 3 · 依賴 2 · 範疇 2 · 測試 1 · 可逆性 1 = **11 / S**
 
 ---
 
-## Milestone 4: Main-agent chat (priority "main-agent 跟使用者對話")
+## 里程碑 4：主代理對話（優先級「main-agent 跟使用者對話」）
 
-**Goal.** `grimo chat` opens a CLI passthrough between user's terminal and a containerized `claude-code` acting as the main-agent.
-**Done when.** S007 ✅.
+**目標。** `grimo chat` 在使用者終端與充當主代理的容器化 `claude-code` 之間開啟 CLI 直通。
+**完成條件。** S007 ✅。
 
-| # | Spec | Points | Status |
+| # | 規格 | 點數 | 狀態 |
 | --- | --- | --- | --- |
-| S007 | Main-agent CLI passthrough (`grimo chat`) | S (10) | 🔲 |
+| S007 | 主代理 CLI 直通（`grimo chat`） | S (10) | 🔲 |
 
-### S007 — Main-agent CLI passthrough · S (10)
+### S007 — 主代理 CLI 直通 · S (10)
 
-**Description.** Spring Boot main-class entrypoint detects `chat` sub-command. Spawns a `grimo-runtime` container running `claude-code` with harness config from S006. Pipes user's stdin → container stdin; container stdout → user stdout (streaming line-by-line). Session ends on `Ctrl+D` or `/exit`. **No persistence in MVP** — each `grimo chat` invocation is a fresh session.
+**描述。** Spring Boot 主類進入點偵測到 `chat` 子命令。使用 S006 的框架配置啟動運行 `claude-code` 的 `grimo-runtime` 容器。將使用者的 stdin 導入容器 stdin；將容器 stdout 串流逐行輸出至使用者 stdout。按 `Ctrl+D` 或 `/exit` 結束 Session。**MVP 不持久化** — 每次 `grimo chat` 均為全新 Session。
 
-**Dependencies.** S006.
+**依賴。** S006。
 
-**SBE (draft).**
-- **AC-1** Running `./build/libs/grimo-<v>.jar chat` (or `./gradlew bootRun --args='chat'`) starts an interactive session; typing "hello" yields a claude-code response.
-- **AC-2** `/exit` or `Ctrl+D` cleanly stops the container and returns to the host shell.
-- **AC-3** If Docker is not running, Grimo prints a clear "Start Docker Desktop" message and exits non-zero — no stack trace.
+**SBE（草稿）。**
+- **AC-1** 執行 `./build/libs/grimo-<v>.jar chat`（或 `./gradlew bootRun --args='chat'`）啟動互動式 Session；輸入「hello」收到 claude-code 的回應。
+- **AC-2** `/exit` 或 `Ctrl+D` 乾淨地停止容器並返回主機 shell。
+- **AC-3** 若 Docker 未運行，Grimo 印出清楚的「Start Docker Desktop」訊息並以非零狀態退出 — 不顯示堆疊追蹤。
 
-**Estimation.** Tech 2 · Uncert 2 · Deps 2 · Scope 2 · Test 1 · Rev 1 = **10 / S**
+**估算。** 技術 2 · 不確定性 2 · 依賴 2 · 範疇 2 · 測試 1 · 可逆性 1 = **10 / S**
 
 ---
 
-## Milestone 5: Task dispatch (priority "派送任務給 sub-agent")
+## 里程碑 5：任務派送（優先級「派送任務給 sub-agent」）
 
-**Goal.** Main-agent declares a structured delegation; Grimo spawns a sub-agent container with a worktree; sub-agent runs CLI in YOLO mode inside the sandbox; diff returned to user.
-**Done when.** S008, S009, S010 ✅.
+**目標。** 主代理宣告結構化委派；Grimo 建立帶工作樹的子代理容器；子代理在沙盒中以 YOLO 模式執行 CLI；將 diff 返回給使用者。
+**完成條件。** S008、S009、S010 ✅。
 
-| # | Spec | Points | Status |
+| # | 規格 | 點數 | 狀態 |
 | --- | --- | --- | --- |
-| S008 | Delegation protocol (main-agent → Grimo) | M (12) | 🔲 |
-| S009 | Worktree manager (JGit) | S (9) | 🔲 |
-| S010 | Sub-agent lifecycle + diff review | M (13) | 🔲 |
+| S008 | 委派協議（主代理 → Grimo） | M (12) | 🔲 |
+| S009 | 工作樹管理員（JGit） | S (9) | 🔲 |
+| S010 | 子代理生命週期 + diff 審查 | M (13) | 🔲 |
 
-### S008 — Delegation protocol · M (12)
+### S008 — 委派協議 · M (12)
 
-**Description.** Define how main-agent signals "delegate this task". MVP candidates (to be grilled at spec-planning time): (a) MCP tool that main-agent calls, Grimo intercepts; (b) structured JSON fragment in main-agent output Grimo parses; (c) explicit user command `grimo delegate "…"`. Pick one in grill-me. Produce a `TaskSpec` domain record that downstream specs consume.
+**描述。** 定義主代理如何發送「委派此任務」的信號。MVP 候選方案（規格規劃時需進行 grill-me）：(a) 主代理呼叫的 MCP 工具，由 Grimo 攔截；(b) Grimo 解析的主代理輸出中的結構化 JSON 片段；(c) 明確的使用者命令 `grimo delegate "…"`。在 grill-me 中選擇其一。產生下游規格所使用的 `TaskSpec` 領域 record。
 
-**Dependencies.** S007.
+**依賴。** S007。
 
-**SBE — draft, to refine in planning-spec.**
-- **AC-1** A known delegation trigger in main-agent's response produces a `TaskSpec` event `TaskDelegated`.
-- **AC-2** Invalid / malformed trigger yields a user-visible error, not a silent drop.
+**SBE — 草稿，規格規劃時細化。**
+- **AC-1** 主代理回應中已知的委派觸發器產生 `TaskSpec` 事件 `TaskDelegated`。
+- **AC-2** 無效/格式錯誤的觸發器顯示使用者可見的錯誤，而非靜默丟棄。
 
-**Estimation.** Tech 2 · Uncert 3 · Deps 2 · Scope 2 · Test 2 · Rev 2 = **13 / M**
+**估算。** 技術 2 · 不確定性 3 · 依賴 2 · 範疇 2 · 測試 2 · 可逆性 2 = **13 / M**
 
-### S009 — Worktree manager · S (9)
+### S009 — 工作樹管理員 · S (9)
 
-**Description.** `WorktreePort.create(TaskId, sourceBranch) → Worktree` and `.drop(TaskId)`. Uses JGit `Git.open(repo).worktreeAdd()` into `~/.grimo/worktrees/<taskId>/`. Startup sweep removes orphan worktrees.
+**描述。** `WorktreePort.create(TaskId, sourceBranch) → Worktree` 與 `.drop(TaskId)`。使用 JGit `Git.open(repo).worktreeAdd()` 建立至 `~/.grimo/worktrees/<taskId>/`。啟動時清掃移除孤立的工作樹。
 
-**Dependencies.** S001 (for `TaskId`).
+**依賴。** S001（使用 `TaskId`）。
 
-**SBE (draft).**
-- **AC-1** `WorktreePort.create(taskId, "main")` creates a detached worktree dir with correct HEAD.
-- **AC-2** `WorktreePort.drop(taskId)` removes the dir and un-registers the worktree.
-- **AC-3** Startup sweep removes stale worktrees for unknown task ids.
+**SBE（草稿）。**
+- **AC-1** `WorktreePort.create(taskId, "main")` 建立帶有正確 HEAD 的分離工作樹目錄。
+- **AC-2** `WorktreePort.drop(taskId)` 移除目錄並取消登錄工作樹。
+- **AC-3** 啟動時清掃移除未知任務 ID 的過時工作樹。
 
-**Estimation.** Tech 1 · Uncert 1 · Deps 2 · Scope 2 · Test 2 · Rev 1 = **9 / S**
+**估算。** 技術 1 · 不確定性 1 · 依賴 2 · 範疇 2 · 測試 2 · 可逆性 1 = **9 / S**
 
-### S010 — Sub-agent lifecycle + diff review · M (13)
+### S010 — 子代理生命週期 + diff 審查 · M (13)
 
-**Description.** `DelegateTaskUseCase.execute(TaskSpec)`:
-1. Reserve sub-agent slot (bounded by `grimo.subagent.max-concurrent`, default 2).
-2. Create worktree (S009), spawn sandbox (S003) with worktree bind-mount.
-3. Run inner CLI via S005 in **YOLO mode** (full write allowlist inside the sandbox).
-4. Capture `git diff /work` output.
-5. Print the diff to the user; on `y` → merge the worktree branch back; on `n` → drop worktree.
+**描述。** `DelegateTaskUseCase.execute(TaskSpec)`：
+1. 保留子代理槽位（受 `grimo.subagent.max-concurrent` 限制，預設 2）。
+2. 建立工作樹（S009），建立帶工作樹 bind-mount 的沙盒（S003）。
+3. 透過 S005 以 **YOLO 模式** 執行內部 CLI（沙盒內完整寫入允許清單）。
+4. 擷取 `git diff /work` 輸出。
+5. 將 diff 印給使用者；按 `y` → 將工作樹分支合併回去；按 `n` → 捨棄工作樹。
 
-**Dependencies.** S003, S005, S008, S009.
+**依賴。** S003、S005、S008、S009。
 
-**SBE (draft).**
-- **AC-1** Delegating an edit-file task modifies the file inside the worktree on the host.
-- **AC-2** Sibling sub-agent cannot access the first worktree.
-- **AC-3** On accept, the change merges into the host repo; on reject, host repo is unchanged.
+**SBE（草稿）。**
+- **AC-1** 委派一個編輯檔案的任務，主機上工作樹內的檔案被修改。
+- **AC-2** 相鄰的子代理無法存取第一個工作樹。
+- **AC-3** 接受後，變更合併至主機 repo；拒絕後，主機 repo 不變。
 
-**Estimation.** Tech 2 · Uncert 2 · Deps 3 · Scope 2 · Test 3 · Rev 2 = **14 / M**
+**估算。** 技術 2 · 不確定性 2 · 依賴 3 · 範疇 2 · 測試 3 · 可逆性 2 = **14 / M**
 
 ---
 
-## Milestone 6: Skill management (priority "main-agent 管理 skill")
+## 里程碑 6：Skill 管理（優先級「main-agent 管理 skill」）
 
-**Goal.** Grimo lists, enables, and loads skills from `~/.grimo/skills/`.
-**Done when.** S011 ✅.
+**目標。** Grimo 列出、啟用並從 `~/.grimo/skills/` 載入 Skill。
+**完成條件。** S011 ✅。
 
-| # | Spec | Points | Status |
+| # | 規格 | 點數 | 狀態 |
 | --- | --- | --- | --- |
-| S011 | Skills registry + enable/disable commands | S (10) | 🔲 |
+| S011 | Skill 登錄檔 + 啟用/停用命令 | S (10) | 🔲 |
 
-### S011 — Skills registry · S (10)
+### S011 — Skill 登錄檔 · S (10)
 
-**Description.** Scan `~/.grimo/skills/*/SKILL.md` using JDK NIO + `YAMLFactory` for frontmatter. Build `SkillRegistryUseCase` exposing `list()`, `enable(name)`, `disable(name)`, `get(name) → Optional<Skill>`. Skills are discovered on startup + on demand (`list()` re-scans). Enablement state persisted to `~/.grimo/skills/.state.json`.
+**描述。** 使用 JDK NIO + `YAMLFactory` 掃描 `~/.grimo/skills/*/SKILL.md` 的 frontmatter。建立 `SkillRegistryUseCase`，公開 `list()`、`enable(name)`、`disable(name)`、`get(name) → Optional<Skill>`。Skill 在啟動時發現，也可按需發現（`list()` 重新掃描）。啟用狀態持久化至 `~/.grimo/skills/.state.json`。
 
-**Dependencies.** S001.
+**依賴。** S001。
 
-**SBE (draft).**
-- **AC-1** A skill at `~/.grimo/skills/hello/SKILL.md` appears in `list()`.
-- **AC-2** Invalid frontmatter logs a warning and skips that skill (does not crash).
-- **AC-3** `disable("hello")` persists; after restart, `list()` still marks it disabled.
+**SBE（草稿）。**
+- **AC-1** `~/.grimo/skills/hello/SKILL.md` 中的 Skill 出現在 `list()` 中。
+- **AC-2** 無效的 frontmatter 記錄警告並跳過該 Skill（不崩潰）。
+- **AC-3** `disable("hello")` 持久化；重啟後，`list()` 仍標記為已停用。
 
-**Estimation.** Tech 2 · Uncert 2 · Deps 2 · Scope 2 · Test 1 · Rev 1 = **10 / S**
+**估算。** 技術 2 · 不確定性 2 · 依賴 2 · 範疇 2 · 測試 1 · 可逆性 1 = **10 / S**
 
 ---
 
-## Milestone 7: Skill injection into sub-agent (priority "派送前安裝 skill")
+## 里程碑 7：Skill 注入至子代理（優先級「派送前安裝 skill」）
 
-**Goal.** Before a sub-agent container runs, Grimo copies relevant enabled skills from host `~/.grimo/skills/` into the container so the inner CLI picks them up through its native skill path.
-**Done when.** S012 ✅.
+**目標。** 在子代理容器運行前，Grimo 將主機 `~/.grimo/skills/` 中相關的已啟用 Skill 複製至容器，使內部 CLI 透過其原生 Skill 路徑取得。
+**完成條件。** S012 ✅。
 
-| # | Spec | Points | Status |
+| # | 規格 | 點數 | 狀態 |
 | --- | --- | --- | --- |
-| S012 | Skill injection into sub-agent container | M (12) | 🔲 |
+| S012 | Skill 注入至子代理容器 | M (12) | 🔲 |
 
-### S012 — Skill injection · M (12)
+### S012 — Skill 注入 · M (12)
 
-**Description.** When `DelegateTaskUseCase` (S010) spawns the sub-agent container, it:
-1. Queries `SkillRegistryUseCase.listEnabled()`.
-2. Filters to skills relevant to the task spec (MVP: all enabled; richer filtering is backlog).
-3. For each selected skill, copies the skill directory into the sub-agent container at **the CLI's native skill path** — claude-code → `/root/.claude/skills/<name>/`, codex and gemini per their docs surveyed in S006.
-4. Verifies the skill is visible to the CLI before running the task.
+**描述。** 當 `DelegateTaskUseCase`（S010）建立子代理容器時：
+1. 查詢 `SkillRegistryUseCase.listEnabled()`。
+2. 過濾與任務規格相關的 Skill（MVP：全部已啟用；更精細的過濾為 Backlog）。
+3. 對每個選定的 Skill，將 Skill 目錄複製至子代理容器的 **CLI 原生 Skill 路徑** — claude-code → `/root/.claude/skills/<name>/`，codex 與 gemini 依 S006 調查的文件。
+4. 在執行任務前，確認 Skill 對 CLI 可見。
 
-**Dependencies.** S006 (for per-CLI skill path), S010, S011.
+**依賴。** S006（各 CLI 的 Skill 路徑）、S010、S011。
 
-**SBE (draft).**
-- **AC-1** With one enabled skill `hello`, after sub-agent container starts (claude-code provider), `/root/.claude/skills/hello/SKILL.md` exists inside the container.
-- **AC-2** Task run references the skill in its prompt and produces output consistent with the skill's instructions (asserted on a fixture skill).
-- **AC-3** A disabled skill is NOT injected.
+**SBE（草稿）。**
+- **AC-1** 啟用一個 Skill `hello` 後，子代理容器啟動（claude-code 提供者），容器內存在 `/root/.claude/skills/hello/SKILL.md`。
+- **AC-2** 任務執行在 prompt 中引用該 Skill，並產生符合 Skill 指令的輸出（使用夾具 Skill 斷言）。
+- **AC-3** 已停用的 Skill 不被注入。
 
-**Estimation.** Tech 2 · Uncert 3 · Deps 3 · Scope 2 · Test 2 · Rev 2 = **14 / M**
+**估算。** 技術 2 · 不確定性 3 · 依賴 3 · 範疇 2 · 測試 2 · 可逆性 2 = **14 / M**
 
 ---
 
-## Summary (MVP)
+## 摘要（MVP）
 
-| Milestone | Specs | Points |
+| 里程碑 | 規格 | 點數 |
 | --- | --- | --- |
-| M0 Foundation | S000, S001, S002 | 23 |
-| M1 Container ops | S003 | 13 |
-| M2 Containerized CLI | S004, S005 | 24 |
-| M3 CLI config | S006 | 11 |
-| M4 Main-agent chat | S007 | 10 |
-| M5 Task dispatch | S008, S009, S010 | 36 |
-| M6 Skill management | S011 | 10 |
-| M7 Skill injection | S012 | 14 |
-| **Total** | **13 specs** | **141 points** |
+| M0 基礎建設 | S000、S001、S002 | 23 |
+| M1 容器操作 | S003 | 13 |
+| M2 容器化 CLI | S004、S005 | 24 |
+| M3 CLI 配置 | S006 | 11 |
+| M4 主代理對話 | S007 | 10 |
+| M5 任務派送 | S008、S009、S010 | 36 |
+| M6 Skill 管理 | S011 | 10 |
+| M7 Skill 注入 | S012 | 14 |
+| **合計** | **13 個規格** | **141 點** |
 
-Compared to the pre-re-plan v1 roadmap (23 specs / 269 points), the
-MVP surface shrinks ~48% and focuses on the single vertical proof of
-"containerized agent orchestration with user-managed skills". Every
-other capability is available but parked.
+與重新規劃前的 v1 藍圖（23 個規格 / 269 點）相比，
+MVP 範疇縮減約 48%，聚焦於「容器化代理編排與使用者管理 Skill」的單一垂直驗證。
+所有其他功能均可用，但暫時擱置。
 
-Next action: `/planning-spec S002` (S001 is already in design).
+下一步行動：`/planning-spec S002`（S001 已完成 ✅）。
 
 ---
 
 ## Backlog
 
-Items below were in the v1 MVP roadmap and are now **deferred until
-explicitly promoted**. Each will be re-spec'd with its own grill-me
-loop when promoted; estimates below are v1 carry-overs and will be
-revisited.
+以下項目原屬 v1 MVP 藍圖，現已**延後，直至明確晉升**。
+每個項目晉升時將使用新的規格 ID 重新進行 grill-me 循環；
+以下估算為 v1 遺留值，晉升時將重新評估。
 
-| Capability | Prior spec ref (v1) | Reason deferred | Rough effort |
+| 能力 | 先前規格參考（v1） | 延後原因 | 粗略工作量 |
 | --- | --- | --- | --- |
-| Persistent session (spring-ai-session-jdbc + H2) | old S005 | No persistence needed to prove the MVP vertical slice. MVP accepts fresh session per `grimo chat`. | M (12) |
-| Web UI (Thymeleaf + HTMX + SSE) | old S003 + S006 | CLI passthrough is the MVP interface. Re-promote when a demo-worthy UI is needed. | M×2 (23) |
-| CLI switch with compacted replay | old S009 | Main-agent is Claude-Code-only in MVP; multi-CLI main is a later concern. | L (15) — manual QA |
-| Codex / Gemini main-agent roles | old S007, S008 | MVP main = Claude only. The Codex/Gemini CLIs are already in the `grimo-runtime` image via S004 for sub-agent use. | S×2 (20) |
-| Explicit main-agent read-only tool allowlist | old S010 | Container isolation + S006 CLI config already neutralizes write paths from main-agent in MVP. Re-examine when main-agent runs outside a container or when finer per-tool gating is needed. | S (9) |
-| Cost router (heuristic v1) | old S014 | No routing in MVP; main = claude-code, sub = main's choice within the image. | S (9) |
-| Jury (N-way parallel review) | old S015 | Secondary feature; requires multi-CLI + comparison UI. | M (13) |
-| `AutoMemoryTools` wiring | old S017 | MVP runs stateless per chat session. | M (12) |
-| Skill distillation proposer | old S018 | Harness-level auto-evolution; promote only after the manual skill-management loop (S011/S012) has soak time. | M (14) |
-| Cost telemetry panel + `Cost` domain type | old S019 | Pending cost router. `Cost` lands in whatever spec owns it (no `Cost` in `core.domain`). | XS (8) |
-| Module boundary CI job | old S020 | S002's JUnit ArchUnit test covers it in-test; a dedicated CI job is luxury. | XS (7) |
-| Native image hardening (`RuntimeHints`, `ProcessBuilderSandboxAdapter`, nightly smoke) | old S021a–c | Stretch goal per PRD D3. JVM-first in MVP. | M×2 + XS (33) |
-| E2E integration test suite | old S022 | Promoted once the vertical slice has user-visible behavior worth regression-testing. | S (10) |
+| 持久化 Session（spring-ai-session-jdbc + H2） | 舊 S005 | 驗證 MVP 垂直切片不需持久化。MVP 接受每次 `grimo chat` 均為全新 Session。 | M (12) |
+| Web UI（Thymeleaf + HTMX + SSE） | 舊 S003 + S006 | CLI 直通為 MVP 介面。需要展示 UI 時再晉升。 | M×2 (23) |
+| 帶壓縮重放的 CLI 切換 | 舊 S009 | MVP 主代理僅使用 Claude-Code；多 CLI 主代理為後期考量。 | L (15) — 需手動 QA |
+| Codex / Gemini 主代理角色 | 舊 S007、S008 | MVP 主代理僅使用 Claude。Codex/Gemini CLI 已透過 S004 包含在 `grimo-runtime` 映像中供子代理使用。 | S×2 (20) |
+| 明確的主代理唯讀工具允許清單 | 舊 S010 | 容器隔離 + S006 CLI 配置已在 MVP 中抵消主代理的寫入路徑。當主代理在容器外運行或需要更細緻的工具管控時再重新審視。 | S (9) |
+| 成本路由器（啟發式 v1） | 舊 S014 | MVP 不進行路由；主代理 = claude-code，子代理 = 主代理在映像中的選擇。 | S (9) |
+| 評審團（N 路並行審查） | 舊 S015 | 次要功能；需要多 CLI + 比較 UI。 | M (13) |
+| `AutoMemoryTools` 接線 | 舊 S017 | MVP 每次 Chat Session 無狀態運行。 | M (12) |
+| Skill 蒸餾提案者 | 舊 S018 | 框架層級的自動演化；僅在手動 Skill 管理循環（S011/S012）累積足夠使用時間後晉升。 | M (14) |
+| 成本遙測面板 + `Cost` 領域型別 | 舊 S019 | 等待成本路由器。`Cost` 由擁有它的規格引入（`core.domain` 中無 `Cost`）。 | XS (8) |
+| 模組邊界 CI 任務 | 舊 S020 | S002 的 JUnit ArchUnit 測試已在測試中覆蓋；專用 CI 任務為奢侈品。 | XS (7) |
+| 原生映像加固（`RuntimeHints`、`ProcessBuilderSandboxAdapter`、夜間冒煙測試） | 舊 S021a–c | PRD D3 的擴展目標。MVP 優先使用 JVM。 | M×2 + XS (33) |
+| E2E 整合測試套件 | 舊 S022 | 垂直切片有使用者可見行為值得回歸測試時晉升。 | S (10) |
 
-**Backlog policy.** An item does not jump the queue. When the user
-promotes an item, re-enter `/planning-spec` with a fresh grill loop
-(do NOT reuse the v1 draft acceptance criteria blindly — the
-environment will have changed).
+**Backlog 策略。** 項目不得插隊。使用者晉升項目時，以全新 grill 循環重新進入 `/planning-spec`
+（請勿盲目重用 v1 草稿驗收標準 — 環境將已改變）。
