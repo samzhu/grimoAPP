@@ -1,59 +1,56 @@
-# Grimo Glossary / 詞彙表
+# Grimo 詞彙表
 
-Bilingual reference for every load-bearing domain term used in Grimo docs and
-code. Add new terms here the first time they appear in a PRD, spec, or ADR.
+Grimo 文件與程式碼中所有重要領域術語的雙語參考。每個術語在 PRD、規格或 ADR 中首次出現時，請在此新增。
 
-> Style rule: **Code uses the English term verbatim** (class/package/prop
-> names). Prose may use either, but in zh-TW prose prefer the Chinese term
-> with the English in parentheses on first use.
+> 風格規則：**程式碼使用英文術語原文**（類別、套件、屬性名稱）。散文中可使用任何一種，但在繁體中文散文中優先使用中文術語，並在首次出現時以括號附上英文。
 
-## Core domain
+## 核心領域
 
-| English (code) | 中文 (zh-TW) | Definition |
+| 英文（程式碼） | 中文（zh-TW） | 定義 |
 | --- | --- | --- |
-| Grimo | Grimo | The product itself. Pronounced "grim-oh" — from *grimoire*, a book of procedures. A self-evolving **user harness** over CLI AI agents. |
-| GrimoHome | Grimo 家目錄 | The persistent state directory, default `~/.grimo`. Contains `memory/`, `skills/`, `sessions/`, `worktrees/`, `logs/`, `config/`. |
-| Harness | 外殼 / 挽具 | The set of controls, contracts, and state that wrap a model to form an agent. `Agent = Model + Harness`. Grimo is a **user harness**, not a framework. |
-| User Harness | 使用者外殼 | A harness built *around* off-the-shelf agents (Claude Code, Codex, Gemini CLI) by the team using them — contrast with **builder harness** baked into the agent itself. |
-| Main Agent | 主代理 | The conversational entry point. Reads-only — cannot Edit / Write / Bash-write. Runs outside Docker on the host. Configurable CLI (`claude` / `codex` / `gemini`). |
-| Sub Agent | 子代理 | An isolated executor spawned for a delegated task. Runs **inside Docker** with a git worktree bind-mounted. Has full Read/Write/Bash/Edit (YOLO) inside the sandbox. |
-| Session | 對話會話 | Grimo's event-sourced dialogue state, owned by Grimo (not by the underlying CLI). Built on Spring AI `SessionMemoryAdvisor`. Survives CLI switches. |
-| CLI Switch | CLI 切換 | The operation of changing the main-agent's underlying CLI mid-session. Grimo compacts prior `Message` events and replays them as bootstrap to the new CLI. |
-| Skill | 技能 | A reusable procedure on disk, format `SKILL.md` with YAML frontmatter. Discoverable by all CLI adapters via a unified registry. |
-| Skill Distillation | 技能蒸餾 | The closed-loop process: after N successful runs of a recurring pattern, Grimo proposes a draft `SKILL.md`; user approves and commits. |
-| Memory | 記憶 | Durable facts, curated by the agent itself via `AutoMemoryTools`. Lives in `~/.grimo/memory/` with `MEMORY.md` as the index. |
-| Guide | 指導 | Feedforward control: prompts, tool allowlists, persona overlays applied **before** a turn runs. |
-| Sensor | 感測器 | Feedback control: linters, tests, AI reviewers applied **after** a turn. |
-| Jury | 陪審團 | The multi-perspective review pattern: dispatch one task to N CLIs in parallel, aggregate into consensus + divergence. |
-| Router | 路由器 | The cost-and-complexity-aware component that picks which CLI/model runs a given turn. |
-| Worktree | 工作樹 | A git worktree checked out into a per-task directory under `~/.grimo/worktrees/<task-id>/`. Bind-mounted into the sub-agent container. |
-| Sandbox | 沙箱 | The Docker container in which a sub-agent runs. Backed by Spring AI `DockerSandbox` with a worktree bind-mount. |
-| Contract | 契約 | The declared input/output/stopping-condition shape of a task — a harness primitive. |
-| Control | 控制 | How work is decomposed, scheduled, and guarded — a harness primitive. |
-| State | 狀態 | What persists across steps, branches, and sub-agents — a harness primitive (sessions, memory, skills, worktrees). |
-| Approval Fatigue | 核准疲勞 | The UX failure mode where constant Y/N confirmations (per file edit, per shell command) push users to rubber-stamp or disable safety checks. Grimo answers it by moving approval to a single end-of-task diff inside a sandboxed worktree. |
-| Subscription-Native Auth | 訂閱帳號原生認證 | Grimo authenticates by invoking the user's already-logged-in CLI binary, so a Claude Max / ChatGPT Plus / Gemini Advanced subscription is sufficient — no API key required. (See PRD D19 / P10.) |
-| Vendor Lock-in Resilience | 跨 agent 韌性 | The property that any single provider outage, quota hit, or price change degrades Grimo to "run on the other CLIs", not to "down". (See PRD P9.) |
+| Grimo | Grimo | 產品本身。發音為「grim-oh」— 源自 *grimoire*，一本程序之書。一個可自我演化的 CLI AI 代理**使用者外殼（user harness）**。 |
+| GrimoHome | Grimo 家目錄 | 持久化狀態目錄，預設為 `~/.grimo`。包含 `memory/`、`skills/`、`sessions/`、`worktrees/`、`logs/`、`config/`。 |
+| Harness | 外殼 / 挽具 | 包裝模型以形成代理的一套控制、契約與狀態。`Agent = Model + Harness`。Grimo 是**使用者外殼**，而非框架。 |
+| User Harness | 使用者外殼 | 由使用該工具的團隊*圍繞*現成代理（Claude Code、Codex、Gemini CLI）構建的外殼 — 與烘焙進代理本身的**建置者外殼（builder harness）**相對。 |
+| Main Agent | 主代理 | 對話進入點。唯讀 — 無法執行 Edit / Write / Bash 寫入操作。在主機上的 Docker 外部執行。可配置的 CLI（`claude` / `codex` / `gemini`）。 |
+| Sub Agent | 子代理 | 為委派任務生成的隔離執行器。在 **Docker 內部**執行，並掛載 git worktree。在沙箱內擁有完整的 Read/Write/Bash/Edit（YOLO）權限。 |
+| Session | 對話會話 | Grimo 的事件源對話狀態，由 Grimo 擁有（而非底層 CLI）。基於 Spring AI `SessionMemoryAdvisor` 構建。可在 CLI 切換後存活。 |
+| CLI Switch | CLI 切換 | 在 session 中途更換主代理底層 CLI 的操作。Grimo 壓縮先前的 `Message` 事件，並將其作為引導訊息重放給新的 CLI。 |
+| Skill | 技能 | 磁碟上可重用的程序，格式為帶有 YAML frontmatter 的 `SKILL.md`。可由所有 CLI 適配器透過統一登錄檔發現。 |
+| Skill Distillation | 技能蒸餾 | 閉環程序：在某個重複模式成功執行 N 次後，Grimo 提案一份 `SKILL.md` 草稿；使用者審核並提交。 |
+| Memory | 記憶 | 由代理本身透過 `AutoMemoryTools` 整理的持久化事實。存放於 `~/.grimo/memory/`，以 `MEMORY.md` 作為索引。 |
+| Guide | 指導 | 前饋控制：在輪次執行**前**套用的 prompts、工具允許清單、角色設定覆寫。 |
+| Sensor | 感測器 | 回饋控制：在輪次執行**後**套用的 linters、測試、AI 審查者。 |
+| Jury | 陪審團 | 多視角審查模式：將單一任務並行派送給 N 個 CLI，聚合成共識 + 分歧。 |
+| Router | 路由器 | 感知成本與複雜度、決定哪個 CLI/模型執行某輪次的元件。 |
+| Worktree | 工作樹 | 在 `~/.grimo/worktrees/<task-id>/` 下以每任務目錄檢出的 git worktree。掛載至子代理容器中。 |
+| Sandbox | 沙箱 | 子代理運行的 Docker 容器。由 Spring AI `DockerSandbox` 支撐，並掛載 worktree。 |
+| Contract | 契約 | 任務宣告的輸入/輸出/停止條件形狀 — 一個外殼原語。 |
+| Control | 控制 | 工作如何分解、排程與守護 — 一個外殼原語。 |
+| State | 狀態 | 跨步驟、分支與子代理持久化的內容 — 一個外殼原語（sessions、memory、skills、worktrees）。 |
+| Approval Fatigue | 核准疲勞 | UX 失敗模式：持續的 Y/N 確認（每次檔案編輯、每次 shell 命令）迫使使用者無腦蓋章或停用安全檢查。Grimo 的解答是將核准移至沙箱 worktree 內單一的任務末尾 diff 確認點。 |
+| Subscription-Native Auth | 訂閱帳號原生認證 | Grimo 透過呼叫使用者已登入的 CLI 二進位來認證，因此 Claude Max / ChatGPT Plus / Gemini Advanced 訂閱即已足夠 — 無需 API 金鑰。（見 PRD D19 / P10。） |
+| Vendor Lock-in Resilience | 跨 agent 韌性 | 任何單一提供者中斷、配額耗盡或價格變動，都只會將 Grimo 降級為「改用其他 CLI 執行」，而非「Grimo 停止運作」的特性。（見 PRD P9。） |
 
-## Stack
+## 技術棧
 
-| English (code) | 中文 (zh-TW) | Definition |
+| 英文（程式碼） | 中文（zh-TW） | 定義 |
 | --- | --- | --- |
-| AgentClient | 代理客戶端 | Spring AI Community abstraction (`org.springaicommunity.agents`) that wraps CLI agents behind a unified builder API. Version pinned: 0.12.2. |
-| AgentSession | 代理會話 | Low-level per-CLI session object from agent-client. **Currently Claude-only** — Grimo does *not* rely on this for CLI-portable sessions. |
-| SessionMemoryAdvisor | 會話記憶顧問 | Event-sourced session advisor from Spring AI Session API (2026-04-15). Grimo's canonical session store. |
-| AutoMemoryTools | 自動記憶工具 | File-backed long-term memory tools from `spring-ai-agent-utils`. |
-| DockerSandbox | Docker 沙箱 | Testcontainers-backed sandbox backend from Spring AI `agent-sandbox`. |
-| Spring Modulith | Spring 模組 | Module-boundary + event-publication library. Version pinned: 2.0.5. Each bounded context = one `@ApplicationModule`. |
-| Application Module | 應用模組 | A top-level package under the Boot main class, guarded by `@ApplicationModule`. Externally exposed types are "named interfaces". |
+| AgentClient | 代理客戶端 | Spring AI Community 抽象層（`org.springaicommunity.agents`），將 CLI 代理包裝在統一的 builder API 後面。固定版本：0.12.2。 |
+| AgentSession | 代理會話 | 來自 agent-client 的每個 CLI 低層級 session 物件。**目前僅支援 Claude** — Grimo *不*依賴此物件實現跨 CLI 可移植的 session。 |
+| SessionMemoryAdvisor | 會話記憶顧問 | 來自 Spring AI Session API（2026-04-15）的事件源 session advisor。Grimo 的標準 session 儲存。 |
+| AutoMemoryTools | 自動記憶工具 | 來自 `spring-ai-agent-utils` 的檔案支援長期記憶工具。 |
+| DockerSandbox | Docker 沙箱 | 來自 Spring AI `agent-sandbox` 的 Testcontainers 支援沙箱後端。 |
+| Spring Modulith | Spring 模組 | 模組邊界 + 事件發佈函式庫。固定版本：2.0.5。每個限界上下文 = 一個 `@ApplicationModule`。 |
+| Application Module | 應用模組 | Boot 主類下的頂層套件，由 `@ApplicationModule` 守護。對外公開的型別為「命名介面」。 |
 
-## Command surface (planned)
+## 命令介面（規劃中）
 
-| Command | 中文 | Effect |
+| 命令 | 中文 | 效果 |
 | --- | --- | --- |
-| `/grimo switch <cli>` | 切換 CLI | Swap main-agent CLI, replay compacted history into the new CLI. |
-| `/grimo delegate <task>` | 委派任務 | Spawn a sub-agent in Docker with a fresh worktree. |
-| `/grimo jury <task> --n=3` | 陪審團審查 | Dispatch to N CLIs in parallel, aggregate review. |
-| `/grimo skills` | 列出技能 | List all discovered skills (built-in + `~/.grimo/skills/`). |
-| `/grimo memory` | 記憶管理 | Inspect / prune `~/.grimo/memory/`. |
-| `/grimo cost` | 成本報表 | Show this-session token/cost telemetry per CLI. |
+| `/grimo switch <cli>` | 切換 CLI | 替換主代理 CLI，將壓縮後的歷史重放至新 CLI。 |
+| `/grimo delegate <task>` | 委派任務 | 在 Docker 中啟動帶有全新 worktree 的子代理。 |
+| `/grimo jury <task> --n=3` | 陪審團審查 | 並行派送給 N 個 CLI，聚合審查結果。 |
+| `/grimo skills` | 列出技能 | 列出所有已發現的 skills（內建 + `~/.grimo/skills/`）。 |
+| `/grimo memory` | 記憶管理 | 檢視 / 清理 `~/.grimo/memory/`。 |
+| `/grimo cost` | 成本報表 | 顯示本次 session 每個 CLI 的 token/成本遙測資料。 |

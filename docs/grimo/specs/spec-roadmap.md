@@ -3,14 +3,9 @@
 **狀態：** v0.2 · **日期：** 2026-04-16
 **來源：** `docs/grimo/PRD.md` + `architecture.md`
 
-> **重新規劃說明。** 本藍圖於 2026-04-16 重寫，將 MVP 聚焦於單一垂直切片驗證：
-> **容器操作 → 容器化 CLI → CLI 配置 → 主代理對話 → 任務派送 →
-> Skill 管理 → Skill 注入至子代理**。其他所有功能
-> （Web UI、持久化 Session、CLI 切換、成本路由、評審團、記憶體、原生加固、E2E 測試套件……）
-> 均移至下方 Backlog。當 Backlog 項目被晉升時，會取得新的規格 ID 並重新進行 grill-me 循環。
+> **重新規劃說明。** 本藍圖於 2026-04-16 重寫，將 MVP 聚焦於單一垂直切片驗證：**容器操作 → 容器化 CLI → CLI 配置 → 主代理對話 → 任務派送 → Skill 管理 → Skill 注入至子代理**。其他所有功能（Web UI、持久化 Session、CLI 切換、成本路由、評審團、記憶體、原生加固、E2E 測試套件……）均移至下方 Backlog。當 Backlog 項目被晉升時，會取得新的規格 ID 並重新進行 grill-me 循環。
 
-> 估算量表（六維評分，每維 1–3）：
-> `技術風險 · 不確定性 · 依賴關係 · 範疇 · 測試 · 可逆性`
+> 估算量表（六維評分，每維 1–3）：`技術風險 · 不確定性 · 依賴關係 · 範疇 · 測試 · 可逆性`
 > 6–8 → XS · 9–11 → S · 12–14 → M · 15–16 → L · 17–18 → XL（必須分解）
 
 ## 依賴關係圖（MVP）
@@ -75,37 +70,22 @@
 | # | 規格 | 點數 | 狀態 |
 | --- | --- | --- | --- |
 | S000 | 專案初始化 — Gradle KTS + Spring Boot 4.0 骨架 | XS (7) | ✅ |
-| S001 | 核心領域原語 + GrimoHomePaths | XS (7) | ✅ |
+| S001 | 核心領域原語 + GrimoHomePaths | XS (7) | ⏳ 規劃中 |
 | S002 | 模組骨架 + Modulith verify 通過 | S (9) | 🔲 |
 
 ### S001 — 核心領域原語 + GrimoHomePaths · XS (7)
 
-**描述。** 建立 `io.github.samzhu.grimo.core.domain`
-套件：包含 `SessionId`、`TurnId`、`TaskId`、`CorrelationId`、
-`AgentRole`（列舉：`MAIN` / `SUB` / `JURY_MEMBER`）、`ProviderId`
-（列舉：`CLAUDE` / `CODEX` / `GEMINI`）、`NanoIds` 產生器，以及
-`GrimoHomePaths` 工具類。以上任何類別均不加 Spring 注解。
-**`Cost` 不在本規格中** — 它由後續晉升成本遙測的規格所有。
+**描述。** 建立 `io.github.samzhu.grimo.core.domain` 套件：包含 `SessionId`、`TurnId`、`TaskId`、`CorrelationId`、`AgentRole`（列舉：`MAIN` / `SUB` / `JURY_MEMBER`）、`ProviderId`（列舉：`CLAUDE` / `CODEX` / `GEMINI`）、`NanoIds` 產生器，以及 `GrimoHomePaths` 工具類。以上任何類別均不加 Spring 注解。**`Cost` 不在本規格中** — 它由後續晉升成本遙測的規格所有。
 
 **依賴。** S000 ✅。
 
-**SBE。** 詳見進行中的規格檔案
-`docs/grimo/specs/2026-04-16-S001-core-domain-primitives.md`，
-含完整驗收標準（AC-1 SessionId 21 字元 NanoID · AC-2
-GrimoHomePaths.memory() 支援 `grimo.home` + `$GRIMO_HOME` 覆寫 ·
-AC-3 ArchUnit「領域層不使用 Spring」）。
+**SBE。** 詳見進行中的規格檔案 `docs/grimo/specs/2026-04-16-S001-core-domain-primitives.md`，含完整驗收標準（AC-1 SessionId 21 字元 NanoID · AC-2 GrimoHomePaths.memory() 支援 `grimo.home` + `$GRIMO_HOME` 覆寫 · AC-3 ArchUnit「領域層不使用 Spring」）。
 
 **估算。** 技術 1 · 不確定性 1 · 依賴 1 · 範疇 2 · 測試 1 · 可逆性 1 = **7 / XS**
 
 ### S002 — 模組骨架 + Modulith verify 通過 · S (9)
 
-**描述。** 為 `architecture.md` §2 中所有命名模組
-（`core`、`sandbox`、`cli`、`agent`、`subagent`、`skills`、`web`（存根）、
-`native`（存根））各自宣告帶有 `@ApplicationModule` 的 `package-info.java`。
-`core` 為 `type = Type.OPEN`。引入
-`spring-modulith-starter-core` + `spring-modulith-starter-test`。
-新增 `ModuleArchitectureTest`，執行
-`ApplicationModules.of(GrimoApplication.class).verify()` 並產生模組畫布。
+**描述。** 為 `architecture.md` §2 中所有命名模組（`core`、`sandbox`、`cli`、`agent`、`subagent`、`skills`、`web`（存根）、`native`（存根））各自宣告帶有 `@ApplicationModule` 的 `package-info.java`。`core` 為 `type = Type.OPEN`。引入 `spring-modulith-starter-core` + `spring-modulith-starter-test`。新增 `ModuleArchitectureTest`，執行 `ApplicationModules.of(GrimoApplication.class).verify()` 並產生模組畫布。
 
 **依賴。** S001。
 
@@ -192,7 +172,7 @@ AC-3 ArchUnit「領域層不使用 Spring」）。
 
 ### S006 — CLI 配置研究 + 策略 · S (11)
 
-**描述。** 第一階段：以 WebFetch 查詢各 CLI 配置的官方文件（環境變數、設定檔、CLI 旗標）。將研究結果記錄於參考文件（`docs/grimo/cli-config-matrix.md`）。第二階段：將 Grimo 的策略表達為可重用的 `CliInvocationOptions` record，由各適配器在 `docker exec` 時套用。MVP 中的具體策略：**Claude-Code 記憶體停用**（不自動讀取 CLAUDE.md，不使用專案層級記憶體）、**API 金鑰 / 憑證儲存從主機傳遞**（只讀掛載 `~/.claude` / `~/.codex` / `~/.gemini`）、**停用遙測**（若各 CLI 有此開關）。
+**描述。** 第一階段：以 WebFetch 查詢各 CLI 配置的官方文件（環境變數、設定檔、CLI 旗標），將研究結果記錄於 `docs/grimo/cli-config-matrix.md`。第二階段：將 Grimo 的策略表達為可重用的 `CliInvocationOptions` record，由各適配器在 `docker exec` 時套用。MVP 中的具體策略：**Claude-Code 記憶體停用**（不自動讀取 CLAUDE.md，不使用專案層級記憶體）、**API 金鑰 / 憑證儲存從主機傳遞**（只讀掛載 `~/.claude` / `~/.codex` / `~/.gemini`）、**停用遙測**（若各 CLI 有此開關）。
 
 **依賴。** S005。
 
@@ -351,19 +331,15 @@ AC-3 ArchUnit「領域層不使用 Spring」）。
 | M7 Skill 注入 | S012 | 14 |
 | **合計** | **13 個規格** | **141 點** |
 
-與重新規劃前的 v1 藍圖（23 個規格 / 269 點）相比，
-MVP 範疇縮減約 48%，聚焦於「容器化代理編排與使用者管理 Skill」的單一垂直驗證。
-所有其他功能均可用，但暫時擱置。
+與重新規劃前的 v1 藍圖（23 個規格 / 269 點）相比，MVP 範疇縮減約 48%，聚焦於「容器化代理編排與使用者管理 Skill」的單一垂直驗證。所有其他功能均可用，但暫時擱置。
 
-下一步行動：`/planning-spec S002`（S001 已完成 ✅）。
+下一步行動：`/planning-spec S002`（S001 已在設計中）。
 
 ---
 
 ## Backlog
 
-以下項目原屬 v1 MVP 藍圖，現已**延後，直至明確晉升**。
-每個項目晉升時將使用新的規格 ID 重新進行 grill-me 循環；
-以下估算為 v1 遺留值，晉升時將重新評估。
+以下項目原屬 v1 MVP 藍圖，現已**延後，直至明確晉升**。每個項目晉升時將使用新的規格 ID 重新進行 grill-me 循環；以下估算為 v1 遺留值，晉升時將重新評估。
 
 | 能力 | 先前規格參考（v1） | 延後原因 | 粗略工作量 |
 | --- | --- | --- | --- |
@@ -381,5 +357,4 @@ MVP 範疇縮減約 48%，聚焦於「容器化代理編排與使用者管理 Sk
 | 原生映像加固（`RuntimeHints`、`ProcessBuilderSandboxAdapter`、夜間冒煙測試） | 舊 S021a–c | PRD D3 的擴展目標。MVP 優先使用 JVM。 | M×2 + XS (33) |
 | E2E 整合測試套件 | 舊 S022 | 垂直切片有使用者可見行為值得回歸測試時晉升。 | S (10) |
 
-**Backlog 策略。** 項目不得插隊。使用者晉升項目時，以全新 grill 循環重新進入 `/planning-spec`
-（請勿盲目重用 v1 草稿驗收標準 — 環境將已改變）。
+**Backlog 策略。** 項目不得插隊。使用者晉升項目時，以全新 grill 循環重新進入 `/planning-spec`（請勿盲目重用 v1 草稿驗收標準 — 環境將已改變）。

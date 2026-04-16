@@ -1,96 +1,82 @@
-# Grimo — Architecture
+# Grimo — 架構說明
 
-**Status:** v0.1 · **Owner:** Tech Lead (samzhu) · **Date:** 2026-04-16
-**Source:** `docs/grimo/PRD.md` (v0.1)
+**狀態：** v0.1 · **負責人：** Tech Lead (samzhu) · **日期：** 2026-04-16
+**來源：** `docs/grimo/PRD.md` (v0.1)
 
 ---
 
-## 1. Architectural style
+## 1. 架構風格
 
-- **Modular monolith** using **Spring Modulith 2.0.5**. Each bounded
-  context is a top-level package with `package-info.java` carrying
-  `@ApplicationModule`. Cross-module calls travel only through
-  `@NamedInterface` packages; all other packages are `internal` by
-  Modulith convention.
-- **Hexagonal (ports & adapters)** inside each module. Every module has:
-  - `domain/` — records, value objects, domain services. **Zero Spring
-    annotations.** Compilable without the Spring classpath.
-  - `application/port/in/` — use-case interfaces (commands/queries).
-  - `application/port/out/` — repository + gateway interfaces.
-  - `application/service/` — `@Service` use-case implementations. Only
-    Spring-aware layer inside the module.
-  - `adapter/in/**` — controllers, event listeners, CLI command handlers.
-  - `adapter/out/**` — JDBC repositories, CLI wrappers, Docker clients.
-  - `internal/` — implementation-only helpers (hidden from siblings).
-- **Event-driven seams** via `ApplicationEventPublisher` +
-  `@ApplicationModuleListener`. Cross-module coupling = domain events
-  only. No direct bean references across modules except through a
-  module's `@NamedInterface` port.
-- **Local-first single process.** One Spring Boot app, one local JDBC
-  store (H2 file mode by default), one Docker daemon on the host.
+- **模組化單體（Modular monolith）**，採用 **Spring Modulith 2.0.5**。每個限界上下文都是頂層套件，並在 `package-info.java` 上標記 `@ApplicationModule`。跨模組呼叫只能透過 `@NamedInterface` 套件進行；其他所有套件依 Modulith 慣例視為 `internal`。
+- 每個模組內部採用**六邊形架構（Hexagonal / ports & adapters）**。每個模組包含：
+  - `domain/` — records、值物件、領域服務。**零 Spring 注解。** 不依賴 Spring classpath 即可編譯。
+  - `application/port/in/` — 用例介面（commands / queries）。
+  - `application/port/out/` — 儲存庫與閘道介面。
+  - `application/service/` — `@Service` 用例實作。模組內唯一感知 Spring 的層。
+  - `adapter/in/**` — 控制器、事件監聽器、CLI 命令處理器。
+  - `adapter/out/**` — JDBC 儲存庫、CLI 包裝器、Docker 客戶端。
+  - `internal/` — 僅供實作使用的輔助類（對兄弟模組隱藏）。
+- **事件驅動接縫**，透過 `ApplicationEventPublisher` + `@ApplicationModuleListener`。跨模組耦合僅限於領域事件，不允許跨模組直接參照 Bean（除非透過模組的 `@NamedInterface` 埠）。
+- **本地單一程序優先。** 一個 Spring Boot 應用、一個本地 JDBC 儲存（預設 H2 檔案模式）、主機上的一個 Docker Daemon。
 
-## 2. Module map
+## 2. 模組地圖
 
 ```
-io.github.samzhu.grimo                                   # root (GrimoApplication)
+io.github.samzhu.grimo                                   # 根（GrimoApplication）
 ├── core                                    # @ApplicationModule (open)
 │   └── domain/ { SessionId, TurnId, TaskId, CorrelationId,
 │                 AgentRole, ProviderId, GrimoHomePaths, NanoIds }
-│                                           # Cost is owned by the
-│                                           # `cost` module — NOT here.
-│                                           # shared domain primitives
-├── session                                 # SessionMemoryAdvisor wiring
-├── cli                                     # CLI adapter (claude/codex/gemini)
-├── router                                  # cost/complexity-aware CLI router
-├── subagent                                # worktree + Docker sandbox lifecycle
-├── skills                                  # SKILL.md registry + distiller
-├── memory                                  # AutoMemoryTools under ~/.grimo/memory
-├── jury                                    # N-way parallel review
-├── cost                                    # per-turn token/cost telemetry
+│                                           # Cost 由 `cost` 模組所有，不在此處
+│                                           # 共用領域原語
+├── session                                 # SessionMemoryAdvisor 接線
+├── cli                                     # CLI 適配器（claude/codex/gemini）
+├── router                                  # 成本/複雜度感知 CLI 路由器
+├── subagent                                # 工作樹 + Docker 沙箱生命週期
+├── skills                                  # SKILL.md 登錄檔 + 蒸餾器
+├── memory                                  # AutoMemoryTools 管理 ~/.grimo/memory
+├── jury                                    # N 路並行審查
+├── cost                                    # 每輪 token/成本遙測
 └── web                                     # Spring MVC + Thymeleaf + HTMX
 ```
 
-`core` is marked `@ApplicationModule(type = Type.OPEN)` — every other
-module may consume its public types. All other modules declare explicit
-`allowedDependencies` in `package-info.java`.
+`core` 標記為 `@ApplicationModule(type = Type.OPEN)` — 其他所有模組都可使用其公開型別。所有其他模組在 `package-info.java` 中宣告明確的 `allowedDependencies`。
 
-### Module responsibilities & published ports
+### 模組職責與已發佈的埠
 
-| Module | Inbound ports | Outbound ports | Emits events |
+| 模組 | 入站埠 | 出站埠 | 發布事件 |
 | --- | --- | --- | --- |
 | `core` | — | — | — |
-| `session` | `SessionUseCase` (open/resume/switch) | `SessionRepository` (from Spring AI) | `SessionOpened`, `SessionSwitched`, `TurnPersisted` |
-| `cli` | `AgentConversationUseCase` | `AgentClientPort` (wraps `AgentClient`) | `TurnTokenStreamed`, `CliUnavailable` |
+| `session` | `SessionUseCase`（開啟/繼續/切換） | `SessionRepository`（來自 Spring AI） | `SessionOpened`、`SessionSwitched`、`TurnPersisted` |
+| `cli` | `AgentConversationUseCase` | `AgentClientPort`（包裝 `AgentClient`） | `TurnTokenStreamed`、`CliUnavailable` |
 | `router` | `RouteUseCase` | `CliRegistryPort` | `RouteDecided` |
-| `subagent` | `DelegateTaskUseCase` | `SandboxPort`, `WorktreePort` | `SubagentStarted`, `SubagentCompleted`, `SubagentFailed` |
-| `skills` | `SkillRegistryUseCase`, `DistillUseCase` | `SkillStorePort` | `SkillProposed`, `SkillApproved` |
+| `subagent` | `DelegateTaskUseCase` | `SandboxPort`、`WorktreePort` | `SubagentStarted`、`SubagentCompleted`、`SubagentFailed` |
+| `skills` | `SkillRegistryUseCase`、`DistillUseCase` | `SkillStorePort` | `SkillProposed`、`SkillApproved` |
 | `memory` | `MemoryUseCase` | `MemoryStorePort` | `MemoryRecorded` |
-| `jury` | `JuryReviewUseCase` | `ReviewPort` (calls multiple CLIs) | `JuryVerdictReady` |
-| `cost` | `CostQueryUseCase` | `CostStorePort` | — (consumes `TurnTokenStreamed`) |
-| `web` | (controllers) | — | (consumes domain events for SSE push) |
+| `jury` | `JuryReviewUseCase` | `ReviewPort`（呼叫多個 CLI） | `JuryVerdictReady` |
+| `cost` | `CostQueryUseCase` | `CostStorePort` | —（消費 `TurnTokenStreamed`） |
+| `web` | （控制器） | — | （消費領域事件以推送 SSE） |
 
-## 3. Framework dependency table
+## 3. 框架依賴表
 
-All versions pinned 2026-04-16. Every "Verified" **yes** is backed by a
-source-level spike (see `docs/grimo/PRD.md` risk register).
+所有版本固定於 2026-04-16。每個「已驗證」的 **yes** 均有原始碼層級的 spike 為依據（見 `docs/grimo/PRD.md` 風險登錄）。
 
-| Group / Package | Version | Primary import | Verified |
+| 群組 / 套件 | 版本 | 主要 import | 已驗證 |
 | --- | --- | --- | --- |
-| `org.springframework.boot` (starter-parent) | **4.0.5** | — | yes (user-supplied) |
-| `io.spring.dependency-management` (Gradle plugin) | **1.1.7** | — | yes |
-| `org.graalvm.buildtools.native` (Gradle plugin) | **0.11.5** | — | yes |
-| Java toolchain | **25** (LTS, GA 2025-09-16) | — | yes |
+| `org.springframework.boot`（starter-parent） | **4.0.5** | — | yes（使用者提供） |
+| `io.spring.dependency-management`（Gradle 外掛） | **1.1.7** | — | yes |
+| `org.graalvm.buildtools.native`（Gradle 外掛） | **0.11.5** | — | yes |
+| Java toolchain | **25**（LTS，GA 2025-09-16） | — | yes |
 | `org.springframework.modulith:spring-modulith-bom` | **2.0.5** | `org.springframework.modulith.core.ApplicationModules` | yes |
-| `org.springframework.modulith:spring-modulith-starter-core` | 2.0.5 | (auto) | yes |
+| `org.springframework.modulith:spring-modulith-starter-core` | 2.0.5 | （自動） | yes |
 | `org.springframework.modulith:spring-modulith-starter-test` | 2.0.5 | `org.springframework.modulith.test.ApplicationModuleTest` | yes |
-| `org.springframework.modulith:spring-modulith-events-jdbc` | 2.0.5 | (auto) | yes |
+| `org.springframework.modulith:spring-modulith-events-jdbc` | 2.0.5 | （自動） | yes |
 | `org.springframework.modulith:spring-modulith-docs` | 2.0.5 | `org.springframework.modulith.docs.Documenter` | yes |
 | `org.springframework.boot:spring-boot-starter-web` | 4.0.5 | `org.springframework.web.bind.annotation.*` | yes |
 | `org.springframework.boot:spring-boot-starter-thymeleaf` | 4.0.5 | `org.thymeleaf.TemplateEngine` | yes |
 | `org.springframework.boot:spring-boot-starter-jdbc` | 4.0.5 | `org.springframework.jdbc.core.JdbcTemplate` | yes |
 | `org.springframework.boot:spring-boot-starter-actuator` | 4.0.5 | — | yes |
 | `org.springframework.boot:spring-boot-starter-validation` | 4.0.5 | `jakarta.validation.*` | yes |
-| `org.springframework.boot:spring-boot-devtools` (dev only) | 4.0.5 | — | yes |
+| `org.springframework.boot:spring-boot-devtools`（僅開發） | 4.0.5 | — | yes |
 | `com.h2database:h2` | 2.3.232 | `org.h2.Driver` | yes |
 | `io.github.wimdeblauwe:htmx-spring-boot` | **5.1.0** | `io.github.wimdeblauwe.htmx.spring.boot.mvc.HtmxResponse` | yes |
 | `io.github.wimdeblauwe:htmx-spring-boot-thymeleaf` | 5.1.0 | Thymeleaf dialect `htmx:*` | yes |
@@ -99,101 +85,73 @@ source-level spike (see `docs/grimo/PRD.md` risk register).
 | `org.springaicommunity.agents:agent-claude` | 0.12.2 | `org.springaicommunity.agents.claude.ClaudeAgentModel` | yes |
 | `org.springaicommunity.agents:agent-codex` | 0.12.2 | `org.springaicommunity.agents.codex.CodexAgentModel` | yes |
 | `org.springaicommunity.agents:agent-gemini` | 0.12.2 | `org.springaicommunity.agents.gemini.GeminiAgentModel` | yes |
-| `org.springaicommunity:spring-ai-starter-session-jdbc` | **0.2.0** | `org.springframework.ai.session.advisor.SessionMemoryAdvisor`; `org.springframework.ai.session.SessionService` | yes (separate release line from agent-client; requires Spring AI ≥2.0.0-M4) |
+| `org.springaicommunity:spring-ai-starter-session-jdbc` | **0.2.0** | `org.springframework.ai.session.advisor.SessionMemoryAdvisor`；`org.springframework.ai.session.SessionService` | yes（與 agent-client 獨立發版；需要 Spring AI ≥ 2.0.0-M4） |
 | `org.springaicommunity:spring-ai-session-management` | 0.2.0 | `org.springframework.ai.session.compaction.*` | yes |
-| `org.springaicommunity:agent-sandbox-core` | **0.9.1** | `org.springaicommunity.sandbox.Sandbox` (SPI) | yes — on Maven Central under groupId `org.springaicommunity` (not `.agents`) |
-| `org.springaicommunity:agent-sandbox-docker` | **0.9.1** | `org.springaicommunity.sandbox.docker.DockerSandbox` — **only used for ephemeral file-copy sandboxes; NOT the worktree path** (D9) | yes — same group as above |
-| `org.testcontainers:testcontainers` | 1.20.4 | `org.testcontainers.containers.GenericContainer` | yes (JVM only; `@DisabledInNativeImage`) |
-| `org.eclipse.jgit:org.eclipse.jgit` | 7.1.1.202506271520-r | `org.eclipse.jgit.api.Git` (worktree add/remove) | yes |
-| `org.springframework.boot:spring-boot-starter-test` | 4.0.5 | (auto) | yes |
-| `org.testcontainers:junit-jupiter` | 1.20.4 | `@Testcontainers` | yes (test classpath only) |
-| `com.tngtech.archunit:archunit-junit5` | 1.3.0 | via Modulith verify API | yes (pulled transitively) |
+| `org.springaicommunity:agent-sandbox-core` | **0.9.1** | `org.springaicommunity.sandbox.Sandbox`（SPI） | yes — Maven Central 上的 groupId 為 `org.springaicommunity`（非 `.agents`） |
+| `org.springaicommunity:agent-sandbox-docker` | **0.9.1** | `org.springaicommunity.sandbox.docker.DockerSandbox` — **僅用於短暫檔案複製沙箱；非工作樹路徑**（D9） | yes — 同上 group |
+| `org.testcontainers:testcontainers` | 1.20.4 | `org.testcontainers.containers.GenericContainer` | yes（僅 JVM；`@DisabledInNativeImage`） |
+| `org.eclipse.jgit:org.eclipse.jgit` | 7.1.1.202506271520-r | `org.eclipse.jgit.api.Git`（worktree add/remove） | yes |
+| `org.springframework.boot:spring-boot-starter-test` | 4.0.5 | （自動） | yes |
+| `org.testcontainers:junit-jupiter` | 1.20.4 | `@Testcontainers` | yes（僅測試 classpath） |
+| `com.tngtech.archunit:archunit-junit5` | 1.3.0 | 透過 Modulith verify API | yes（傳遞引入） |
 
-> **Principle reminder:** every version here is the latest *stable* one
-> validated against Boot 4.0.5 as of 2026-04-16. `spring-ai-session`
-> is pre-1.0 by design — pin to `0.2.0` release; do not track
-> `0.3.0-SNAPSHOT`.
+> **原則提醒：** 這裡的每個版本都是截至 2026-04-16 針對 Boot 4.0.5 驗證過的最新穩定版。`spring-ai-session` 設計上為 pre-1.0 — 固定於 `0.2.0` 發版；不追蹤 `0.3.0-SNAPSHOT`。
 
-### Banned / denied libraries
+### 禁用 / 拒絕的函式庫
 
-| Library | Reason |
+| 函式庫 | 原因 |
 | --- | --- |
-| `nz.net.ultraq.thymeleaf:thymeleaf-layout-dialect` | Groovy runtime → GraalVM native blocker (D16). Use parameterized Thymeleaf fragments. |
-| `spring-boot-starter-webflux` on the web adapter path | Open AOT regression on functional routes (R1); stay on MVC + virtual threads. |
-| `cglib-based` manual proxying | Boot 4 native unsupports runtime CGLIB (#49350). |
-| Testcontainers *inside* the native image | Not runtime-native-safe; wrap usages with `@DisabledInNativeImage`. |
+| `nz.net.ultraq.thymeleaf:thymeleaf-layout-dialect` | Groovy 執行期 → GraalVM native 阻礙（D16）。請改用帶參數的 Thymeleaf fragments。 |
+| `spring-boot-starter-webflux`（用於 web adapter 路徑） | 函式式路由上的 AOT 回歸問題（R1）；保持使用 MVC + virtual threads。 |
+| 基於 `cglib` 的手動代理 | Boot 4 native 不支援執行期 CGLIB（#49350）。 |
+| 原生映像內的 Testcontainers | 執行期非原生安全；使用時請以 `@DisabledInNativeImage` 包裝。 |
 
-## 4. Runtime & concurrency
+## 4. 執行期與並發
 
-- **Virtual threads on by default** via
-  `spring.threads.virtual.enabled=true` (Spring Boot 4 first-class).
-  Blocking I/O (ProcessBuilder, JDBC, HTTP) runs on virtual carriers.
-  JEP 491 eliminated `synchronized` pinning on JDK 24+, so GraalVM for
-  JDK 25 inherits this — no carrier starvation issue tracked.
-- **Streaming path:** Spring AI `ChatClient.stream().content()` returns
-  `Flux<String>`; bridged to `SseEmitter` by
-  `adapter/in/web/ChatSseController`. HTMX page consumes via
-  `<div hx-ext="sse" sse-connect="..." sse-swap="token">` — no bespoke
-  JS.
-- **Sub-agent dispatch:** virtual-thread-per-task executor; at most
-  `grimo.subagent.max-concurrent` (default 2) sandbox containers at a
-  time to cap host resource pressure.
-- **Timeouts:** every outbound call has an explicit `Duration` timeout
-  configured via `grimo.cli.<provider>.timeout` (default 5m), passed to
-  `AgentClient` builders.
+- **Virtual threads 預設啟用**，透過 `spring.threads.virtual.enabled=true`（Spring Boot 4 一等支援）。阻塞 I/O（ProcessBuilder、JDBC、HTTP）在 virtual carrier 上執行。JEP 491 在 JDK 24+ 上消除了 `synchronized` 固定問題，GraalVM for JDK 25 繼承此特性，無 carrier 饑餓問題。
+- **串流路徑：** Spring AI `ChatClient.stream().content()` 回傳 `Flux<String>`；由 `adapter/in/web/ChatSseController` 橋接至 `SseEmitter`。HTMX 頁面透過 `<div hx-ext="sse" sse-connect="..." sse-swap="token">` 消費 — 無需自訂 JS。
+- **子代理派送：** 每任務一個 virtual thread 執行器；同時最多 `grimo.subagent.max-concurrent`（預設 2）個沙箱容器，以限制主機資源壓力。
+- **超時：** 每個出站呼叫都有明確的 `Duration` 超時，透過 `grimo.cli.<provider>.timeout`（預設 5m）設定並傳遞給 `AgentClient` 建構器。
 
-## 5. Storage & filesystem layout
+## 5. 儲存與檔案系統配置
 
-### 5.1 GrimoHome (`~/.grimo/`)
+### 5.1 GrimoHome（`~/.grimo/`）
 
 ```
 ~/.grimo/
 ├── config/
-│   └── application.yml          # user overrides (merged by Boot)
+│   └── application.yml          # 使用者覆寫（由 Boot 合併）
 ├── db/
-│   └── grimo.mv.db              # H2 file-mode DB (session, events, cost)
+│   └── grimo.mv.db              # H2 檔案模式 DB（session、events、cost）
 ├── memory/
-│   ├── MEMORY.md                # index (AutoMemoryTools convention)
-│   └── <topic>.md               # user/feedback/project/reference entries
+│   ├── MEMORY.md                # 索引（AutoMemoryTools 慣例）
+│   └── <topic>.md               # 使用者/回饋/專案/參考條目
 ├── skills/
 │   └── <skill-name>/
-│       └── SKILL.md             # skill definition
-├── sessions/                    # user-facing session exports (optional)
+│       └── SKILL.md             # skill 定義
+├── sessions/                    # 使用者端 session 匯出（可選）
 ├── worktrees/
-│   └── <task-id>/               # git worktree for one sub-agent task
+│   └── <task-id>/               # 一個子代理任務的 git worktree
 └── logs/
     └── grimo.log
 ```
 
-`GrimoHomePaths` (in `core`) is the single authority for path
-resolution; no other module constructs paths from `System.getProperty
-("user.home")` directly.
+`GrimoHomePaths`（在 `core` 中）是路徑解析的唯一權威；其他模組不得直接從 `System.getProperty("user.home")` 建構路徑。
 
-### 5.2 Relational store
+### 5.2 關聯式儲存
 
-- **Default:** H2 file mode — `jdbc:h2:file:~/.grimo/db/grimo;MODE=PostgreSQL;AUTO_SERVER=TRUE`
-- **Opt-in:** PostgreSQL by setting `grimo.datasource.url` (and
-  `username`/`password`) — session-jdbc has a matching
-  `PostgresJdbcSessionRepositoryDialect`.
-- **Tables** (owned by `spring-ai-session-jdbc` schema.sql):
-  `AI_SESSION`, `AI_SESSION_EVENT` (+ primary-key/index definitions).
-- **Modulith event publication tables** owned by
-  `spring-modulith-events-jdbc`: `event_publication` +
-  `event_publication_archive`.
-- **Grimo-owned tables** (Flyway-managed under
-  `src/main/resources/db/migration/`):
-  - `grimo_cost` — per-turn token + $ telemetry (columns: `turn_id`,
-    `session_id`, `provider`, `tokens_in`, `tokens_out`, `usd_cents`,
-    `created_at`).
-  - `grimo_subagent_task` — task lifecycle (`id`, `session_id`,
-    `worktree_path`, `status`, `started_at`, `finished_at`,
-    `exit_code`).
-  - `grimo_skill_proposal` — pending distillations (`id`, `name`,
-    `source_session_ids`, `draft_md`, `status`, `created_at`).
+- **預設：** H2 檔案模式 — `jdbc:h2:file:~/.grimo/db/grimo;MODE=PostgreSQL;AUTO_SERVER=TRUE`
+- **可選：** 透過設定 `grimo.datasource.url`（以及 `username` / `password`）切換至 PostgreSQL — session-jdbc 有對應的 `PostgresJdbcSessionRepositoryDialect`。
+- **資料表**（由 `spring-ai-session-jdbc` 的 schema.sql 管理）：`AI_SESSION`、`AI_SESSION_EVENT`（含主鍵/索引定義）。
+- **Modulith 事件發佈資料表**，由 `spring-modulith-events-jdbc` 管理：`event_publication` + `event_publication_archive`。
+- **Grimo 自有資料表**（由 Flyway 管理，位於 `src/main/resources/db/migration/`）：
+  - `grimo_cost` — 每輪 token + 美元遙測（欄位：`turn_id`、`session_id`、`provider`、`tokens_in`、`tokens_out`、`usd_cents`、`created_at`）。
+  - `grimo_subagent_task` — 任務生命週期（`id`、`session_id`、`worktree_path`、`status`、`started_at`、`finished_at`、`exit_code`）。
+  - `grimo_skill_proposal` — 待審蒸餾提案（`id`、`name`、`source_session_ids`、`draft_md`、`status`、`created_at`）。
 
-## 6. Key data flows
+## 6. 關鍵資料流
 
-### 6.1 Single user prompt → streamed answer (happy path)
+### 6.1 單一使用者 prompt → 串流回應（正常路徑）
 
 ```
 Browser       web            session         router          cli           provider CLI
@@ -210,7 +168,7 @@ Browser       web            session         router          cli           provi
   │            │─ persistTurn ──▶ SessionMemoryAdvisor.after()                  │
 ```
 
-### 6.2 Main-agent CLI switch (AC3)
+### 6.2 主代理 CLI 切換（AC3）
 
 ```
  user → /grimo switch codex  →  web.SwitchController
@@ -226,12 +184,9 @@ Browser       web            session         router          cli           provi
      next user message → cli(codex).prompt(compactedSystem + userMessage)
 ```
 
-Compaction strategy: `SlidingWindowCompactionStrategy` with
-`maxEvents=20` by default; swappable for
-`RecursiveSummarizationCompactionStrategy` when a session exceeds
-`grimo.session.summarize-after-tokens`.
+壓縮策略：預設使用 `SlidingWindowCompactionStrategy`（`maxEvents=20`）；當 session 超過 `grimo.session.summarize-after-tokens` 時可替換為 `RecursiveSummarizationCompactionStrategy`。
 
-### 6.3 Main-agent delegates a write-task → sub-agent
+### 6.3 主代理委派寫作任務給子代理
 
 ```
  main-agent decides: "delegate: refactor OrderService"
@@ -245,101 +200,58 @@ Compaction strategy: `SlidingWindowCompactionStrategy` with
    └─ user reviews diff → accept → worktree merge back
 ```
 
-Sub-agent cannot read host paths outside `/work` (AC5 verified by
-test; see `qa-strategy.md`).
+子代理無法讀取 `/work` 以外的主機路徑（AC5 由測試驗證；見 `qa-strategy.md`）。
 
-## 7. Error-handling strategy
+## 7. 錯誤處理策略
 
-- **`CliUnavailableException`** — raised by `cli` adapter when the
-  underlying binary is missing at call time. Not a 500; surfaces to the
-  user as `"codex CLI not detected — run 'brew install codex' or
-  /grimo switch claude"` via HTMX toast. Boot always succeeds (P5).
-- **`SandboxSpawnException`** — Docker daemon down or image pull
-  failed. User sees an actionable message; `sub-agent` degrades by
-  refusing to start the task (never silently falls back to main-agent).
-- **`CompactionBudgetException`** — compacted history + new message
-  exceeds the target CLI's context budget. Router escalates to a
-  higher-context provider or asks the user to shorten.
-- **All domain events carry a `correlationId`** (one per user turn) so
-  the Web UI SSE channel can scope token streams.
+- **`CliUnavailableException`** — 當底層二進位檔在呼叫時找不到時，由 `cli` 適配器拋出。這不是 500 錯誤；透過 HTMX toast 向使用者顯示 `"codex CLI not detected — run 'brew install codex' or /grimo switch claude"`。Boot 永遠成功啟動（P5）。
+- **`SandboxSpawnException`** — Docker Daemon 未運行或映像拉取失敗。使用者看到可行動的訊息；`sub-agent` 透過拒絕啟動任務來降級（不會靜默降回主代理）。
+- **`CompactionBudgetException`** — 壓縮後的歷史加上新訊息超過目標 CLI 的上下文預算。路由器升級至更大上下文的提供者，或要求使用者縮短訊息。
+- **所有領域事件都攜帶 `correlationId`**（每個使用者輪次一個），讓 Web UI SSE 頻道可以劃定 token 串流的範圍。
 
-## 8. Native image strategy
+## 8. 原生映像策略
 
-- **JVM first (v1).** `./gradlew bootRun` and `./gradlew bootJar` are
-  the primary delivery artifacts. JDK 25 + virtual threads.
-- **`native` profile day-1.** `./gradlew nativeCompile` must produce a
-  binary; `./gradlew nativeRun` must start and serve
-  `/actuator/health`. This is a **nightly CI gate**, not a PR gate
-  — keeps hint gaps surfaceable without blocking feature delivery.
-- **Testcontainers is JVM-only.** `sub-agent` has two implementations:
-  1. `TestcontainersSandboxAdapter` — default, JVM; used for tests and
-     the JVM runtime.
-  2. `ProcessBuilderSandboxAdapter` — native-safe; shells out to
-     `docker run --mount type=bind,src=<worktree>,dst=/work ...`
-     directly. Slightly less ergonomic (no automatic cleanup lifecycle)
-     but avoids the Testcontainers runtime dependency. Selected via
-     `grimo.subagent.backend=process|testcontainers` (default
-     `testcontainers`, auto-flipped to `process` when `NativeDetector.inNativeImage() == true`).
-- **Static hints registrar** (`io.github.samzhu.grimo.native.GrimoRuntimeHints`
-  implementing `RuntimeHintsRegistrar`) registers:
-  - Proxies for `AgentClient`, per-provider `*AgentModel` interfaces.
-  - Jackson types for CLI I/O DTOs.
-  - Thymeleaf template paths `classpath:/templates/**/*.html`.
-  - H2 JDBC driver + session-jdbc schema resources.
-- **`ApplicationModules.verify()`** stays in JVM tests only.
-  `spring.modulith.runtime.verification-enabled=false` in production.
+- **JVM 優先（v1）。** `./gradlew bootRun` 和 `./gradlew bootJar` 是主要交付物。JDK 25 + virtual threads。
+- **`native` profile 第一天就存在。** `./gradlew nativeCompile` 必須產生二進位檔；`./gradlew nativeRun` 必須啟動並提供 `/actuator/health`。這是**夜間 CI 閘門**，不是 PR 閘門 — 在不阻礙功能交付的前提下持續發現 hint 缺口。
+- **Testcontainers 僅限 JVM。** `sub-agent` 有兩個實作：
+  1. `TestcontainersSandboxAdapter` — 預設，JVM；用於測試和 JVM 執行期。
+  2. `ProcessBuilderSandboxAdapter` — native 安全；直接呼叫 `docker run --mount type=bind,src=<worktree>,dst=/work ...`。人體工學稍差（無自動清理生命週期），但避免 Testcontainers 執行期依賴。透過 `grimo.subagent.backend=process|testcontainers` 選擇（預設 `testcontainers`，當 `NativeDetector.inNativeImage() == true` 時自動切換為 `process`）。
+- **靜態 hints 登錄器**（`io.github.samzhu.grimo.native.GrimoRuntimeHints`，實作 `RuntimeHintsRegistrar`）登錄：
+  - `AgentClient`、各提供者 `*AgentModel` 介面的代理。
+  - CLI I/O DTOs 的 Jackson 型別。
+  - Thymeleaf 模板路徑 `classpath:/templates/**/*.html`。
+  - H2 JDBC 驅動 + session-jdbc schema 資源。
+- **`ApplicationModules.verify()`** 僅保留在 JVM 測試中。生產環境設定 `spring.modulith.runtime.verification-enabled=false`。
 
-## 9. Security posture (MVP)
+## 9. 安全立場（MVP）
 
-- **Bind-host:** `server.address=127.0.0.1` locked in
-  `application.yml` so the Web UI is never exposed on a LAN by accident.
-- **CSRF:** Spring Security not added in v1 (D15), but Thymeleaf
-  forms carry a `X-CSRF` synchronizer token checked by an
-  `HandlerInterceptor`.
-- **Sandbox**: `--read-only` root filesystem with tmpfs for `/tmp`,
-  `--security-opt=no-new-privileges`, `--cap-drop=ALL` unless a skill
-  explicitly needs a capability, `--network=bridge` with an allowlist
-  proxy (default: deny-all except user-declared domains in
-  `grimo.sandbox.allowlist`).
-- **Git operations** run as the host user; sub-agents cannot push
-  (mount is per-worktree; no credential files mounted).
+- **Bind-host：** `server.address=127.0.0.1` 在 `application.yml` 中鎖定，確保 Web UI 不會意外暴露在 LAN 上。
+- **CSRF：** v1 未加入 Spring Security（D15），但 Thymeleaf 表單攜帶由 `HandlerInterceptor` 驗證的 `X-CSRF` 同步器 token。
+- **沙箱：** 以 `--read-only` 根檔案系統（`/tmp` 使用 tmpfs）、`--security-opt=no-new-privileges`、`--cap-drop=ALL`（除非 skill 明確需要某 capability），以及 `--network=bridge`（附帶允許清單代理，預設：全部拒絕，除使用者在 `grimo.sandbox.allowlist` 中聲明的域名外）執行。
+- **Git 操作**以主機使用者身份執行；子代理無法 push（掛載為每任務 worktree；不掛載憑證檔案）。
 
-## 10. Observability
+## 10. 可觀測性
 
-- **Actuator** endpoints on `127.0.0.1:8080/actuator`, restricted to
-  `health`, `info`, `modulith`, `metrics` for MVP.
-- **Per-turn cost** streamed alongside tokens via SSE event name
-  `cost`. Aggregated view at `/grimo/cost`.
-- **Session event log** (from `SessionMemoryAdvisor`) is replayable
-  and exportable to `~/.grimo/sessions/<session-id>.jsonl`.
+- **Actuator** 端點位於 `127.0.0.1:8080/actuator`，MVP 限制為 `health`、`info`、`modulith`、`metrics`。
+- **每輪成本**透過 SSE 事件名稱 `cost` 與 token 一起串流。聚合檢視位於 `/grimo/cost`。
+- **Session 事件日誌**（來自 `SessionMemoryAdvisor`）可重放並匯出至 `~/.grimo/sessions/<session-id>.jsonl`。
 
-## 11. Deployment
+## 11. 部署
 
-- **Dev**: `./gradlew bootRun --args='--spring.profiles.active=dev'`.
-  DevTools live reload, H2 file DB auto-init.
-- **User install (JVM)**: `./gradlew bootJar` →
-  `java -jar grimo-<v>.jar`. Requires JDK 25 runtime.
-- **User install (native, M7)**: `./gradlew nativeCompile` →
-  single-file `build/native/nativeCompile/grimo`. Requires Docker
-  daemon reachable for sub-agent isolation.
-- **Config precedence** (high→low): environment variables →
-  `~/.grimo/config/application.yml` → packaged defaults.
+- **開發：** `./gradlew bootRun --args='--spring.profiles.active=dev'`。DevTools 熱重載，H2 檔案 DB 自動初始化。
+- **使用者安裝（JVM）：** `./gradlew bootJar` → `java -jar grimo-<v>.jar`。需要 JDK 25 執行期。
+- **使用者安裝（native，M7）：** `./gradlew nativeCompile` → 單一檔案 `build/native/nativeCompile/grimo`。需要 Docker Daemon 可達，以供子代理隔離使用。
+- **設定優先級**（高→低）：環境變數 → `~/.grimo/config/application.yml` → 打包預設值。
 
-## 12. Open technical questions resolved in later ADRs
+## 12. 尚未解決的技術問題（留待後續 ADR）
 
-These remain open and will become ADRs if a discovery during spec
-work forces a divergence from assumptions here:
+以下問題仍開放，若規格工作中的發現迫使我們偏離此處的假設，將成為 ADR：
 
-- Exact cost-router heuristic table (task class × model).
-- Whether `RecursiveSummarizationCompactionStrategy` requires a
-  dedicated "summarizer" model (e.g., Gemini 2.5 Flash) or reuses the
-  active CLI.
-- Long-running sub-agent observability (structured log scraping vs
-  OpenTelemetry inside the sandbox).
-- Skill-distillation trigger policy (timer vs on-success hook vs
-  nightly).
+- 確切的成本路由器啟發式表（任務類別 × 模型）。
+- `RecursiveSummarizationCompactionStrategy` 是否需要專用的「摘要」模型（例如 Gemini 2.5 Flash），還是重用活躍的 CLI。
+- 長時間運行子代理的可觀測性（結構化日誌抓取 vs 沙箱內的 OpenTelemetry）。
+- Skill 蒸餾觸發策略（定時器 vs 成功後掛鉤 vs 夜間執行）。
 
 ---
 
-*Refer to `development-standards.md` for code-level conventions and
-`qa-strategy.md` for the verification pipeline.*
+*代碼級慣例請參考 `development-standards.md`，驗證管道請參考 `qa-strategy.md`。*

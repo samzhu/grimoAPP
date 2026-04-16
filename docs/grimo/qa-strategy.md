@@ -1,107 +1,94 @@
-# Grimo — QA Strategy
+# Grimo — QA 策略
 
-**Status:** v0.1 · **Date:** 2026-04-16
+**狀態：** v0.1 · **日期：** 2026-04-16
 
-## 1. Philosophy
+## 1. 哲學
 
-Two complementary control regimes, per the harness-engineering canon
-baked into the PRD:
+兩種互補的控制機制，源自 PRD 中的外殼工程（harness-engineering）準則：
 
-- **Computational controls** — deterministic verifications: unit
-  tests, module-boundary checks, contract tests, native-image smoke
-  tests. These are the primary quality gate.
-- **Inferential controls** — LLM-as-judge checks on behavioral
-  contracts (e.g. "after CLI switch, does the next reply reference
-  prior context?"). Used selectively on SBE criteria where
-  deterministic assertions are hard.
+- **計算型控制（Computational controls）** — 確定性驗證：單元測試、模組邊界檢查、契約測試、原生映像冒煙測試。這是主要的品質閘門。
+- **推理型控制（Inferential controls）** — LLM 作為評審，針對行為契約（例如「CLI 切換後，下一個回應是否引用了先前的上下文？」）進行檢查。選擇性用於確定性斷言困難的 SBE 標準。
 
-## 2. Frameworks & fixed tools
+## 2. 框架與固定工具
 
-| Concern | Tool | Notes |
+| 關注點 | 工具 | 備注 |
 | --- | --- | --- |
-| Test runner | JUnit Jupiter 5.11+ | `testImplementation("org.springframework.boot:spring-boot-starter-test")` pulls this in on Boot 4.0.5 |
-| Assertions | AssertJ 3.26+ | via `starter-test` |
+| 測試執行器 | JUnit Jupiter 5.11+ | `testImplementation("org.springframework.boot:spring-boot-starter-test")` 在 Boot 4.0.5 中引入此依賴 |
+| 斷言 | AssertJ 3.26+ | 透過 `starter-test` 引入 |
 | Modulith verify | `spring-modulith-starter-test` | `ApplicationModules.of(GrimoApplication.class).verify()` |
-| Arch rules | ArchUnit (transitively from Modulith) | Domain-Spring-free assertion lives in `core/ArchitectureTest.java` |
-| Container tests | Testcontainers 1.20.4 | **JVM classpath only**; `@DisabledInNativeImage` on every such class |
-| HTTP tests | `MockMvc` (`@WebMvcTest`) + `WebTestClient` for SSE | HTMX interactions covered by `mockMvc.perform(...).andExpect(header().exists("HX-*"))` |
-| DB tests | `@DataJdbcTest` on H2 memory mode | Production uses H2 file mode (D17) |
-| Code formatting | _deferred — one-shot external tool run at a later cleanup spec_ | not a per-build gate (user decision 2026-04-16) |
-| Native build | `org.graalvm.buildtools.native` 0.11.5 | nightly `nativeCompile` smoke-test |
-| Coverage | JaCoCo 0.8.12 | target ≥ 75% line coverage on `application/service/` and `domain/` packages; adapter coverage is a side-effect, not a target |
+| 架構規則 | ArchUnit（Modulith 傳遞引入） | 領域層無 Spring 的斷言位於 `core/ArchitectureTest.java` |
+| 容器測試 | Testcontainers 1.20.4 | **僅限 JVM classpath**；所有此類類別標記 `@DisabledInNativeImage` |
+| HTTP 測試 | `MockMvc`（`@WebMvcTest`）+ `WebTestClient`（用於 SSE） | HTMX 互動以 `mockMvc.perform(...).andExpect(header().exists("HX-*"))` 涵蓋 |
+| DB 測試 | `@DataJdbcTest`（H2 記憶體模式） | 生產環境使用 H2 檔案模式（D17） |
+| 程式碼格式化 | _延後 — 在後續清理規格中以外部工具一次性執行_ | 非每次建置閘門（使用者 2026-04-16 決定） |
+| 原生建置 | `org.graalvm.buildtools.native` 0.11.5 | 夜間 `nativeCompile` 冒煙測試 |
+| 覆蓋率 | JaCoCo 0.8.12 | 目標：`application/service/` 和 `domain/` 套件的行覆蓋率 ≥ 75%；適配器覆蓋率為副產品，非目標 |
 
-## 3. Test taxonomy
+## 3. 測試分類
 
-| Tier | Scope | Runner | Target CI gate |
+| 層級 | 範疇 | 執行器 | 目標 CI 閘門 |
 | --- | --- | --- | --- |
-| **T0 Unit** | `domain/` records + pure services | plain JUnit | PR gate (fast, <10s per module) |
-| **T1 Module** | Single `@ApplicationModule` wired (no cross-module beans) | `@ApplicationModuleTest` | PR gate |
-| **T2 Slice** | `@WebMvcTest`, `@DataJdbcTest` per adapter | Spring slices | PR gate |
-| **T3 Contract** | Port ↔ adapter contract (e.g. `SandboxPort` contract ran against both impls) | `@SpringBootTest(classes = Sandbox*Config)` | PR gate |
-| **T4 Integration** | End-to-end user-visible behavior with stubs for external CLIs | `@SpringBootTest` + WireMock-for-LLM | Nightly + tag-triggered |
-| **T5 Native smoke** | `nativeCompile` + boot + `/actuator/health` | `gradle nativeTest` | Nightly (not PR-blocking in v1) |
-| **T6 Inferential** | LLM-judge of transcripts against SBE criteria | custom runner, opt-in | Weekly / release-candidate |
+| **T0 Unit** | `domain/` records + 純服務 | 純 JUnit | PR 閘門（快速，每模組 < 10s） |
+| **T1 Module** | 單一 `@ApplicationModule` 接線（無跨模組 beans） | `@ApplicationModuleTest` | PR 閘門 |
+| **T2 Slice** | 每適配器的 `@WebMvcTest`、`@DataJdbcTest` | Spring slices | PR 閘門 |
+| **T3 Contract** | 埠 ↔ 適配器契約（例如：`SandboxPort` 契約針對兩個實作執行） | `@SpringBootTest(classes = Sandbox*Config)` | PR 閘門 |
+| **T4 Integration** | 端對端使用者可見行為（使用外部 CLI 的存根） | `@SpringBootTest` + WireMock-for-LLM | 夜間 + 標籤觸發 |
+| **T5 Native smoke** | `nativeCompile` + 啟動 + `/actuator/health` | `gradle nativeTest` | 夜間（v1 不阻擋 PR） |
+| **T6 Inferential** | LLM 評審對照 SBE 標準審查對話記錄 | 自訂執行器，選擇加入 | 每週 / 發版候選 |
 
-## 4. SBE ↔ Test mapping
+## 4. SBE ↔ 測試對映
 
-Every PRD acceptance criterion must be cited by at least one test.
-Spec docs carry the forward reference. Reverse index lives here and is
-re-generated nightly by `scripts/verify-spec-coverage.sh`.
+每個 PRD 驗收標準必須至少被一個測試引用。規格文件攜帶前向引用。反向索引位於此處，由 `scripts/verify-spec-coverage.sh` 每夜重新生成。
 
-| PRD AC | Primary test class | Tier |
+| PRD AC | 主要測試類別 | 層級 |
 | --- | --- | --- |
-| AC1 trivial routing | `RouterDecisionTest` | T1 |
-| AC2 strategic escalation | `RouterDecisionTest` | T1 |
-| AC3 CLI switch replay | `CliSwitchReplayIT` | T4 |
-| AC4 main-agent read-only | `MainAgentAllowlistTest` | T1 |
-| AC5 sub-agent isolation | `SubagentWorktreeIT` (Testcontainers) | T4 |
-| AC6 fail-soft boot | `FailSoftBootIT` (spring-boot-test with `PATH` stubbed) | T4 |
-| AC7 jury review | `JuryReviewIT` | T4 |
-| AC8 skill distillation | `SkillDistillerTest` | T1 |
-| AC9 memory curated | `AutoMemoryToolsTest` | T1 |
-| AC10 module boundaries | `ModuleArchitectureTest.verify()` | T1 |
+| AC1 簡單任務路由 | `RouterDecisionTest` | T1 |
+| AC2 策略性升級 | `RouterDecisionTest` | T1 |
+| AC3 CLI 切換重放 | `CliSwitchReplayIT` | T4 |
+| AC4 主代理唯讀 | `MainAgentAllowlistTest` | T1 |
+| AC5 子代理隔離 | `SubagentWorktreeIT`（Testcontainers） | T4 |
+| AC6 軟失敗啟動 | `FailSoftBootIT`（spring-boot-test，存根 `PATH`） | T4 |
+| AC7 陪審團審查 | `JuryReviewIT` | T4 |
+| AC8 技能蒸餾 | `SkillDistillerTest` | T1 |
+| AC9 記憶體整理 | `AutoMemoryToolsTest` | T1 |
+| AC10 模組邊界 | `ModuleArchitectureTest.verify()` | T1 |
 
-## 5. Routing by spec size (auto-verify rules)
+## 5. 按規格大小路由（自動驗證規則）
 
-| Size | Auto-verify on merge | Manual QA required |
+| 大小 | 合併時自動驗證 | 是否需要人工 QA |
 | --- | --- | --- |
-| **XS** (6-8 pts) | `./gradlew test` passes + relevant T0/T1 green | no |
-| **S** (9-11) | above + T2 slices + `./gradlew modulith:verify` | no |
-| **M** (12-14) | above + T3 contract tests + integration (T4) for touched paths | no |
-| **L** (15-16) | above + full T4 run + code review by 2 humans | **yes** — invoke `/verifying-quality` |
-| **XL** (17-18) | decompose; no spec ships as XL | n/a |
+| **XS**（6-8 點） | `./gradlew test` 通過 + 相關 T0/T1 通過 | 否 |
+| **S**（9-11） | 上述 + T2 slices + `./gradlew modulith:verify` | 否 |
+| **M**（12-14） | 上述 + T3 契約測試 + 受影響路徑的整合測試（T4） | 否 |
+| **L**（15-16） | 上述 + 完整 T4 執行 + 2 人程式碼審查 | **是** — 呼叫 `/verifying-quality` |
+| **XL**（17-18） | 分解；不允許以 XL 出貨 | 不適用 |
 
-## 6. Verification pipeline
+## 6. 驗證管道
 
 ```
-dev saves code
+開發者儲存程式碼
    ↓
 ./gradlew check  ──▶ compile + T0 + T1 + T2 + modulith verify
-   ↓ (green)
-scripts/verify-tests-pass.sh             ──▶ records PASS timestamp
-scripts/verify-spec-coverage.sh S###     ──▶ asserts every AC in spec has a test
+   ↓（通過）
+scripts/verify-tests-pass.sh             ──▶ 記錄 PASS 時間戳
+scripts/verify-spec-coverage.sh S###     ──▶ 斷言規格中每個 AC 都有測試
    ↓
-CI PR gate: T0..T3 run, JaCoCo report, Dependabot/OWASP check
-   ↓ (merge to main)
-CI nightly:
-  - full T4 integration
+CI PR 閘門：執行 T0..T3、JaCoCo 報告、Dependabot/OWASP 檢查
+   ↓（合併至 main）
+CI 夜間：
+  - 完整 T4 整合測試
   - T5 nativeCompile + health probe
-  - T6 inferential judge on recorded transcripts (once we have recordings)
+  - T6 推理評審對話記錄（一旦有記錄）
 ```
 
-## 7. Deterministic-only stubs for CLI agents
+## 7. CLI 代理的確定性存根
 
-- `cli` module's outbound port `AgentClientPort` has a production
-  impl (`AgentClientAdapter`) and a test impl (`StubAgentClientAdapter`)
-  that replays canned `Flux<String>` streams.
-- No real `claude`/`codex`/`gemini` invocation during T0..T3. T4
-  may use a real CLI if the machine has it, but tests must skip
-  with a clear message otherwise (never fail because a CLI is
-  absent).
+- `cli` 模組的出站埠 `AgentClientPort` 有一個生產實作（`AgentClientAdapter`）和一個測試實作（`StubAgentClientAdapter`），後者重放預設的 `Flux<String>` 串流。
+- T0..T3 期間不執行真實的 `claude`/`codex`/`gemini` 呼叫。T4 如果機器上有安裝 CLI 可以使用真實 CLI，但測試必須在 CLI 缺失時以清楚的訊息跳過（絕不因 CLI 缺失而失敗）。
 
-## 8. Native-image smoke-test recipe (T5)
+## 8. 原生映像冒煙測試配方（T5）
 
-Nightly GitHub Actions job:
+夜間 GitHub Actions 任務：
 
 ```yaml
 - uses: graalvm/setup-graalvm@v1
@@ -115,43 +102,33 @@ Nightly GitHub Actions job:
 - run: pkill -TERM -f grimo || true
 ```
 
-Smoke-test failure does **not block the PR** in v1 — it raises an
-issue tagged `native-regression` for the following sprint.
+冒煙測試失敗在 v1 中**不阻擋 PR** — 它會建立一個標記 `native-regression` 的 issue，供下一個 sprint 處理。
 
-## 9. Coverage & dashboards
+## 9. 覆蓋率與儀表板
 
-- JaCoCo HTML at `build/reports/jacoco/test/html/index.html`.
-- Modulith-generated C4 + module canvas at
-  `build/spring-modulith-docs/`.
-- Spec-coverage report (generated by script below) at
-  `build/reports/grimo/spec-coverage.md`.
+- JaCoCo HTML：`build/reports/jacoco/test/html/index.html`。
+- Modulith 生成的 C4 + 模組畫布：`build/spring-modulith-docs/`。
+- 規格覆蓋率報告（由下方腳本生成）：`build/reports/grimo/spec-coverage.md`。
 
-## 10. Scripts (verification commands)
+## 10. 腳本（驗證命令）
 
-Under `docs/grimo/scripts/`:
+位於 `docs/grimo/scripts/`：
 
-- `verify-tests-pass.sh` — runs `./gradlew test` and writes a
-  timestamped PASS/FAIL record to `build/reports/grimo/verify-log.txt`.
-- `verify-spec-coverage.sh` — parses a spec file, extracts its
-  `## Acceptance criteria` block, greps the test tree for matching
-  `@DisplayName(...)` / `// AC<id>` annotations, and asserts each
-  AC has at least one hit.
+- `verify-tests-pass.sh` — 執行 `./gradlew test` 並將帶時間戳的 PASS/FAIL 記錄寫入 `build/reports/grimo/verify-log.txt`。
+- `verify-spec-coverage.sh` — 解析規格檔案，提取其 `## Acceptance criteria` 區塊，在測試樹中搜索匹配的 `@DisplayName(...)` / `// AC<id>` 注解，並斷言每個 AC 至少有一個命中。
 
-## 11. Escalation path
+## 11. 升級路徑
 
-- **Flaky test** → mark `@Tag("flaky")`, open an issue tagged
-  `flaky-test`, fix within two sprints or delete.
-- **Failing native smoke-test** → non-blocking in v1; open
-  `native-regression` issue; must be clean by M7 end.
-- **L-size spec** → invoke `/verifying-quality` after implementation.
-- **Policy deviation** (skip a test tier) → documented in the PR with
-  ADR if it becomes a pattern.
+- **不穩定的測試** → 標記 `@Tag("flaky")`，開立 `flaky-test` issue，在兩個 sprint 內修復或刪除。
+- **失敗的原生冒煙測試** → v1 中為非阻擋；開立 `native-regression` issue；必須在 M7 結束前清除。
+- **L 大小規格** → 實作完成後呼叫 `/verifying-quality`。
+- **策略偏差**（跳過測試層級）→ 在 PR 中記錄，若成為模式則建立 ADR。
 
-## 12. Bootstrap checklist (what goes green on day 1 in S000)
+## 12. 啟動清單（S000 第一天需通過）
 
-- `./gradlew build` passes (empty app, only `GrimoApplication.java`).
-- `./gradlew test` reports zero tests but exits 0.
-- `./gradlew modulith:verify` passes on an empty module graph.
-- `./gradlew nativeCompile` succeeds on the hello-world app.
-- `scripts/verify-tests-pass.sh` invocation records a PASS line.
-- Code formatting is intentionally NOT gated at build time (see §2).
+- `./gradlew build` 通過（空應用，只有 `GrimoApplication.java`）。
+- `./gradlew test` 報告零測試但以 0 退出。
+- `./gradlew modulith:verify` 在空模組圖上通過。
+- `./gradlew nativeCompile` 在 hello-world 應用上成功。
+- `scripts/verify-tests-pass.sh` 呼叫記錄一行 PASS。
+- 程式碼格式化有意不在建置時把關（見 §2）。

@@ -68,6 +68,11 @@ Read `docs/grimo/architecture.md` for framework versions and patterns.
       template between skill invocations).
 - [ ] Re-sync PRD — scan the PRD for edits since design started. If
       the user's thinking has moved, ask before assuming.
+- [ ] Research — identify the load-bearing framework APIs this spec
+      touches; dispatch parallel sub-agents against the OFFICIAL docs
+      BEFORE grilling. architecture.md pins versions but docs drift;
+      prior memory / training data is stale. Skip only for specs that
+      touch nothing beyond pure JDK / already-validated surfaces.
 - [ ] Clarify — confirm scope and constraints with user
 - [ ] Explore — 2-3 approaches with trade-offs
 - [ ] Confirm — present options, get user's choice
@@ -75,6 +80,92 @@ Read `docs/grimo/architecture.md` for framework versions and patterns.
 - [ ] Document — write spec file
 - [ ] Review — user reviews spec before handoff
 ```
+
+### Research — parallel sub-agents on load-bearing framework docs
+
+**Why before grilling, not during design.** Spec-level design
+decisions (which API shape to adopt, which adapter layer to own,
+which config knob to expose) lock downstream implementation. If the
+framework has moved since architecture.md was pinned — a deprecated
+method, a renamed config key, a new recommended idiom — discovering
+it at `/implementing-task` time means re-opening the design. Pay
+the lookup cost at spec-planning time, in parallel, while the user
+answers the first grill questions.
+
+**When to dispatch.** Any spec that introduces or heavily uses:
+- A framework/SDK not yet exercised by a prior shipped spec.
+- A framework surface (annotation, auto-configuration block,
+  SPI / port) the project has not yet touched, even if the
+  framework itself is familiar.
+- A build-system, packaging, or CI-plugin feature with known drift
+  risk (plugin DSLs rename frequently between versions).
+
+**Skip when.** The spec only touches the language's standard library
+or surfaces already validated by a prior shipped spec (e.g., XS
+specs that add small types on top of shipped infrastructure). If a
+prior spec in the same milestone just exercised the exact same API,
+lean on its `§7 Findings` instead of re-fetching.
+
+**Concrete sequence.**
+
+1. **List the load-bearing APIs this spec touches** — read the
+   roadmap deliverables + architecture doc module + any SBE drafts.
+   Name each API by library + entrypoint (e.g.,
+   `<library>: <class/annotation/function>`). One entry per distinct
+   surface.
+
+2. **Dispatch 1–3 sub-agents in parallel IMMEDIATELY** — before the
+   first user grill question. Budget per sub-agent ≤ 10 tool calls.
+   One sub-agent per distinct API surface is usually right; collapse
+   only if two surfaces live in the same official-doc page. S-sized
+   specs usually need 1–2; M+ specs 2–3.
+
+3. **Begin the grill loop** while sub-agents run. Do NOT block.
+
+4. **Integrate findings as they return.** Fold each finding into the
+   spec's §2 Approach decision table with the cited URL. If a
+   finding contradicts the roadmap's SBE draft (e.g., the
+   roadmap assumes method X, docs show X is deprecated and Y is
+   current), surface it as the next grill question BEFORE writing
+   §4 interfaces.
+
+5. **Cite every source in §2.** No uncited version numbers, no
+   uncited API signatures. The citation is the audit trail when
+   `/implementing-task` later re-fetches the same doc.
+
+**Sub-agent prompt template** (adapt to the specific API surface):
+
+```
+Research [library@version]'s [specific API / entrypoint / pattern]
+for a spec I'm designing. Library version is pinned in the project's
+architecture doc. Goal: confirm the current official idiom and flag
+any drift.
+
+Investigate (≤ 10 tool calls, WebFetch the official docs page
+directly — do not rely on blog summaries):
+1. Current stable API signature — names, parameter order, return
+   shape. Cite the exact docs URL.
+2. Deprecated / removed APIs near this surface — anything the spec
+   should avoid reaching for.
+3. Recommended usage pattern — the canonical example from the
+   official docs (config block, entrypoint placement, etc.).
+4. Gotchas called out in the docs — nullability, concurrency,
+   build/compile-time constraints relevant to this surface.
+
+Output (≤ 400 words):
+- Answer per question, each with a citation URL.
+- One-paragraph "implication for this spec" — what the spec's §2
+  Approach should lock in based on the findings.
+- Gaps / items needing a second fetch.
+
+Do NOT fabricate. If a docs page 404s or is behind anti-bot, say so.
+```
+
+**Verify before writing.** If a sub-agent's finding is the load-
+bearing decision of the spec (the whole §2 Approach hinges on it),
+do a second WebFetch to confirm before committing the spec file —
+same rule as planning-project. A spec with a wrong API signature
+becomes a task loop of corrections.
 
 ### Clarify — grill-me style loop before designing
 

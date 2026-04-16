@@ -1,3 +1,5 @@
+用繁體中文說明
+
 ## Principles
 
 IMPORTANT: Follow these in every session.
@@ -31,10 +33,4 @@ IMPORTANT: Follow these in every session.
 | `docs/grimo/tasks/` | **Temporary** BDD task files; only exist between `/planning-tasks` and Phase 3; deleted on ship |
 | `docs/grimo/CHANGELOG.md` | What shipped + when (appended by `/shipping-release`) |
 | `docs/grimo/adr/ADR-NNN-<slug>.md` | In-development decisions that extend or contradict PRD |
-| `src/main/java/io/github/samzhu/grimo/` | Production Java (root package `io.github.samzhu.grimo`) |
-| `src/test/java/...` | Tests. **`*Test.java`** = unit, **`*IT.java`** = real-CLI integration (per dev-standards §7.2) |
-| `.claude/skills/` | The 7 workflow skills — rarely edited, portable across projects |
 
-**User runtime state (outside repo, never committed):**
-
-`~/.grimo/` — `memory/`, `skills/`, `sessions/`, `worktrees/`, `logs/`, `config/`, `db/`. Honored via `$GRIMO_HOME` env var or `grimo.home` JVM system property.

@@ -1,32 +1,10 @@
-# Changelog
+# 變更日誌
 
-All notable shipped specs are listed here. Follow Keep a Changelog conventions.
+所有已出貨的規格均列於此處，遵循 Keep a Changelog 慣例。
 
-## [Unreleased]
+## [未發布]
 
-### Added
-- **S001 — Core domain primitives + GrimoHomePaths** (2026-04-16).
-  New `io.github.samzhu.grimo.core.domain` package: four typed id records
-  (`SessionId`, `TurnId`, `TaskId`, `CorrelationId`), two enums
-  (`AgentRole { MAIN, SUB, JURY_MEMBER }`, `ProviderId { CLAUDE, CODEX,
-  GEMINI }`), a vendored `NanoIds` generator (21-char URL-safe ids,
-  ~30 LOC, zero new runtime deps), and `GrimoHomePaths` — a static
-  resolver for `~/.grimo/{memory, skills, sessions, worktrees, logs,
-  config, db}` with `grimo.home` JVM-property and `$GRIMO_HOME` env-var
-  overrides (precedence: property → env → `$HOME/.grimo`). ArchUnit
-  `DomainArchitectureTest` guards AC-3 (no Spring / `jakarta.annotation`
-  imports in `core.domain`). All domain types are immutable records or
-  plain enums with zero Spring annotations. AC-4 (`Cost` arithmetic)
-  deferred to the owning cost-telemetry spec (S019). See
-  `docs/grimo/specs/archive/2026-04-16-S001-core-domain-primitives.md`
-  section 7 for key usage patterns and test recipes.
-- **S000 — Project Init** (2026-04-16). Spring Boot 4.0.5 modulith scaffold on
-  JDK 25 with Gradle 9.4.1 wrapper and GraalVM native plugin 0.11.5
-  (`graalvmNative { imageName = "grimo"; buildArgs += "--no-fallback" }`).
-  Virtual-thread executor enabled via `spring.threads.virtual.enabled=true`.
-  Hello-world `GrimoApplication` plus two JUnit tests (`contextLoads`,
-  `virtualThreadsEnabled`). `.gitignore` hardened (macOS / `~/.grimo/` noise).
-  Top-level `README.md` documenting the native-executable packaging path.
-  AC-3 (automated formatter gate) and AC-4 (actual native binary run)
-  intentionally deferred — see
-  `docs/grimo/specs/archive/2026-04-16-S000-project-init.md` section 7.
+### 新增
+
+- **S001 — 核心領域原語 + GrimoHomePaths**（2026-04-16）。新增 `io.github.samzhu.grimo.core.domain` 套件：四個帶型別的 id records（`SessionId`、`TurnId`、`TaskId`、`CorrelationId`）、兩個列舉（`AgentRole { MAIN, SUB, JURY_MEMBER }`、`ProviderId { CLAUDE, CODEX, GEMINI }`）、一個內建的 `NanoIds` 產生器（21 字元 URL 安全 id，約 30 LOC，零新執行期依賴），以及 `GrimoHomePaths` — 一個針對 `~/.grimo/{memory, skills, sessions, worktrees, logs, config, db}` 的靜態解析器，支援 `grimo.home` JVM 系統屬性與 `$GRIMO_HOME` 環境變數覆寫（優先順序：property → env → `$HOME/.grimo`）。ArchUnit 的 `DomainArchitectureTest` 守護 AC-3（`core.domain` 中無 Spring / `jakarta.annotation` import）。所有領域型別均為不可變 records 或純列舉，零 Spring 注解。AC-4（`Cost` 算術）延後至擁有成本遙測的規格（S019）。詳見 `docs/grimo/specs/archive/2026-04-16-S001-core-domain-primitives.md` 第 7 節的關鍵使用模式與測試配方。
+- **S000 — 專案初始化**（2026-04-16）。Spring Boot 4.0.5 模組化骨架，運行於 JDK 25，使用 Gradle 9.4.1 wrapper 與 GraalVM native 外掛 0.11.5（`graalvmNative { imageName = "grimo"; buildArgs += "--no-fallback" }`）。透過 `spring.threads.virtual.enabled=true` 啟用 virtual thread 執行器。Hello-world `GrimoApplication` 加上兩個 JUnit 測試（`contextLoads`、`virtualThreadsEnabled`）。`.gitignore` 強化（macOS / `~/.grimo/` 雜訊）。頂層 `README.md` 記錄原生可執行檔打包路徑。AC-3（自動格式化閘門）與 AC-4（實際原生二進位執行）有意延後 — 詳見 `docs/grimo/specs/archive/2026-04-16-S000-project-init.md` 第 7 節。
