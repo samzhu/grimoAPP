@@ -12,42 +12,40 @@
 - **Gradle Kotlin DSL**（`build.gradle.kts`）。不引入 Groovy 的 `build.gradle`。使用 version catalog（`gradle/libs.versions.toml`）管理共用版本。
 - v1 **不強制**每個 Spring Modulith 模組對應一個 Gradle 子專案 — v1 是單一 `:app` 專案，以套件作為模組。
 
-## 2. 套件配置（嚴格）
+## 2. 套件配置（嚴格 · MVP）
+
+> **2026-04-16 更新（S002）：** 容器優先 MVP 重新規劃後，下方僅列 MVP 真正落地的 6 個模組。原 v1 模組（`session`、`router`、`memory`、`jury`、`cost`、`web`、`nativeimage`）已移至 `architecture.md` §2.x Backlog 附錄；它們晉升時各自的 spec 會建立對應 `package-info.java`。
 
 ```
 io.github.samzhu.grimo
 ├── GrimoApplication.java           # @SpringBootApplication, @EnableAsync
 ├── core/                           # @ApplicationModule(type = Type.OPEN)
 │   ├── package-info.java
-│   └── domain/...
-├── session/                        # @ApplicationModule
-│   ├── package-info.java           # allowedDependencies = { "core" }
+│   └── domain/...                  # POJOs，零 Spring（S001）
+├── sandbox/                        # @ApplicationModule, allowedDependencies = {} 起步
+│   ├── package-info.java
 │   ├── domain/...                  # POJOs，零 Spring
 │   ├── application/
-│   │   ├── port/in/SessionUseCase.java
-│   │   ├── port/out/SessionRepository.java
-│   │   └── service/SessionService.java
-│   ├── adapter/in/event/SessionEventListener.java
-│   └── adapter/out/advisor/SpringAiSessionAdapter.java
-├── cli/ ...
-├── router/ ...
-├── subagent/ ...
-├── skills/ ...
-├── memory/ ...
-├── jury/ ...
-├── cost/ ...
-├── web/                             # 入站適配器（控制器、SSE）
-│   ├── package-info.java            # allowedDependencies = { "core", <all in-ports> }
-│   └── adapter/in/web/...
-└── native/                          # GrimoRuntimeHints + 僅原生輔助類
+│   │   ├── port/in/...UseCase.java
+│   │   ├── port/out/...Port.java
+│   │   └── service/...Service.java
+│   ├── adapter/in/event/...
+│   └── adapter/out/...             # Testcontainers / Docker 適配器（S003）
+├── cli/                            # AgentCliPort + docker-exec 適配器（S005）
+├── agent/                          # 主代理 CLI 直通（S007）
+├── subagent/                       # 委派 + 工作樹 + 子代理生命週期（S008–S010）
+└── skills/                         # SKILL.md 登錄檔 + 注入子代理容器（S011、S012）
 ```
+
+**Backlog 套件命名注意：** 原生加固模組的套件名為 **`nativeimage`**（不是 `native`）— `native` 是 Java 保留字（JNI modifier），無法當套件名使用。Backlog 模組晉升時請使用 `nativeimage`。
 
 ### 模組邊界規則
 
-- 每個模組的 `package-info.java` 攜帶 `@ApplicationModule(displayName = "Grimo :: <Name>", allowedDependencies = { ... })`。
+- 每個模組的 `package-info.java` 攜帶 `@ApplicationModule(displayName = "Grimo :: <Name>", allowedDependencies = { ... })`。`core` 為 `type = ApplicationModule.Type.OPEN`；其餘模組以 `allowedDependencies = {}` 嚴格起步，由各自的 owning spec 在第一次跨模組引用時擴充（見 §13 Cross-Module Communication）。
 - **`domain/`** 套件在沒有 Spring classpath 的情況下也能編譯。由 ArchUnit 測試強制執行。
 - **`internal/`** 子套件為實作細節 — 兄弟模組不得引用它們。
-- 對需要發佈給其他模組（超出預設套件即介面的範圍）的套件，使用 `@NamedInterface("...")`。
+- 對需要發佈給其他模組的套件使用 `@NamedInterface("...")`：同步埠用 `api`、事件型別用 `events`（命名約定見 §13）。
+- `ModuleArchitectureTest`（S002）在每次 `./gradlew test` 跑 `ApplicationModules.of(GrimoApplication.class).verify()`，違反上述規則的引用會在 PR 階段被擋下。
 
 ## 3. 命名與編碼慣例
 
@@ -202,4 +200,35 @@ CI 將其 `secrets:` 直接對映至環境變數。金鑰缺失 → IT 透過 `a
 - [ ] **CLI / 子程序適配器變更** — `*Test` 涵蓋純翻譯；`*IT` 以 `assumeTrue(cliAvailable && credentialsPresent)` 在 `@BeforeEach` 中執行真實二進位。**不使用** `Mockito.mock(Process…)`。若新增第二個以上的提供者，將共用行為提升至 TCK（§7.6）。
 - [ ] 無新的跨模組直接類別引用 — 只使用事件或埠。
 - [ ] 當新依賴為有意引入時，更新 `package-info.java` 的 `allowedDependencies`。
-- [ ] 若需要新的 `RuntimeHints`，在 `io.github.samzhu.grimo.native.GrimoRuntimeHints` 中登錄，並由夜間原生冒煙測試執行。
+- [ ] 若需要新的 `RuntimeHints`，在 `io.github.samzhu.grimo.nativeimage.GrimoRuntimeHints` 中登錄（套件名為 `nativeimage`，因 `native` 是 Java 保留字），並由夜間原生冒煙測試執行。
+
+## 13. Cross-Module Communication（S002 釘定 · 權威單一來源）
+
+> 三種合法跨模組通訊模式 — 其餘均為 Modulith 違規，會被 `ModuleArchitectureTest`（`./gradlew test`）擋下。**本節為單一來源**；`architecture.md` §1 反向引用此節，不重複表述。
+>
+> 注意：本節是 **Spring Modulith 跨模組規則**（`@NamedInterface` / `allowedDependencies` / events）；模組內部的 hexagonal 分層（`domain/`、`port/in`、`port/out`、`adapter/`）由 §2 規範，兩者不可混用。
+
+| 模式 | 何時用 | Modulith 機制 | `allowedDependencies` 寫法 |
+| --- | --- | --- | --- |
+| **A · `core` 型別** | 共用領域原語（`SessionId`、`TaskId`、`AgentRole`、…） | 直接 import `io.github.samzhu.grimo.core.domain.*`；`core` 為 `Type.OPEN` 不受 enforcement | **無需宣告** |
+| **B · 同步埠呼叫** | 消費者**現在**就需要結果（如 `subagent.DelegateTaskUseCase` 呼叫 `sandbox.SandboxPort.spawn()` 並等候） | 出版者把埠放在 `application/port/in/`（或 `port/out/`）並標 `@NamedInterface("api")` | 消費者宣告 `allowedDependencies = { "<publisher>::api" }` |
+| **C · 非同步事件** | **預設模式**。出版者不在乎誰聽 / 想解耦（如 `cli` 發 `CliUnavailable` → `web` 推 SSE toast、`cost` 累計指標） | 出版者把事件 record 放在 `<module>/events/` 並標 `@NamedInterface("events")`；訂閱者用 `@ApplicationModuleListener void on(EventType e)` | 消費者宣告 `allowedDependencies = { "<publisher>::events" }` — 只看得到事件，看不到內部 service |
+
+### 預設與禁止清單
+
+- **預設用事件（模式 C）。** 非同步 + 事件讓出版者可以內部演化而不影響消費者，並支援 PRD P4「廉價未來解耦」（例如將 sub-agent pool 抽成獨立程序對出版者零修改）。
+- **`@NamedInterface` 命名約定：** 同步埠用 `"api"`，事件用 `"events"`。其他名稱需在 ADR 中說明。
+- **跨模組直接 bean 注入永遠禁止。** 不允許 `@Autowired SomeOtherModuleService` 跨模組界線。只有 named-interface 出版的型別對外可見。
+- **不得跨模組引用 `internal/`。** Modulith 在 `internal/` 套件存在後自動強制；無例外。
+- **`core` 是唯一的 OPEN 模組。** 任何未來 MVP 模組要翻成 `OPEN` 須走 ADR — `OPEN` 退出 cycle detection，是載荷的保護。
+
+### 一次性違規警報長這樣（S002 §7 紀錄）
+
+```
+org.springframework.modulith.core.Violations:
+  - Module 'subagent' depends on module 'cli' via
+    io.github.samzhu.grimo.subagent.SubagentProbe ->
+    io.github.samzhu.grimo.cli.CliMarker. Allowed targets: none.
+```
+
+訊息清楚指出兩個模組 + 兩個違規類別 + 「Allowed targets: none.」（消費模組的 `allowedDependencies = {}`）。修法：在 PR 內把消費模組的 `allowedDependencies` 加上 `"<publisher>::api"` 或 `"<publisher>::events"`，並確保被引用的型別位於對應的 `@NamedInterface` 套件中。

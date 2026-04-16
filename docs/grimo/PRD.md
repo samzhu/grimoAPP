@@ -239,7 +239,10 @@ And    後續 session 的第一輪次在 pre-prompt 中包含該記憶
 
 ```
 Given  codebase 結構化為 @ApplicationModules
-       （core、router、sub-agent、skills、memory、jury、cli-adapter、web-ui）
+       （core、sandbox、cli、agent、subagent、skills；
+        其餘 v1 模組 — session、router、memory、jury、cost、web、nativeimage —
+        於容器優先 MVP 重新規劃中移至 Backlog，
+        詳見 spec-roadmap.md Backlog 與 architecture.md §2.x）
 When   ./gradlew test 執行
 Then   ApplicationModules.of(GrimoApplication.class).verify() 通過
 And    沒有模組對另一個模組有非命名介面依賴

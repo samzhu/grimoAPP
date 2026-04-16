@@ -16,45 +16,59 @@
   - `adapter/in/**` — 控制器、事件監聽器、CLI 命令處理器。
   - `adapter/out/**` — JDBC 儲存庫、CLI 包裝器、Docker 客戶端。
   - `internal/` — 僅供實作使用的輔助類（對兄弟模組隱藏）。
-- **事件驅動接縫**，透過 `ApplicationEventPublisher` + `@ApplicationModuleListener`。跨模組耦合僅限於領域事件，不允許跨模組直接參照 Bean（除非透過模組的 `@NamedInterface` 埠）。
+- **跨模組通訊政策（S002 釘定）。** 三種合法模式，其餘均為 Modulith 違規：
+  - **A · `core` 型別** — `core` 為 `Type.OPEN`，所有模組可直接 import `io.github.samzhu.grimo.core.domain.*`，無需在 `allowedDependencies` 宣告。
+  - **B · 同步埠呼叫** — 出版者把埠放在 `@NamedInterface("api")` 套件中；消費者必須宣告 `allowedDependencies = { "<publisher>::api" }`。
+  - **C · 非同步事件** — 預設模式（PRD P4「廉價未來解耦」）。出版者把事件 record 放在 `<module>/events/` 並標 `@NamedInterface("events")`；消費者用 `@ApplicationModuleListener` 訂閱，宣告 `allowedDependencies = { "<publisher>::events" }`，只看得到事件、看不到內部 service。
+  事件機制依賴 `ApplicationEventPublisher` + `@ApplicationModuleListener`。**禁止**跨模組直接 bean 注入或引用 `internal/` 套件。完整三模式表 + 禁止清單見 `development-standards.md` §13。
 - **本地單一程序優先。** 一個 Spring Boot 應用、一個本地 JDBC 儲存（預設 H2 檔案模式）、主機上的一個 Docker Daemon。
 
-## 2. 模組地圖
+## 2. 模組地圖（MVP）
+
+> **2026-04-16 更新（S002）：** 隨容器優先 MVP 重新規劃，本節改列 MVP 真正落地的 6 個模組。原 v1 模組（`session`、`router`、`memory`、`jury`、`cost`、`web`、`nativeimage`）已移至下方 §2.x「Backlog 模組（晉升時恢復）」附錄；它們未被刪除，晉升時可原地恢復。
 
 ```
 io.github.samzhu.grimo                                   # 根（GrimoApplication）
-├── core                                    # @ApplicationModule (open)
+├── core                                    # @ApplicationModule(type = Type.OPEN)
 │   └── domain/ { SessionId, TurnId, TaskId, CorrelationId,
 │                 AgentRole, ProviderId, GrimoHomePaths, NanoIds }
-│                                           # Cost 由 `cost` 模組所有，不在此處
-│                                           # 共用領域原語
-├── session                                 # SessionMemoryAdvisor 接線
-├── cli                                     # CLI 適配器（claude/codex/gemini）
-├── router                                  # 成本/複雜度感知 CLI 路由器
-├── subagent                                # 工作樹 + Docker 沙箱生命週期
-├── skills                                  # SKILL.md 登錄檔 + 蒸餾器
-├── memory                                  # AutoMemoryTools 管理 ~/.grimo/memory
-├── jury                                    # N 路並行審查
-├── cost                                    # 每輪 token/成本遙測
-└── web                                     # Spring MVC + Thymeleaf + HTMX
+│                                           # 共用領域原語（S001）
+│                                           # Cost 由未來的成本遙測規格擁有，不在此處
+├── sandbox                                 # SandboxPort + Testcontainers 適配器（S003）
+├── cli                                     # AgentCliPort（docker exec → claude/codex/gemini）（S005）
+├── agent                                   # 主代理 CLI 直通（grimo chat）（S007）
+├── subagent                                # 委派 + 工作樹 + 子代理生命週期（S008–S010）
+└── skills                                  # SKILL.md 登錄檔 + 注入子代理容器（S011、S012）
 ```
 
-`core` 標記為 `@ApplicationModule(type = Type.OPEN)` — 其他所有模組都可使用其公開型別。所有其他模組在 `package-info.java` 中宣告明確的 `allowedDependencies`。
+`core` 標記為 `@ApplicationModule(type = Type.OPEN)` — 其他所有模組都可直接使用其公開型別，無需在 `allowedDependencies` 列出。其餘 5 個模組在 `package-info.java` 中以 `allowedDependencies = {}` 嚴格起步，由各自的 owning spec 在第一次跨模組引用時擴充（同步埠透過 `<publisher>::api`，事件透過 `<publisher>::events`，見 §1 與 `development-standards.md` §13）。
 
-### 模組職責與已發佈的埠
+### 模組職責與計畫發佈的埠 / 事件（MVP）
 
-| 模組 | 入站埠 | 出站埠 | 發布事件 |
-| --- | --- | --- | --- |
-| `core` | — | — | — |
-| `session` | `SessionUseCase`（開啟/繼續/切換） | `SessionRepository`（來自 Spring AI） | `SessionOpened`、`SessionSwitched`、`TurnPersisted` |
-| `cli` | `AgentConversationUseCase` | `AgentClientPort`（包裝 `AgentClient`） | `TurnTokenStreamed`、`CliUnavailable` |
-| `router` | `RouteUseCase` | `CliRegistryPort` | `RouteDecided` |
-| `subagent` | `DelegateTaskUseCase` | `SandboxPort`、`WorktreePort` | `SubagentStarted`、`SubagentCompleted`、`SubagentFailed` |
-| `skills` | `SkillRegistryUseCase`、`DistillUseCase` | `SkillStorePort` | `SkillProposed`、`SkillApproved` |
-| `memory` | `MemoryUseCase` | `MemoryStorePort` | `MemoryRecorded` |
-| `jury` | `JuryReviewUseCase` | `ReviewPort`（呼叫多個 CLI） | `JuryVerdictReady` |
-| `cost` | `CostQueryUseCase` | `CostStorePort` | —（消費 `TurnTokenStreamed`） |
-| `web` | （控制器） | — | （消費領域事件以推送 SSE） |
+> 表格列出**規劃中的**入站埠、出站埠與事件 — 模組於 S002 時除 `core` 外皆為空殼；下表所列項目由各自 owning spec 在其落地時建立，並依 §1 政策加上 `@NamedInterface` 限定。
+
+| 模組 | 入站埠（規劃） | 出站埠（規劃） | 發布事件（規劃） | Owning spec |
+| --- | --- | --- | --- | --- |
+| `core` | — | — | — | S001 ✅ |
+| `sandbox` | — | `SandboxPort`（埠 + Testcontainers 適配器） | — | S003 |
+| `cli` | `AgentCliInvocationUseCase` | `AgentCliPort`（透過 `docker exec` 呼叫容器化 CLI） | `CliUnavailable`、`CliInvocationFailed` | S005 / S006 |
+| `agent` | `MainAgentChatUseCase`（`grimo chat` 入口） | `AgentCliPort`（消費 `cli` 模組的同步埠） | — | S007 |
+| `subagent` | `DelegateTaskUseCase` | `SandboxPort`、`WorktreePort`、`AgentCliPort` | `SubagentStarted`、`SubagentCompleted`、`SubagentFailed` | S008–S010 |
+| `skills` | `SkillRegistryUseCase` | `SkillStorePort`（檔案系統） | `SkillEnabled`、`SkillDisabled` | S011 / S012 |
+
+### 2.x Backlog 模組（晉升時恢復）
+
+下列模組原屬 v1 完整藍圖，在 2026-04-16 容器優先 MVP 重新規劃中移至 Backlog（spec-roadmap.md「Backlog」段落）。各項目晉升時，重新進入 `/planning-spec` 走完 grill 循環並建立 `package-info.java`。**保留此清單**讓未來讀者看到「目前停在哪 / 計畫往哪去」。
+
+| Backlog 模組 | 用途 | 從何處晉升 |
+| --- | --- | --- |
+| `session` | `SessionMemoryAdvisor` 接線 + 持久化對話 session | Backlog「持久化 Session」 |
+| `router` | 成本/複雜度感知 CLI 路由 | Backlog「成本路由器」 |
+| `memory` | `AutoMemoryTools` 管理 `~/.grimo/memory` | Backlog「AutoMemoryTools 接線」 |
+| `jury` | N 路並行審查 | Backlog「評審團」 |
+| `cost` | 每輪 token/成本遙測 + `Cost` 領域型別 | Backlog「成本遙測面板」 |
+| `web` | Spring MVC + Thymeleaf + HTMX UI | Backlog「Web UI」 |
+| `nativeimage` | `GrimoRuntimeHints` 等原生映像加固類別（**`native` 是 Java 保留字，故 Backlog 套件名為 `nativeimage`**） | Backlog「原生映像加固」 |
 
 ## 3. 框架依賴表
 

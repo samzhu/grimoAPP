@@ -62,38 +62,9 @@
 
 ---
 
-## 里程碑 0：基礎建設
+## 里程碑 0：基礎建設 ✅（2026-04-16）
 
-**目標。** 可建置的骨架；空模組圖上的 Modulith verify 通過。
-**完成條件。** S000、S001、S002 均 ✅。
-
-| # | 規格 | 點數 | 狀態 |
-| --- | --- | --- | --- |
-| S000 | 專案初始化 — Gradle KTS + Spring Boot 4.0 骨架 | XS (7) | ✅ |
-| S001 | 核心領域原語 + GrimoHomePaths | XS (7) | ⏳ 規劃中 |
-| S002 | 模組骨架 + Modulith verify 通過 | S (9) | 🔲 |
-
-### S001 — 核心領域原語 + GrimoHomePaths · XS (7)
-
-**描述。** 建立 `io.github.samzhu.grimo.core.domain` 套件：包含 `SessionId`、`TurnId`、`TaskId`、`CorrelationId`、`AgentRole`（列舉：`MAIN` / `SUB` / `JURY_MEMBER`）、`ProviderId`（列舉：`CLAUDE` / `CODEX` / `GEMINI`）、`NanoIds` 產生器，以及 `GrimoHomePaths` 工具類。以上任何類別均不加 Spring 注解。**`Cost` 不在本規格中** — 它由後續晉升成本遙測的規格所有。
-
-**依賴。** S000 ✅。
-
-**SBE。** 詳見進行中的規格檔案 `docs/grimo/specs/2026-04-16-S001-core-domain-primitives.md`，含完整驗收標準（AC-1 SessionId 21 字元 NanoID · AC-2 GrimoHomePaths.memory() 支援 `grimo.home` + `$GRIMO_HOME` 覆寫 · AC-3 ArchUnit「領域層不使用 Spring」）。
-
-**估算。** 技術 1 · 不確定性 1 · 依賴 1 · 範疇 2 · 測試 1 · 可逆性 1 = **7 / XS**
-
-### S002 — 模組骨架 + Modulith verify 通過 · S (9)
-
-**描述。** 為 `architecture.md` §2 中所有命名模組（`core`、`sandbox`、`cli`、`agent`、`subagent`、`skills`、`web`（存根）、`native`（存根））各自宣告帶有 `@ApplicationModule` 的 `package-info.java`。`core` 為 `type = Type.OPEN`。引入 `spring-modulith-starter-core` + `spring-modulith-starter-test`。新增 `ModuleArchitectureTest`，執行 `ApplicationModules.of(GrimoApplication.class).verify()` 並產生模組畫布。
-
-**依賴。** S001。
-
-**SBE（草稿）。**
-- **AC-1** `./gradlew test` 執行 `ModuleArchitectureTest`，在目前模組圖上通過 `ApplicationModules.verify()`。
-- **AC-2** 非法的跨模組引用（在臨時分支上測試）使測試失敗，並顯示清楚的 `Violations detected:` 訊息。
-
-**估算。** 技術 1 · 不確定性 1 · 依賴 2 · 範疇 2 · 測試 2 · 可逆性 1 = **9 / S**
+3/3 規格完成（S000 + S001 + S002）。詳見 `specs/archive/2026-04-16-S00[0-2]-*.md`。
 
 ---
 
