@@ -68,28 +68,9 @@
 
 ---
 
-## 里程碑 1：容器操作（優先級「能操作容器」）
+## 里程碑 1：容器操作 ✅（2026-04-17）
 
-**目標。** Java 程式碼可啟動 Docker 容器、執行命令、bind-mount 主機目錄，並進行清理 — 全部使用確定性測試。
-**完成條件。** S003 ✅。
-
-| # | 規格 | 點數 | 狀態 |
-| --- | --- | --- | --- |
-| S003 | `Sandbox` SPI + bind-mount 適配器（`agent-sandbox-core`） | M (13) | ⏳ Design |
-
-### S003 — Sandbox 埠 + Testcontainers 適配器 · M (13)
-
-**描述。** 採用 `agent-sandbox-core` 0.9.1 的 `Sandbox` SPI（`exec(ExecSpec) → ExecResult`、`close()`、`files()`、`workDir()`）作為沙箱抽象層，不自定義 `SandboxPort`。自訂 `BindMountSandbox` 實作 `Sandbox` 介面，內部使用 Testcontainers `GenericContainer` + `withFileSystemBind(hostPath, "/work", READ_WRITE)` + `withCommand("sleep","infinity")`，依 PRD D9 修訂 — **非** `DockerSandbox`（其建構子啟動容器，無 bind-mount 鉤點）。所有測試加 `@DisabledInNativeImage`（Testcontainers 為 JVM 專用，見 `architecture.md`）。
-
-**依賴。** S002。
-
-**SBE（草稿）。**
-- **AC-1** 以準備好的主機目錄呼叫 `spawn`，產生的容器 `/work` 即為 bind-mounted 的主機目錄（透過 `exec "ls -la /work"` 斷言）。
-- **AC-2** 容器內的寫入立即反映於主機。
-- **AC-3** 兩個並行沙盒無法看到彼此的 bind-mount。
-- **AC-4** `close` 停止並刪除容器；主機目錄保留。
-
-**估算。** 技術 3 · 不確定性 2 · 依賴 2 · 範疇 2 · 測試 3 · 可逆性 1 = **13 / M**
+1/1 規格完成（S003）。詳見 `specs/archive/2026-04-17-S003-sandbox-bind-mount-adapter.md`。
 
 ---
 
@@ -100,7 +81,7 @@
 
 | # | 規格 | 點數 | 狀態 |
 | --- | --- | --- | --- |
-| S004 | 預安裝 3 個 CLI 的 `grimo-runtime` Docker 映像 | S (10) | ⏳ Design |
+| S004 | 預安裝 3 個 CLI 的 `grimo-runtime` Docker 映像 | S (10) | ✅ |
 | S005 | 透過 `docker exec` 的 `AgentCliAdapter`（容器化適配器） | M (12) | 🔲 |
 
 ### S004 — `grimo-runtime` Docker 映像 · S (10)

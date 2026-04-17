@@ -1,6 +1,6 @@
 # S004: `grimo-runtime` Docker 映像
 
-> Spec: S004 | Size: S (10) | Status: ⏳ Design
+> Spec: S004 | Size: S (10) | Status: ✅ Done
 > Date: 2026-04-17
 
 ---
@@ -191,4 +191,103 @@ docker build --tag grimo-runtime:0.0.1-SNAPSHOT docker/runtime/
 
 ---
 
-*§6 Task Plan 與 §7 Implementation Results 由 `/planning-tasks` 階段填入。*
+## 6. Task Plan
+
+**POC: not required** — Dockerfile 使用標準 `docker build` + `npm install` + `curl` 安裝器，皆為成熟工具鏈，專案中無新 Java 套件或 SDK 需要事先驗證。
+
+### 任務索引
+
+| Task | 主題 | AC 對映 | 依賴 |
+| --- | --- | --- | --- |
+| T1 | 建立 Dockerfile（node:20-slim + 3 CLI + git） | AC-1 | — |
+| T2 | 建立 README.md（版本、建置指令、大小紀錄） | — (文件) | T1 |
+| T3 | 撰寫 RuntimeImageIT 整合測試 | AC-2, AC-3, AC-4 | T1 |
+
+### 執行順序
+
+```
+T1 → T2（可與 T3 平行）
+T1 → T3（可與 T2 平行）
+```
+
+### AC 覆蓋矩陣
+
+| AC | 驗證方式 | Task |
+| --- | --- | --- |
+| AC-1 | `docker build` exit code 0 + `docker images` 列出標記 | T1（建置時驗證） |
+| AC-2 | `@DisplayName("[S004] AC-2")` IT：`claude --version` | T3 |
+| AC-3 | `@DisplayName("[S004] AC-3")` IT：`codex --version` + `gemini --version` | T3 |
+| AC-4 | `@DisplayName("[S004] AC-4")` IT：映像大小 < 1 GB | T3 |
+
+---
+
+## 7. Implementation Results
+
+**驗證日期：** 2026-04-17
+
+### 驗證結果
+
+| 命令 | 結果 |
+| --- | --- |
+| `./gradlew check` | ✅ exit 0（compile + unit tests + Modulith verify） |
+| `./gradlew integrationTest -Dgrimo.it.docker=true` | ✅ exit 0（4 個 S004 IT + 2 個 S003 IT 全數通過） |
+| `docker build --tag grimo-runtime:0.0.1-SNAPSHOT docker/runtime/` | ✅ exit 0 |
+
+### 關鍵發現
+
+1. **Claude Code 安裝器耗時較長**：curl 安裝器在 Docker build 中需約 220 秒（下載原生二進位），為建置瓶頸。codex + gemini 的 npm install 各約 20-30 秒。
+2. **版本不可固定**：claude-code curl 安裝器不支援指定版本，建置時安裝 v2.1.112。已記錄於 README。
+3. **build.gradle.kts 需修改**：spec §5 原列 `build.gradle.kts` 為 "Not touched"，但 T3 需新增 `integrationTest` task（含 `testClassesDirs`/`classpath` 設定、`grimo.*` 系統屬性傳遞）以及 `test` task 的 `exclude("**/*IT.class")`。此為專案基礎設施，非 S004 特有。
+
+### 正確使用模式（供下游規格參考）
+
+**Dockerfile 安裝 claude-code（唯一支援路徑）：**
+```dockerfile
+RUN curl -fsSL https://claude.ai/install.sh | bash
+ENV PATH="/root/.local/bin:${PATH}"
+```
+
+**Dockerfile 安裝 npm CLI（精確固定版本）：**
+```dockerfile
+RUN npm install -g @openai/codex@0.121.0
+RUN npm install -g @google/gemini-cli@0.38.1
+```
+
+**integrationTest Gradle task（Kotlin DSL）：**
+```kotlin
+tasks.register<Test>("integrationTest") {
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    useJUnitPlatform()
+    include("**/*IT.class")
+}
+```
+
+**IT 測試中的容器 CLI 驗證模式：**
+```java
+try (var container = new GenericContainer<>(IMAGE)
+        .withCommand("sleep", "infinity")) {
+    container.start();
+    ExecResult result = container.execInContainer("claude", "--version");
+    assertThat(result.getExitCode()).isZero();
+    assertThat(result.getStdout().trim()).matches(".*\\d+\\.\\d+\\.\\d+.*");
+}
+```
+
+### AC 結果表
+
+| AC | 結果 | 驗證方式 |
+| --- | --- | --- |
+| AC-1 | ✅ | `docker build` exit 0，`docker images` 列出 `grimo-runtime:0.0.1-SNAPSHOT` |
+| AC-2 | ✅ | `RuntimeImageIT.claudeCodeCliAvailable()` — `claude --version` → v2.1.112 |
+| AC-3 | ✅ | `RuntimeImageIT.codexCliAvailable()` + `geminiCliAvailable()` — 版本號正確 |
+| AC-4 | ✅ | `RuntimeImageIT.imageSizeUnderOneGb()` — 957 MB < 1 GB |
+
+### 交付物清單
+
+| 檔案 | 類型 |
+| --- | --- |
+| `docker/runtime/Dockerfile` | new |
+| `docker/runtime/README.md` | new |
+| `src/test/java/io/github/samzhu/grimo/sandbox/internal/RuntimeImageIT.java` | new |
+| `build.gradle.kts` | modified（integrationTest task + test exclude IT） |

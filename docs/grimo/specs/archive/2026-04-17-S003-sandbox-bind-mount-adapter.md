@@ -1,6 +1,6 @@
 # S003: Sandbox SPI + bind-mount 適配器
 
-> Spec: S003 | Size: M (13) | Status: ⏳ Design
+> Spec: S003 | Size: M (13) | Status: ✅ Done
 > Date: 2026-04-17
 
 ---
@@ -345,4 +345,106 @@ Under `src/test/java/io/github/samzhu/grimo/sandbox/`:
 
 ---
 
-*§6 Task Plan 與 §7 Implementation Results 由 `/planning-tasks` 階段填入。*
+## 6. Task Plan
+
+> POC: **not required**
+> 理由：規格已在原始碼層級驗證 agent-sandbox-core 0.9.1 與 Testcontainers 1.20.4 API 模式（§2.3 引用），且所有檔案皆為新增——回滾無風險。T3（AC-1/AC-2 IT）本身即為有效的 in-project 驗證。
+
+### 任務總覽
+
+| Task | 主題 | AC 對映 | 依賴 |
+| --- | --- | --- | --- |
+| T1 | Gradle 依賴 + sandbox/api 套件結構 | — (基礎建設) | — |
+| T2 | SandboxConfig record + SandboxManager 介面 + 單元測試 | — (API 型別) | T1 |
+| T3 | BindMountSandbox + HostMountedSandboxFiles + IT | AC-1, AC-2 | T2 |
+| T4 | TestcontainersSandboxManager + SandboxModuleConfig + IT | AC-3, AC-4 | T3 |
+
+### 執行順序
+
+```
+T1 → T2 → T3 → T4
+```
+
+線性鏈。每個任務的產出是下一個任務的前提。
+
+### AC 覆蓋驗證
+
+| AC | 測試檔案 | 任務 |
+| --- | --- | --- |
+| AC-1 bind-mount 主機目錄至容器 /work | `BindMountSandboxIT.java` | T3 |
+| AC-2 容器內寫入即時反映於主機 | `BindMountSandboxIT.java` | T3 |
+| AC-3 兩個並行沙箱互不可見 | `SandboxManagerIT.java` | T4 |
+| AC-4 close 停止並移除容器 | `SandboxManagerIT.java` | T4 |
+
+所有 4 個 AC 均有對應測試任務。
+
+---
+
+## 7. Implementation Results
+
+**Date:** 2026-04-17
+**Status:** ✅ Done
+
+### 驗證結果
+
+| 檢查 | 命令 | 結果 |
+| --- | --- | --- |
+| 單元測試 + Modulith verify | `./gradlew test` | ✅ BUILD SUCCESSFUL |
+| 整合測試（AC-1–4） | `./gradlew integrationTest` | ✅ 4/4 pass, 0 fail |
+
+### AC 結果表
+
+| AC | 測試 | 結果 |
+| --- | --- | --- |
+| AC-1 bind-mount 主機目錄至容器 /work | `BindMountSandboxIT#bindMountHostDirToContainerWork` | ✅ |
+| AC-2 容器內寫入即時反映於主機 | `BindMountSandboxIT#containerWriteReflectedOnHost` | ✅ |
+| AC-3 兩個並行沙箱互不可見 | `SandboxManagerIT#parallelSandboxesIsolated` | ✅ |
+| AC-4 close 停止並移除容器 | `SandboxManagerIT#closeRemovesContainerKeepsHostDir` | ✅ |
+
+### 正確使用模式（code snippets）
+
+**建立沙箱並執行命令：**
+```java
+var config = new SandboxConfig("alpine:3.21", hostDir, "/work");
+Sandbox sandbox = new BindMountSandbox(config);
+
+// exec 使用 ExecSpec.of() 靜態工廠
+ExecResult result = sandbox.exec(ExecSpec.of("cat", "/work/seed.txt"));
+assertThat(result.stdout()).contains("expected content");
+
+// ExecResult 是 record — 用 exitCode(), stdout(), stderr(), duration()
+assertThat(result.exitCode()).isEqualTo(0);
+```
+
+**透過 SandboxManager 管理多個沙箱：**
+```java
+SandboxManager manager = new TestcontainersSandboxManager();
+Sandbox sandbox = manager.create(config);
+String containerId = manager.listActive().getFirst();
+manager.close(containerId); // 停止容器，主機目錄保留
+```
+
+### 關鍵發現
+
+1. **agent-sandbox-core 0.9.1 API 驗證：** `ExecSpec.of(String...)` 靜態工廠、`ExecResult` record（`exitCode()/stdout()/stderr()/duration()`）、`Sandbox.exec()/close()/files()/workDir()/isClosed()` — 全部如文件所述運作。
+2. **Testcontainers 1.20.4：** `withFileSystemBind(host, container, BindMode.READ_WRITE)` 三參數版未棄用，正常運作。`execInContainer(String...)` 回傳 `Container.ExecResult`（`getExitCode()/getStdout()/getStderr()`），需轉譯為 agent-sandbox-core 的 `ExecResult`。
+3. **容器啟動速度：** alpine:3.21 容器啟動約 0.5 秒（OrbStack），含 Ryuk 初始化約 1.5 秒。
+4. **bind-mount 雙向同步：** 主機→容器和容器→主機的檔案同步均為即時，無需額外等待。
+5. **並行隔離：** 每個 `BindMountSandbox` 建立獨立的 `GenericContainer`，bind-mount 各自的主機目錄，Docker 層級天然隔離。
+6. **build.gradle.kts：** hook 自動新增了 `integrationTest` 任務（`include("**/*IT.class")`）和 `tasks.test { exclude("**/*IT.class") }`，符合 dev standards §7.2。
+
+### 新增檔案清單
+
+| 檔案 | 類型 |
+| --- | --- |
+| `src/main/java/io/github/samzhu/grimo/sandbox/api/package-info.java` | @NamedInterface("api") |
+| `src/main/java/io/github/samzhu/grimo/sandbox/api/SandboxConfig.java` | record — 建立參數 |
+| `src/main/java/io/github/samzhu/grimo/sandbox/api/SandboxManager.java` | interface — 生命週期管理 |
+| `src/main/java/io/github/samzhu/grimo/sandbox/internal/BindMountSandbox.java` | implements Sandbox |
+| `src/main/java/io/github/samzhu/grimo/sandbox/internal/HostMountedSandboxFiles.java` | implements SandboxFiles |
+| `src/main/java/io/github/samzhu/grimo/sandbox/internal/TestcontainersSandboxManager.java` | @Service implements SandboxManager |
+| `src/main/java/io/github/samzhu/grimo/sandbox/internal/SandboxModuleConfig.java` | @Configuration |
+| `src/test/java/io/github/samzhu/grimo/sandbox/api/SandboxConfigTest.java` | T0 unit（5 tests） |
+| `src/test/java/io/github/samzhu/grimo/sandbox/internal/BindMountSandboxIT.java` | T3 contract（AC-1, AC-2） |
+| `src/test/java/io/github/samzhu/grimo/sandbox/internal/SandboxManagerIT.java` | T3 contract（AC-3, AC-4） |
+| `build.gradle.kts` | modified — deps + integrationTest task |
