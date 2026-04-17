@@ -34,3 +34,8 @@ IMPORTANT: Follow these in every session.
 | `docs/grimo/CHANGELOG.md` | What shipped + when (appended by `/shipping-release`) |
 | `docs/grimo/adr/ADR-NNN-<slug>.md` | In-development decisions that extend or contradict PRD |
 
+## Spring AI Community Agent Client
+
+- 主站文件：https://springaicommunity.mintlify.app/
+- Agent Client：https://springaicommunity.mintlify.app/projects/incubating/agent-client
+

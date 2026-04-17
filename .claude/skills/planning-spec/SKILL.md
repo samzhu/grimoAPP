@@ -62,24 +62,41 @@ Read the architecture doc for framework versions and patterns. **Use the exact v
 ## Process
 
 ```
-- [ ] Inspect current state — list the project directory; diff against what the last planning step recorded. New or modified files may reshape scope.
-- [ ] Re-sync PRD — scan the PRD for edits since design started. If the user's thinking has moved, ask before assuming.
-- [ ] Research — identify the load-bearing framework APIs this spec touches; dispatch parallel sub-agents against the OFFICIAL docs BEFORE grilling. The architecture doc pins versions but docs drift; prior memory / training data is stale. Skip only for specs that touch nothing beyond pure standard library / already-validated surfaces.
-- [ ] Clarify — confirm scope and constraints with user
-- [ ] Explore — 2-3 approaches with trade-offs
-- [ ] Confirm — present options, get user's choice
+Phase 1 — Context (no user interaction)
+- [ ] Inspect current state — list the project directory; diff against what the last planning step recorded.
+- [ ] Re-sync PRD — scan the PRD for edits since design started.
+- [ ] Estimate (initial) — score the six dimensions from the roadmap entry to determine size bucket.
+
+Phase 2 — Research (BLOCKING GATE — must complete before Phase 3)
+- [ ] Research — dispatch parallel sub-agents on ALL load-bearing framework APIs.
+      This phase is BLOCKING: do NOT ask the user any grill questions until all
+      research agents have returned and findings are integrated.
+      Skip ONLY when the spec touches nothing beyond pure standard library or
+      surfaces already validated by a prior shipped spec's §7 Findings.
+
+Phase 3 — Clarify + Design (user interaction)
+- [ ] Clarify — grill-me loop with user (research findings inform questions)
+- [ ] Explore — 2-3 approaches with trade-offs (based on research FACTS, not assumptions)
+- [ ] Confirm — present comparison table, get user's choice
+- [ ] Re-estimate — re-score after grill; size may have changed
 - [ ] Design — interfaces, data flow, file plan
 - [ ] Document — write spec file
 - [ ] Review — user reviews spec before handoff
 ```
 
-### Research — parallel sub-agents on load-bearing framework docs
+**Why the gate matters:** Grilling before research leads to approach comparisons based on assumptions, which get invalidated by research findings, causing multiple pivots and wasted cycles. Research first → grill with facts → one-shot approach selection.
+
+### Research — BLOCKING parallel sub-agents on load-bearing framework APIs
+
+**HARD GATE.** Research MUST complete before the first grill question. Do NOT interleave research and grilling — this causes approach pivots when research findings invalidate assumptions made during early grill questions.
 
 **Why before grilling.** Spec-level design decisions lock downstream implementation. Discovering API drift at implementation time means re-opening the design. Pay the lookup cost now, in parallel.
 
 **When to dispatch.** Any spec that introduces or heavily uses a framework/SDK not yet exercised by a prior shipped spec, a framework surface the project has not yet touched, or a build-system/packaging feature with known drift risk.
 
 **Skip when.** The spec only touches the language's standard library or surfaces already validated by a prior shipped spec's §7 Findings.
+
+**Scope: full API surface, one round.** Dispatch enough sub-agents to cover the ENTIRE API surface relevant to this spec — not just the specific method in question. One round of 3-5 parallel agents is better than 3 rounds of 1-2 agents. Under-scoping the first round is the #1 cause of repeated research.
 
 **Research persistence.** Findings MUST be persisted in the spec's §2.3 Research Citations — not just URLs, but a one-sentence summary per citation. This ensures future revisions and downstream specs don't need to re-research.
 
@@ -97,6 +114,8 @@ Read `references/grill-protocol.md` for the full loop rules, focus topics, and t
 
 After exploring approaches, present a comparison table and **wait for user's choice**. Do not pick for the user on M+ specs.
 
+**Every cell in the table must be grounded in research findings or codebase inspection.** If a Pros/Cons claim is based on an assumption rather than a verified fact, mark it as "(assumed)" and explain why verification was not possible.
+
 Format:
 ```
 | Approach | Pros | Cons | Recommendation |
@@ -105,7 +124,26 @@ Format:
 | B: ...   | ...  | ...  |                |
 ```
 
+**Anti-pattern:** presenting an approach comparison based on training-data assumptions, then rebuilding the table after research findings arrive. The comparison table should be presented ONCE, based on research facts.
+
 For key design decisions (interface shape, data model, error strategy), explicitly state the decision and ask: "OK to proceed with this approach?"
+
+### Maximize framework reuse — build custom only as last resort
+
+After a technology/framework is chosen (pinned in the architecture doc), the default posture is **reuse its types, interfaces, and patterns**. Custom abstractions are justified only when the framework genuinely cannot serve the need.
+
+**Reuse checklist (run during Research, before designing interfaces):**
+1. Does the framework already define an interface for this capability? → Use it as the port.
+2. Does the framework already define request/response types? → Use them, don't invent parallel DTOs.
+3. Does the framework provide a configuration/extension point (builder, factory, path override, SPI)? → Use it, even if the mechanism is indirect (e.g., a wrapper script injected via a binary-path setting).
+4. Does an upstream model/adapter already integrate with the infrastructure this spec needs? → Inject and configure, don't rewrite.
+
+**Custom implementation is justified when:**
+- The framework has a verified gap (confirmed by raw source inspection, not assumption).
+- The gap is documented in §2 Challenges Considered with the source URL.
+- The custom code follows the framework's own patterns (e.g., implements its SPI, returns its response types).
+
+**Anti-pattern:** Designing a custom port interface + custom response types + custom parsing when the framework already provides all three. This creates a parallel type system that must be maintained alongside the framework's evolution.
 
 ### Challenge assumptions (built-in)
 

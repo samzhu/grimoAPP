@@ -82,7 +82,7 @@
 | # | 規格 | 點數 | 狀態 |
 | --- | --- | --- | --- |
 | S004 | 預安裝 3 個 CLI 的 `grimo-runtime` Docker 映像 | S (10) | ✅ |
-| S005 | 透過 `docker exec` 的 `AgentCliAdapter`（容器化適配器） | M (12) | 🔲 |
+| S005 | 透過 `docker exec` 的容器化 AgentModel 適配器 | S (11) | ⏳ Design |
 
 ### S004 — `grimo-runtime` Docker 映像 · S (10)
 
@@ -98,18 +98,18 @@
 
 **估算。** 技術 2 · 不確定性 2 · 依賴 2 · 範疇 2 · 測試 1 · 可逆性 1 = **10 / S**
 
-### S005 — 透過 `docker exec` 的 `AgentCliAdapter` · M (12)
+### S005 — 透過 `docker exec` 的容器化 AgentModel 適配器 · S (11)
 
-**描述。** 實作 `AgentCliPort`，提供 `stream(SpawnSpec, Prompt): Flux<Token>`。預設實作使用 S003 的 `Sandbox`（`agent-sandbox-core` SPI）啟動 `grimo-runtime` 容器，再以 `docker exec -i <container> <cli> ...` 導入 prompt，串流擷取 stdout。透過 `ProviderId` 支援三個提供者（CLAUDE / CODEX / GEMINI）。測試用存根實作 `StubAgentCliAdapter`。
+**描述。** 在 `cli` 模組建立 `ContainerizedAgentModelFactory`，為每個容器動態生成 wrapper script（`docker exec -i $CONTAINER_ID <cli> "$@"`），透過各 SDK 的 binary path 設定注入（Claude 用 `claudePath`、Gemini 用 `gemini.cli.path`、Codex 用 `executablePath`）。完整重用 agent-client 0.12.2 的 `AgentModel` / `StreamingAgentModel` / `AgentResponse` 型別——零自建 AgentModel、零自建輸出解析。Claude 保留 sync + streaming + iterator 三種程式模型。認證優先走訂閱帳號（CLI login session），API key 為 CI fallback。
 
 **依賴。** S004。
 
-**SBE（草稿）。**
-- **AC-1** `StubAgentCliAdapter.stream("hello", CLAUDE)` 回傳含預設 token 的 `Flux<Token>`，供測試使用。
-- **AC-2** 針對本地運行的 `grimo-runtime` 容器的真實適配器，通過手動整合測試（無 Docker 的 CI 環境中跳過）。
-- **AC-3** 缺少 CLI（例如映像中未安裝 CLI 二進位檔）時，顯示清楚的 `CliNotFoundException`，而非原始的 docker-exec stderr 輸出。
+**SBE（草稿 → 設計時細化，見 spec 檔案 §3）。**
+- **AC-1** `StubContainerizedAgentModelFactory.create(CLAUDE, "stub-id").call(request)` 回傳含預設文字的 `AgentResponse`。
+- **AC-2** 針對本地運行的 `grimo-runtime` 容器的真實 `ClaudeAgentModel`（透過 wrapper script），通過手動整合測試。
+- **AC-3** 容器內缺少 CLI 時，`AgentResponse.isSuccessful()` 為 false，訊息清楚。
 
-**估算。** 技術 2 · 不確定性 3 · 依賴 3 · 範疇 2 · 測試 2 · 可逆性 2 = **14 / M**
+**估算。** 技術 2 · 不確定性 1 · 依賴 3 · 範疇 2 · 測試 2 · 可逆性 1 = **11 / S**（原藍圖 14/M；S003/S004 出貨 + wrapper script 方案降低不確定性與範疇）
 
 ---
 
