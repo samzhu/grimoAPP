@@ -100,12 +100,12 @@
 
 | # | 規格 | 點數 | 狀態 |
 | --- | --- | --- | --- |
-| S004 | 預安裝 3 個 CLI 的 `grimo-runtime` Docker 映像 | S (10) | 🔲 |
+| S004 | 預安裝 3 個 CLI 的 `grimo-runtime` Docker 映像 | S (10) | ⏳ Design |
 | S005 | 透過 `docker exec` 的 `AgentCliAdapter`（容器化適配器） | M (12) | 🔲 |
 
 ### S004 — `grimo-runtime` Docker 映像 · S (10)
 
-**描述。** `docker/runtime/` 下的 Dockerfile 產生一個映像，安裝 Node.js（claude-code 需要）、Python（codex）以及必要的 Google Cloud SDK 元件（gemini）。透過 Gradle 任務（`./gradlew buildRuntimeImage`）在本地發佈為 `grimo-runtime:<version>`。在 Dockerfile 旁的 README 中記錄精確的安裝命令與版本。
+**描述。** `docker/runtime/` 下的 Dockerfile 產生一個映像，基於 `node:20-slim`（Debian/glibc），安裝三個 CLI 代理工具：claude-code（curl 原生安裝器）、codex（`@openai/codex` npm）、gemini（`@google/gemini-cli` npm）——三者均為 Node.js / 原生二進位工具，不需要 Python 或 Google Cloud SDK。透過 `docker build --tag grimo-runtime:<version> docker/runtime/` 在本地建置。在 Dockerfile 旁的 README 中記錄精確的安裝命令與版本。
 
 **依賴。** S003。
 
