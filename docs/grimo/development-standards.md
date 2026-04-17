@@ -52,7 +52,7 @@ io.github.samzhu.grimo
 - **類別命名：**
   - 用例介面：`<動詞><名詞>UseCase` → `DelegateTaskUseCase`。
   - 用例實作：`<動詞><名詞>Service`。
-  - 出站埠：`<名詞>Port` → `SandboxPort`。
+  - 出站埠：`<名詞>Port` → `WorktreePort`。
   - 適配器實作：`<技術><名詞>Adapter` → `TestcontainersSandboxAdapter`。
   - 事件（record）：過去式 → `SubagentCompleted`、`RouteDecided`。
   - 配置：`<功能>Config`。
@@ -211,7 +211,7 @@ CI 將其 `secrets:` 直接對映至環境變數。金鑰缺失 → IT 透過 `a
 | 模式 | 何時用 | Modulith 機制 | `allowedDependencies` 寫法 |
 | --- | --- | --- | --- |
 | **A · `core` 型別** | 共用領域原語（`SessionId`、`TaskId`、`AgentRole`、…） | 直接 import `io.github.samzhu.grimo.core.domain.*`；`core` 為 `Type.OPEN` 不受 enforcement | **無需宣告** |
-| **B · 同步埠呼叫** | 消費者**現在**就需要結果（如 `subagent.DelegateTaskUseCase` 呼叫 `sandbox.SandboxPort.spawn()` 並等候） | 出版者把埠放在 `application/port/in/`（或 `port/out/`）並標 `@NamedInterface("api")` | 消費者宣告 `allowedDependencies = { "<publisher>::api" }` |
+| **B · 同步埠呼叫** | 消費者**現在**就需要結果（如 `subagent.DelegateTaskUseCase` 使用 `sandbox` 模組提供的 `Sandbox` 實例並等候） | 出版者把埠放在 `@NamedInterface("api")` 標記的子套件中 | 消費者宣告 `allowedDependencies = { "<publisher> :: api" }` |
 | **C · 非同步事件** | **預設模式**。出版者不在乎誰聽 / 想解耦（如 `cli` 發 `CliUnavailable` → `web` 推 SSE toast、`cost` 累計指標） | 出版者把事件 record 放在 `<module>/events/` 並標 `@NamedInterface("events")`；訂閱者用 `@ApplicationModuleListener void on(EventType e)` | 消費者宣告 `allowedDependencies = { "<publisher>::events" }` — 只看得到事件，看不到內部 service |
 
 ### 預設與禁止清單

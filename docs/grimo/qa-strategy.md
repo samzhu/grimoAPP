@@ -31,7 +31,7 @@
 | **T0 Unit** | `domain/` records + 純服務 | 純 JUnit | PR 閘門（快速，每模組 < 10s） |
 | **T1 Module** | 單一 `@ApplicationModule` 接線（無跨模組 beans） | `@ApplicationModuleTest` | PR 閘門 |
 | **T2 Slice** | 每適配器的 `@WebMvcTest`、`@DataJdbcTest` | Spring slices | PR 閘門 |
-| **T3 Contract** | 埠 ↔ 適配器契約（例如：`SandboxPort` 契約針對兩個實作執行） | `@SpringBootTest(classes = Sandbox*Config)` | PR 閘門 |
+| **T3 Contract** | 埠 ↔ 適配器契約（例如：`Sandbox` SPI 契約針對兩個實作執行） | `@SpringBootTest(classes = Sandbox*Config)` | PR 閘門 |
 | **T4 Integration** | 端對端使用者可見行為（使用外部 CLI 的存根） | `@SpringBootTest` + WireMock-for-LLM | 夜間 + 標籤觸發 |
 | **T5 Native smoke** | `nativeCompile` + 啟動 + `/actuator/health` | `gradle nativeTest` | 夜間（v1 不阻擋 PR） |
 | **T6 Inferential** | LLM 評審對照 SBE 標準審查對話記錄 | 自訂執行器，選擇加入 | 每週 / 發版候選 |

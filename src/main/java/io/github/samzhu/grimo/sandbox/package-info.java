@@ -1,7 +1,7 @@
 /**
- * Grimo :: Sandbox — hosts {@code SandboxPort} (S003) and its
- * Testcontainers-backed adapter for spawning bind-mounted Docker
- * containers used by sub-agent execution and CLI invocations.
+ * Grimo :: Sandbox — implements the {@code agent-sandbox-core} {@code Sandbox}
+ * SPI (S003) with a bind-mount-capable adapter backed by Testcontainers
+ * {@code GenericContainer}, used by sub-agent execution and CLI invocations.
  *
  * <p>Empty in S002. The first concrete type lands with S003.
  *

@@ -239,12 +239,22 @@ For every major design decision, briefly challenge:
 
 ### Design depth scales with estimation
 
+Read `references/estimation-scale.md` for the full six-dimension
+rubric (tech risk, uncertainty, dependencies, scope, testing,
+reversibility), scoring criteria (1–3 per dimension), worked examples,
+and literature citations (COCOMO II, McConnell, Cohn, Bezos Type 1/2,
+etc.). The rubric determines the size bucket:
+
 | Size | Depth | User interaction |
 |------|-------|------------------|
-| XS | Skip approach comparison. Recommend directly. | 3-question intake: (a) on-disk state, (b) packaging target, (c) pre-populate configs for future specs vs lazy-add per spec. **If prior context (earlier specs, memory, recent session) already answers a question, state the answer in §2 Approach and skip asking — do not re-ask what the source already reveals.** Plus up to 1 spec-specific grill question on a deliverable that passed the smell test. |
-| S | Brief comparison. | 3-4 questions, confirm approach |
-| M | Full comparison + interface definition. | Confirm approach + key interfaces |
-| L+ | Deep design + PoC spike may be needed. | Confirm at each phase boundary |
+| XS (6–8) | Skip approach comparison. Recommend directly. | 3-question intake: (a) on-disk state, (b) packaging target, (c) pre-populate configs for future specs vs lazy-add per spec. **If prior context (earlier specs, memory, recent session) already answers a question, state the answer in §2 Approach and skip asking — do not re-ask what the source already reveals.** Plus up to 1 spec-specific grill question on a deliverable that passed the smell test. |
+| S (9–11) | Brief comparison. | 3-4 questions, confirm approach |
+| M (12–14) | Full comparison + interface definition. | Confirm approach + key interfaces |
+| L+ (15–16) | Deep design + PoC spike may be needed. | Confirm at each phase boundary |
+
+**XL (17–18) = mandatory split.** Decompose into 2+ specs before
+proceeding. Tech risk = 3 triggers parallel research sub-agents
+(see Research section above).
 
 ### Spec File Structure
 

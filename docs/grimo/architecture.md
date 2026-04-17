@@ -34,7 +34,7 @@ io.github.samzhu.grimo                                   # 根（GrimoApplicatio
 │                 AgentRole, ProviderId, GrimoHomePaths, NanoIds }
 │                                           # 共用領域原語（S001）
 │                                           # Cost 由未來的成本遙測規格擁有，不在此處
-├── sandbox                                 # SandboxPort + Testcontainers 適配器（S003）
+├── sandbox                                 # Sandbox SPI (agent-sandbox-core) + bind-mount 適配器（S003）
 ├── cli                                     # AgentCliPort（docker exec → claude/codex/gemini）（S005）
 ├── agent                                   # 主代理 CLI 直通（grimo chat）（S007）
 ├── subagent                                # 委派 + 工作樹 + 子代理生命週期（S008–S010）
@@ -50,10 +50,10 @@ io.github.samzhu.grimo                                   # 根（GrimoApplicatio
 | 模組 | 入站埠（規劃） | 出站埠（規劃） | 發布事件（規劃） | Owning spec |
 | --- | --- | --- | --- | --- |
 | `core` | — | — | — | S001 ✅ |
-| `sandbox` | — | `SandboxPort`（埠 + Testcontainers 適配器） | — | S003 |
+| `sandbox` | — | `Sandbox` SPI（`agent-sandbox-core`）+ bind-mount 適配器 | — | S003 |
 | `cli` | `AgentCliInvocationUseCase` | `AgentCliPort`（透過 `docker exec` 呼叫容器化 CLI） | `CliUnavailable`、`CliInvocationFailed` | S005 / S006 |
 | `agent` | `MainAgentChatUseCase`（`grimo chat` 入口） | `AgentCliPort`（消費 `cli` 模組的同步埠） | — | S007 |
-| `subagent` | `DelegateTaskUseCase` | `SandboxPort`、`WorktreePort`、`AgentCliPort` | `SubagentStarted`、`SubagentCompleted`、`SubagentFailed` | S008–S010 |
+| `subagent` | `DelegateTaskUseCase` | `Sandbox`（`agent-sandbox-core` SPI）、`WorktreePort`、`AgentCliPort` | `SubagentStarted`、`SubagentCompleted`、`SubagentFailed` | S008–S010 |
 | `skills` | `SkillRegistryUseCase` | `SkillStorePort`（檔案系統） | `SkillEnabled`、`SkillDisabled` | S011 / S012 |
 
 ### 2.x Backlog 模組（晉升時恢復）
@@ -101,8 +101,8 @@ io.github.samzhu.grimo                                   # 根（GrimoApplicatio
 | `org.springaicommunity.agents:agent-gemini` | 0.12.2 | `org.springaicommunity.agents.gemini.GeminiAgentModel` | yes |
 | `org.springaicommunity:spring-ai-starter-session-jdbc` | **0.2.0** | `org.springframework.ai.session.advisor.SessionMemoryAdvisor`；`org.springframework.ai.session.SessionService` | yes（與 agent-client 獨立發版；需要 Spring AI ≥ 2.0.0-M4） |
 | `org.springaicommunity:spring-ai-session-management` | 0.2.0 | `org.springframework.ai.session.compaction.*` | yes |
-| `org.springaicommunity:agent-sandbox-core` | **0.9.1** | `org.springaicommunity.sandbox.Sandbox`（SPI） | yes — Maven Central 上的 groupId 為 `org.springaicommunity`（非 `.agents`） |
-| `org.springaicommunity:agent-sandbox-docker` | **0.9.1** | `org.springaicommunity.sandbox.docker.DockerSandbox` — **僅用於短暫檔案複製沙箱；非工作樹路徑**（D9） | yes — 同上 group |
+| `org.springaicommunity:agent-sandbox-core` | **0.9.1** | `org.springaicommunity.sandbox.Sandbox`（SPI）、`ExecSpec`、`ExecResult`、`SandboxFiles` — **S003 的沙箱埠介面**（D9 修訂） | yes — Maven Central 上的 groupId 為 `org.springaicommunity`（非 `.agents`） |
+| `org.springaicommunity:agent-sandbox-docker` | **0.9.1** | `org.springaicommunity.sandbox.docker.DockerSandbox` — **S003 不使用**（建構子啟動容器，無 bind-mount 鉤點）；僅供不需 bind-mount 的短暫檔案複製情境 | yes — 同上 group |
 | `org.testcontainers:testcontainers` | 1.20.4 | `org.testcontainers.containers.GenericContainer` | yes（僅 JVM；`@DisabledInNativeImage`） |
 | `org.eclipse.jgit:org.eclipse.jgit` | 7.1.1.202506271520-r | `org.eclipse.jgit.api.Git`（worktree add/remove） | yes |
 | `org.springframework.boot:spring-boot-starter-test` | 4.0.5 | （自動） | yes |
@@ -207,10 +207,10 @@ Browser       web            session         router          cli           provi
             ↓ (structured task output)
  subagent.DelegateTaskUseCase.execute(taskSpec)
    ├─ WorktreePort.create(taskId)          → ~/.grimo/worktrees/<id>/
-   ├─ SandboxPort.spawn(image, mount=/work:<worktree> RW)
-   │     (Testcontainers GenericContainer.withFileSystemBind)
+   ├─ Sandbox sandbox = sandboxFactory.create(image, mount=/work:<worktree> RW)
+   │     (BindMountSandbox: GenericContainer.withFileSystemBind)
    ├─ inner agent runs with full Read/Write/Bash inside /work
-   ├─ SandboxPort.exec("git diff") → diff returned to main-agent
+   ├─ sandbox.exec(ExecSpec.of("git","diff")) → ExecResult returned to main-agent
    └─ user reviews diff → accept → worktree merge back
 ```
 

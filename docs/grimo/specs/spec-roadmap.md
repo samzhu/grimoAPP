@@ -75,11 +75,11 @@
 
 | # | 規格 | 點數 | 狀態 |
 | --- | --- | --- | --- |
-| S003 | `Sandbox` 埠 + 帶 bind-mount 的 Testcontainers 適配器 | M (13) | 🔲 |
+| S003 | `Sandbox` SPI + bind-mount 適配器（`agent-sandbox-core`） | M (13) | ⏳ Design |
 
 ### S003 — Sandbox 埠 + Testcontainers 適配器 · M (13)
 
-**描述。** 定義 `SandboxPort`（方法：`spawn(SpawnSpec) → Sandbox`、`exec(Sandbox, Command) → ExecResult`、`close(Sandbox)`）。預設實作 `TestcontainersSandboxAdapter` 使用 `GenericContainer<>(...).withWorkingDirectory("/work").withFileSystemBind(hostPath, "/work", BindMode.READ_WRITE).withCommand("sleep","infinity")`，依 PRD D9 — **非** `DockerSandbox`。所有測試加 `@DisabledInNativeImage`（Testcontainers 為 JVM 專用，見 `architecture.md`）。
+**描述。** 採用 `agent-sandbox-core` 0.9.1 的 `Sandbox` SPI（`exec(ExecSpec) → ExecResult`、`close()`、`files()`、`workDir()`）作為沙箱抽象層，不自定義 `SandboxPort`。自訂 `BindMountSandbox` 實作 `Sandbox` 介面，內部使用 Testcontainers `GenericContainer` + `withFileSystemBind(hostPath, "/work", READ_WRITE)` + `withCommand("sleep","infinity")`，依 PRD D9 修訂 — **非** `DockerSandbox`（其建構子啟動容器，無 bind-mount 鉤點）。所有測試加 `@DisabledInNativeImage`（Testcontainers 為 JVM 專用，見 `architecture.md`）。
 
 **依賴。** S002。
 
@@ -119,7 +119,7 @@
 
 ### S005 — 透過 `docker exec` 的 `AgentCliAdapter` · M (12)
 
-**描述。** 實作 `AgentCliPort`，提供 `stream(SpawnSpec, Prompt): Flux<Token>`。預設實作使用 S003 的 `SandboxPort` 啟動 `grimo-runtime` 容器，再以 `docker exec -i <container> <cli> ...` 導入 prompt，串流擷取 stdout。透過 `ProviderId` 支援三個提供者（CLAUDE / CODEX / GEMINI）。測試用存根實作 `StubAgentCliAdapter`。
+**描述。** 實作 `AgentCliPort`，提供 `stream(SpawnSpec, Prompt): Flux<Token>`。預設實作使用 S003 的 `Sandbox`（`agent-sandbox-core` SPI）啟動 `grimo-runtime` 容器，再以 `docker exec -i <container> <cli> ...` 導入 prompt，串流擷取 stdout。透過 `ProviderId` 支援三個提供者（CLAUDE / CODEX / GEMINI）。測試用存根實作 `StubAgentCliAdapter`。
 
 **依賴。** S004。
 
