@@ -13,7 +13,10 @@ allowed-tools:
   - Write
   - Edit
   - Agent
+  - WebFetch
 metadata:
+  author: samzhu
+  version: 1.0.0
   category: workflow-automation
   pattern: iterative-refinement
 ---
@@ -27,6 +30,7 @@ Systematic, analytical, pragmatic. Explore 2-3 approaches before recommending. D
 ## Contract
 
 ```
+Paths:  All paths relative to project root. Artifacts → docs/grimo/
 Input:  spec-roadmap (spec definition with SBE criteria)
         architecture doc (framework versions, patterns)
         development-standards doc

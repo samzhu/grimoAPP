@@ -14,7 +14,10 @@ allowed-tools:
   - Bash
   - Write
   - Edit
+  - WebFetch
 metadata:
+  author: samzhu
+  version: 1.0.0
   category: workflow-automation
   pattern: sequential-orchestration
 ---

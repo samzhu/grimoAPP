@@ -14,6 +14,8 @@ allowed-tools:
   - Write
   - Edit
 metadata:
+  author: samzhu
+  version: 1.0.0
   category: workflow-automation
   pattern: domain-specific-intelligence
 ---
@@ -46,18 +48,27 @@ For XS/S/M specs that passed auto-verify, skip this — go to `/shipping-release
 
 ## Process
 
-### 0. Read spec file
+### 0. Read inputs
 
-Read the spec file sections 1-7. Use section 7 (Implementation Results)
-as context — don't repeat checks that already passed. Focus on gaps
-and deeper inspection.
+Read the spec file sections 1-7 and the QA strategy doc. Use section 7
+(Implementation Results) as context — don't repeat checks that already
+passed. Focus on gaps and deeper inspection.
 
 ### 1. Run deterministic checks first
 
-```bash
-docs/grimo/scripts/verify-tests-pass.sh .
-docs/grimo/scripts/verify-spec-coverage.sh [spec-id] .
+Run the project's standard pipeline commands as declared in the QA
+strategy doc. Prefer ecosystem-native commands over custom scripts.
+
+Common shape (adapt to the project's actual pipeline):
+
 ```
+<ecosystem test command>           # e.g., ./gradlew check
+<ecosystem coverage command>       # e.g., ./gradlew jacocoTestCoverageVerification
+<ecosystem arch/boundary check>    # e.g., modulith verify (if part of test suite)
+```
+
+Each command must exit 0. If the QA strategy doc lists project-specific
+verification scripts, run those as well.
 
 ### 2. Spec compliance
 
@@ -109,6 +120,23 @@ Verdict: PASS | REJECT
 ```
 
 Update `spec-roadmap.md` to `⏳ QA` on pass.
+
+## Troubleshooting
+
+### Tests pass but AC coverage is incomplete
+**Cause:** Tests exist but don't reference AC ids in their names/tags.
+**Solution:** Check the AC-to-test naming contract in the QA strategy
+doc. Add `@DisplayName("AC-N ...")` or equivalent to uncovered tests.
+
+### Deterministic checks fail on unrelated tests
+**Cause:** A prior spec's test is broken by this spec's changes.
+**Solution:** Fix the regression before proceeding. If the fix is
+non-trivial, file it as a `bug` tech debt entry and note in QA verdict.
+
+### Code diverges from spec design sections
+**Cause:** Implementation discovered constraints not anticipated in design.
+**Solution:** Update spec sections 2/4 with `[Implementation note]`
+annotations and record divergences in section 7 Key Findings.
 
 ## Handoff
 

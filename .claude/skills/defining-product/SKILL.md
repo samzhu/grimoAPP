@@ -13,7 +13,11 @@ allowed-tools:
   - Write
   - Edit
   - Agent
+  - WebFetch
+  - WebSearch
 metadata:
+  author: samzhu
+  version: 1.0.0
   category: workflow-automation
   pattern: iterative-refinement
 ---
@@ -206,6 +210,31 @@ Must contain:
 
 **Glossary**: When introducing new domain concepts, add them to
 `docs/grimo/glossary.md` with both Chinese and English terms + code naming.
+
+## Troubleshooting
+
+### User gives one-line answers to every grill question
+**Cause:** Questions are too open-ended or the user has a clear vision
+they haven't expressed yet.
+**Solution:** Switch to "approve or override" style — present your
+recommended answer and ask "OK, or would you change something?"
+
+### Research subagent returns empty / anti-bot content
+**Cause:** Target URL blocks automated access.
+**Solution:** Flag it explicitly. Ask the user to open the page in a
+browser and paste relevant sections, or try an alternative source
+(release notes, repo README, package registry metadata).
+
+### User wants to skip the grill loop
+**Cause:** User has a pre-written brief or prior art they want to adopt.
+**Solution:** Read the brief, extract answers to mandatory line-drawing
+questions, present the extracted answers for confirmation, and fill gaps.
+
+### PRD scope grows unbounded during grill
+**Cause:** Every question reveals new requirements.
+**Solution:** After 3 rounds of scope expansion, force the critical path
+ranking question. Anything the user cannot rank into the top 7 moves to
+Backlog.
 
 ## Handoff
 

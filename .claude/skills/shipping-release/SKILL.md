@@ -14,6 +14,8 @@ allowed-tools:
   - Write
   - Edit
 metadata:
+  author: samzhu
+  version: 1.0.0
   category: workflow-automation
   pattern: sequential-orchestration
 ---

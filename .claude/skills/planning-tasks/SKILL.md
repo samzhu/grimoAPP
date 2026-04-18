@@ -16,6 +16,8 @@ allowed-tools:
   - Edit
   - Agent
 metadata:
+  author: samzhu
+  version: 1.0.0
   category: workflow-automation
   pattern: context-aware-routing
 ---
@@ -102,14 +104,37 @@ Too large or abstract → escalate to `/planning-spec [spec-id]`.
 
 | Signal | POC needed? |
 |---|---|
-| Spec uses packages/SDKs not yet used in the project | Yes |
+| Spec introduces packages/SDKs **never used before** in this project | **Always Yes** — even if spec research is thorough, API semantics (return values, exception behavior, builder patterns) must be verified against real code |
 | Spec integrates with unfamiliar external APIs | Yes |
 | High uncertainty on whether approach will work | Yes |
 | Spec only modifies existing, well-understood code | No |
 | All packages already validated by prior specs | No |
 
+**First-time SDK rule:** When a spec introduces a dependency the
+project has never imported before, always run a lightweight POC
+(5–10 minutes). A single test class in `poc/<spec-id>/` that proves:
+(a) objects construct successfully, (b) return-value semantics (e.g.
+what makes `isSuccessful()` true), (c) which setters/builders
+actually exist on the options classes. This is faster than discovering
+API quirks mid-RED through bytecode inspection or trial-and-error.
+
 Record the decision in the spec file section 6 header:
 `POC: required` or `POC: not required` with rationale.
+
+**Task granularity by spec size:**
+
+| Spec size | Target task count | Rationale |
+|---|---|---|
+| XS (6–8) | 1–2 | Often a single AC = single task |
+| S (9–11) | 3–4 | One per AC + one infra task (deps, scaffolding) |
+| M (12–14) | 4–6 | One per AC + infra + integration |
+| L+ (15+) | Split into sub-specs first | — |
+
+Merge trivial setup steps (add dependency, create interface) into a
+single infrastructure task when they share the same verification
+command. Each task should carry enough work to justify a full
+RED → GREEN → REFACTOR cycle — if RED is just "file does not exist"
+and GREEN is creating a 5-line file, the task is too small.
 
 **Create individual task files:**
 
@@ -194,6 +219,25 @@ Add section 7 (Implementation Results) to the spec file:
 - Key findings from implementation
 - Correct usage patterns (code snippets — the most valuable part)
 - AC results table
+- **Pending verification list** — any test that compiled but could not
+  run (e.g. integration tests skipped due to missing environment).
+  Mark each with `⏳` and the command needed to verify later.
+
+**Sync design sections with implementation.** Review spec §2
+(Approach) and §4 (Interface/API Design) for statements that
+diverged during implementation. For each divergence, either:
+- Update §2/§4 inline with a `[Implementation note]` annotation, or
+- Record it in §7 Key Findings with a forward reference.
+
+The goal: a reader of §2/§4 should not be misled by stale design
+assumptions. §7 is the ground truth; §2/§4 should at minimum
+cross-reference it.
+
+**Register tech debt.** If implementation discovered issues that
+belong to future work (architecture doc inaccuracies, skipped ITs,
+known limitations), add them to the project's tech debt tracking
+section in the roadmap doc. Use the types defined in the
+development standards (bug / drift / skip).
 
 Update spec file status line to `✅ Done`.
 
