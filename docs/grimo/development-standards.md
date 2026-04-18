@@ -31,7 +31,7 @@ io.github.samzhu.grimo
 │   │   └── service/...Service.java
 │   ├── adapter/in/event/...
 │   └── adapter/out/...             # Testcontainers / Docker 適配器（S003）
-├── cli/                            # AgentCliPort + docker-exec 適配器（S005）
+├── cli/                            # ContainerizedAgentModelFactory + docker-exec wrapper（S005 ✅）
 ├── agent/                          # 主代理 CLI 直通（S007）
 ├── subagent/                       # 委派 + 工作樹 + 子代理生命週期（S008–S010）
 └── skills/                         # SKILL.md 登錄檔 + 注入子代理容器（S011、S012）
@@ -41,7 +41,7 @@ io.github.samzhu.grimo
 
 ### 模組邊界規則
 
-- 每個模組的 `package-info.java` 攜帶 `@ApplicationModule(displayName = "Grimo :: <Name>", allowedDependencies = { ... })`。`core` 為 `type = ApplicationModule.Type.OPEN`；其餘模組以 `allowedDependencies = {}` 嚴格起步，由各自的 owning spec 在第一次跨模組引用時擴充（見 §13 Cross-Module Communication）。
+- 每個模組的 `package-info.java` 攜帶 `@ApplicationModule(displayName = "Grimo :: <Name>", allowedDependencies = { ... })`。`core` 為 `type = ApplicationModule.Type.OPEN`；需要引用 `core` 型別的模組以 `allowedDependencies = { "core" }` 起步（Modulith 2.0.5 要求即使 OPEN 模組也須顯式列出），由各自的 owning spec 在第一次跨模組引用時擴充（見 §13 Cross-Module Communication）。
 - **`domain/`** 套件在沒有 Spring classpath 的情況下也能編譯。由 ArchUnit 測試強制執行。
 - **`internal/`** 子套件為實作細節 — 兄弟模組不得引用它們。
 - 對需要發佈給其他模組的套件使用 `@NamedInterface("...")`：同步埠用 `api`、事件型別用 `events`（命名約定見 §13）。
@@ -228,7 +228,7 @@ CI 將其 `secrets:` 直接對映至環境變數。金鑰缺失 → IT 透過 `a
 
 | 模式 | 何時用 | Modulith 機制 | `allowedDependencies` 寫法 |
 | --- | --- | --- | --- |
-| **A · `core` 型別** | 共用領域原語（`SessionId`、`TaskId`、`AgentRole`、…） | 直接 import `io.github.samzhu.grimo.core.domain.*`；`core` 為 `Type.OPEN` 不受 enforcement | **無需宣告** |
+| **A · `core` 型別** | 共用領域原語（`SessionId`、`TaskId`、`AgentRole`、…） | 直接 import `io.github.samzhu.grimo.core.domain.*`；`core` 為 `Type.OPEN` | 消費者須宣告 `"core"`（Modulith 2.0.5：`allowedDependencies` 非空時，OPEN 模組仍須顯式列出） |
 | **B · 同步埠呼叫** | 消費者**現在**就需要結果（如 `subagent.DelegateTaskUseCase` 使用 `sandbox` 模組提供的 `Sandbox` 實例並等候） | 出版者把埠放在 `@NamedInterface("api")` 標記的子套件中 | 消費者宣告 `allowedDependencies = { "<publisher> :: api" }` |
 | **C · 非同步事件** | **預設模式**。出版者不在乎誰聽 / 想解耦（如 `cli` 發 `CliUnavailable` → `web` 推 SSE toast、`cost` 累計指標） | 出版者把事件 record 放在 `<module>/events/` 並標 `@NamedInterface("events")`；訂閱者用 `@ApplicationModuleListener void on(EventType e)` | 消費者宣告 `allowedDependencies = { "<publisher>::events" }` — 只看得到事件，看不到內部 service |
 

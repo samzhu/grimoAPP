@@ -17,7 +17,7 @@
   - `adapter/out/**` — JDBC 儲存庫、CLI 包裝器、Docker 客戶端。
   - `internal/` — 僅供實作使用的輔助類（對兄弟模組隱藏）。
 - **跨模組通訊政策（S002 釘定）。** 三種合法模式，其餘均為 Modulith 違規：
-  - **A · `core` 型別** — `core` 為 `Type.OPEN`，所有模組可直接 import `io.github.samzhu.grimo.core.domain.*`，無需在 `allowedDependencies` 宣告。
+  - **A · `core` 型別** — `core` 為 `Type.OPEN`，所有模組可直接 import `io.github.samzhu.grimo.core.domain.*`。**注意：** Modulith 2.0.5 中，即使目標模組為 `OPEN`，消費者若設定了 `allowedDependencies`，仍須顯式列出 `"core"`（S005 §7 發現）。
   - **B · 同步埠呼叫** — 出版者把埠放在 `@NamedInterface("api")` 套件中；消費者必須宣告 `allowedDependencies = { "<publisher>::api" }`。
   - **C · 非同步事件** — 預設模式（PRD P4「廉價未來解耦」）。出版者把事件 record 放在 `<module>/events/` 並標 `@NamedInterface("events")`；消費者用 `@ApplicationModuleListener` 訂閱，宣告 `allowedDependencies = { "<publisher>::events" }`，只看得到事件、看不到內部 service。
   事件機制依賴 `ApplicationEventPublisher` + `@ApplicationModuleListener`。**禁止**跨模組直接 bean 注入或引用 `internal/` 套件。完整三模式表 + 禁止清單見 `development-standards.md` §13。
@@ -35,13 +35,13 @@ io.github.samzhu.grimo                                   # 根（GrimoApplicatio
 │                                           # 共用領域原語（S001）
 │                                           # Cost 由未來的成本遙測規格擁有，不在此處
 ├── sandbox                                 # Sandbox SPI (agent-sandbox-core) + bind-mount 適配器（S003）
-├── cli                                     # AgentCliPort（docker exec → claude/codex/gemini）（S005）
+├── cli                                     # ContainerizedAgentModelFactory（docker exec wrapper → AgentModel）（S005 ✅）
 ├── agent                                   # 主代理 CLI 直通（grimo chat）（S007）
 ├── subagent                                # 委派 + 工作樹 + 子代理生命週期（S008–S010）
 └── skills                                  # SKILL.md 登錄檔 + 注入子代理容器（S011、S012）
 ```
 
-`core` 標記為 `@ApplicationModule(type = Type.OPEN)` — 其他所有模組都可直接使用其公開型別，無需在 `allowedDependencies` 列出。其餘 5 個模組在 `package-info.java` 中以 `allowedDependencies = {}` 嚴格起步，由各自的 owning spec 在第一次跨模組引用時擴充（同步埠透過 `<publisher>::api`，事件透過 `<publisher>::events`，見 §1 與 `development-standards.md` §13）。
+`core` 標記為 `@ApplicationModule(type = Type.OPEN)`。**Modulith 2.0.5 行為：** 即使目標模組為 `OPEN`，消費者若設定了 `allowedDependencies`，仍須顯式列出 `"core"`（S005 §7 發現）。因此需要引用 `core` 型別的模組以 `allowedDependencies = { "core" }` 起步，由各自的 owning spec 在第一次跨模組引用時擴充（同步埠透過 `<publisher>::api`，事件透過 `<publisher>::events`，見 §1 與 `development-standards.md` §13）。
 
 ### 模組職責與計畫發佈的埠 / 事件（MVP）
 
@@ -51,7 +51,7 @@ io.github.samzhu.grimo                                   # 根（GrimoApplicatio
 | --- | --- | --- | --- | --- |
 | `core` | — | — | — | S001 ✅ |
 | `sandbox` | — | `Sandbox` SPI（`agent-sandbox-core`）+ bind-mount 適配器 | — | S003 |
-| `cli` | `AgentCliInvocationUseCase` | `AgentCliPort`（透過 `docker exec` 呼叫容器化 CLI） | `CliUnavailable`、`CliInvocationFailed` | S005 / S006 |
+| `cli` | `ContainerizedAgentModelFactory`（`@NamedInterface("api")`） | —（WrapperScriptGenerator 內部直接呼叫 docker exec） | `CliUnavailable`、`CliInvocationFailed`（S006 規劃） | S005 ✅ / S006 |
 | `agent` | `MainAgentChatUseCase`（`grimo chat` 入口） | `AgentCliPort`（消費 `cli` 模組的同步埠） | — | S007 |
 | `subagent` | `DelegateTaskUseCase` | `Sandbox`（`agent-sandbox-core` SPI）、`WorktreePort`、`AgentCliPort` | `SubagentStarted`、`SubagentCompleted`、`SubagentFailed` | S008–S010 |
 | `skills` | `SkillRegistryUseCase` | `SkillStorePort`（檔案系統） | `SkillEnabled`、`SkillDisabled` | S011 / S012 |

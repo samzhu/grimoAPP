@@ -74,42 +74,9 @@
 
 ---
 
-## 里程碑 2：容器化 CLI（優先級「能在容器內用 3 個 CLI」）
+## 里程碑 2：容器化 CLI ✅（2026-04-18）
 
-**目標。** 由 Grimo 管理的 Docker 映像內建 `claude-code`、`codex` 與 `gemini` CLI；Java 適配器透過 `docker exec` 呼叫每個 CLI。
-**完成條件。** S004、S005 ✅。
-
-| # | 規格 | 點數 | 狀態 |
-| --- | --- | --- | --- |
-| S004 | 預安裝 3 個 CLI 的 `grimo-runtime` Docker 映像 | S (10) | ✅ |
-| S005 | 透過 `docker exec` 的容器化 AgentModel 適配器 | S (11) | ✅ |
-
-### S004 — `grimo-runtime` Docker 映像 · S (10)
-
-**描述。** `docker/runtime/` 下的 Dockerfile 產生一個映像，基於 `node:20-slim`（Debian/glibc），安裝三個 CLI 代理工具：claude-code（curl 原生安裝器）、codex（`@openai/codex` npm）、gemini（`@google/gemini-cli` npm）——三者均為 Node.js / 原生二進位工具，不需要 Python 或 Google Cloud SDK。透過 `docker build --tag grimo-runtime:<version> docker/runtime/` 在本地建置。在 Dockerfile 旁的 README 中記錄精確的安裝命令與版本。
-
-**依賴。** S003。
-
-**SBE（草稿）。**
-- **AC-1** `./gradlew buildRuntimeImage` 成功並在本地標記 `grimo-runtime:<version>`。
-- **AC-2** `docker run --rm grimo-runtime:<version> claude-code --version` 印出版本號。
-- **AC-3** `codex --version` 與 `gemini --version` 同上。
-- **AC-4** 映像大小 < 1 GB（軟性目標；已記錄）。
-
-**估算。** 技術 2 · 不確定性 2 · 依賴 2 · 範疇 2 · 測試 1 · 可逆性 1 = **10 / S**
-
-### S005 — 透過 `docker exec` 的容器化 AgentModel 適配器 · S (11)
-
-**描述。** 在 `cli` 模組建立 `ContainerizedAgentModelFactory`，為每個容器動態生成 wrapper script（`docker exec -i $CONTAINER_ID <cli> "$@"`），透過各 SDK 的 binary path 設定注入（Claude 用 `claudePath`、Gemini 用 `gemini.cli.path`、Codex 用 `executablePath`）。完整重用 agent-client 0.12.2 的 `AgentModel` / `StreamingAgentModel` / `AgentResponse` 型別——零自建 AgentModel、零自建輸出解析。Claude 保留 sync + streaming + iterator 三種程式模型。認證優先走訂閱帳號（CLI login session），API key 為 CI fallback。
-
-**依賴。** S004。
-
-**SBE（草稿 → 設計時細化，見 spec 檔案 §3）。**
-- **AC-1** `StubContainerizedAgentModelFactory.create(CLAUDE, "stub-id").call(request)` 回傳含預設文字的 `AgentResponse`。
-- **AC-2** 針對本地運行的 `grimo-runtime` 容器的真實 `ClaudeAgentModel`（透過 wrapper script），通過手動整合測試。
-- **AC-3** 容器內缺少 CLI 時，`AgentResponse.isSuccessful()` 為 false，訊息清楚。
-
-**估算。** 技術 2 · 不確定性 1 · 依賴 3 · 範疇 2 · 測試 2 · 可逆性 1 = **11 / S**（原藍圖 14/M；S003/S004 出貨 + wrapper script 方案降低不確定性與範疇）
+2/2 規格完成（S004 + S005）。詳見 `specs/archive/2026-04-1[7-8]-S00[4-5]-*.md`。
 
 ---
 
@@ -324,5 +291,5 @@
 | --- | --- | --- | --- | --- |
 | S005 | `WrapperScriptGenerator` 使用 `System.getProperty("java.io.tmpdir")` — 違反 §11 僅 `GrimoHomePaths` 可存取系統屬性規則 | drift | 低 | 🔲 |
 | S005 | `cli/package-info.java` Javadoc 仍寫 "strictest white-list" 但 `allowedDependencies` 已改為 `{ "core" }` | drift | 低 | 🔲 |
-| S005 | architecture.md §1 聲稱 `Type.OPEN` 模組消費者無需宣告 `allowedDependencies`，實際 Modulith 2.0.5 仍需顯式宣告 | drift | 中 | 🔲 |
+| S005 | architecture.md §1 聲稱 `Type.OPEN` 模組消費者無需宣告 `allowedDependencies`，實際 Modulith 2.0.5 仍需顯式宣告 | drift | 中 | ✅ S005 出貨時修正 |
 | S005 | ContainerizedAgentModelIT (AC-2, AC-3) 編譯通過但未在 Docker 環境執行 | skip | 中 | 🔲 |
