@@ -1,6 +1,6 @@
 # S006: CLI 配置研究 + 策略驗證
 
-> Spec: S006 | Size: S (11) | Status: ⏳ Design
+> Spec: S006 | Size: S (11) | Status: ✅ Done
 > Date: 2026-04-18
 
 ---
@@ -41,7 +41,7 @@
 | # | Decision | Chosen | Why |
 | --- | --- | --- | --- |
 | D1 | **Claude 認證傳遞** | macOS Keychain → `CLAUDE_CODE_OAUTH_TOKEN` env var 注入容器 | macOS 上 `claude login` 將 OAuth token 存於 macOS Keychain（非 `~/.claude/` 檔案）。`CLAUDE_CODE_OAUTH_TOKEN` 是 Anthropic 官方為 Docker/CI 設計的認證路徑，接受訂閱帳號（Max/Pro/Teams/Enterprise）token。或使用 `claude setup-token` 產生一年期 token。 |
-| D2 | **Codex 認證傳遞** | RO 掛載 `~/.codex/` 至容器 `/root/.codex/` | Codex CLI 預設使用檔案儲存（非 Keychain），`~/.codex/auth.json` 為明文 JSON。直接 RO 掛載是最簡路徑。`CODEX_HOME` env var 可重導路徑。 |
+| D2 | **Codex 認證傳遞** | RO 掛載 `~/.codex/auth.json` 單檔至容器 `/root/.codex/auth.json` | Codex CLI 預設使用檔案儲存（非 Keychain），`~/.codex/auth.json` 為明文 JSON。[Implementation note] 原設計 RO 掛載整個 `~/.codex/` 不可行——Codex CLI 需寫入 cache 和 session 至 CODEX_HOME。改為僅 RO 掛載 `auth.json` 單檔，CODEX_HOME 指向 writable 的 `/root/.codex/`。 |
 | D3 | **Gemini 認證傳遞** | `GEMINI_API_KEY` env var 注入容器 | Gemini CLI 的 OAuth 憑證以 AES-256-GCM 加密，密鑰衍生自 `hostname+username`（scrypt）。容器的 hostname/username 與主機不同，**無法解密**主機產生的憑證檔。API key env var 是唯一可靠的跨 Docker 邊界路徑。 |
 | D4 | **Claude 記憶體停用** | 個別 env var（非 `--bare`） | `--bare` 會殺掉 CLAUDE.md + auto-memory + hooks + skills + MCP，但 (a) `--bare` 不讀取 `CLAUDE_CODE_OAUTH_TOKEN`（認證衝突），(b) S012 需要保留 skill 載入能力。改用 `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1` + `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` 達成精確控制。 |
 | D5 | **遙測停用** | 各 CLI 各自的機制 | Claude: `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`（umbrella）；Codex: `-c analytics.enabled=false`（CLI flag）；Gemini: 預設已關閉（`telemetry.enabled=false`）。 |
@@ -189,16 +189,19 @@ And    exit code 非 signal-killed（非 segfault / SIGABRT）
 
 ```
 io.github.samzhu.grimo.cli
-├── package-info.java                  # @ApplicationModule (已存在，不修改)
-└── CliInvocationOptions.java          # record — provider → env vars + CLI flags
+├── package-info.java                  # @ApplicationModule(allowedDependencies={"core"}) (已存在)
+├── api/
+│   ├── package-info.java              # @NamedInterface("api") (S005 已建立)
+│   ├── ContainerizedAgentModelFactory.java  # S005 出貨
+│   └── CliInvocationOptions.java      # record — provider → env vars + CLI flags (NEW)
 ```
 
-> 設計說明：`CliInvocationOptions` 放在 `cli` 模組根套件（非 `api/` 子套件），因為 S005 尚未建立 `api/` 套件。模組根的公開型別對宣告 `allowedDependencies = { "cli" }` 的消費者可見。S005 出貨後可遷移至 `cli/api/`。
+> 設計說明：`CliInvocationOptions` 放在 `cli/api/` 子套件（S005 已建立 `@NamedInterface("api")`）。消費者以 `allowedDependencies = { "cli :: api" }` 存取。
 
 ### 4.2 `CliInvocationOptions` — 容器化 CLI 呼叫配置
 
 ```java
-package io.github.samzhu.grimo.cli;
+package io.github.samzhu.grimo.cli.api;
 
 import io.github.samzhu.grimo.core.domain.ProviderId;
 import java.util.List;
@@ -298,10 +301,10 @@ void claudeAuthViaOAuthToken() {
 
 | 消費者模組 | 需要的型別 | `allowedDependencies` 變更 |
 | --- | --- | --- |
-| `agent` (S007) | `CliInvocationOptions` | `"cli"` |
-| `subagent` (S010) | `CliInvocationOptions` | `"cli"` |
+| `agent` (S007) | `CliInvocationOptions` + `ContainerizedAgentModelFactory` | `"cli :: api"` |
+| `subagent` (S010) | `CliInvocationOptions` + `ContainerizedAgentModelFactory` | `"cli :: api"` |
 
-`CliInvocationOptions` 在 `cli` 模組根套件，消費者以 `allowedDependencies = { "cli" }` 存取。S005 出貨建立 `@NamedInterface("api")` 後，可遷移至 `cli/api/` 並改為 `"cli :: api"`。
+`CliInvocationOptions` 與 `ContainerizedAgentModelFactory`（S005）同在 `cli/api/`（`@NamedInterface("api")`），消費者以 `allowedDependencies = { "cli :: api" }` 存取。
 
 ## 5. File Plan
 
@@ -315,13 +318,13 @@ void claudeAuthViaOAuthToken() {
 
 | File | Description |
 | --- | --- |
-| `src/main/java/io/github/samzhu/grimo/cli/CliInvocationOptions.java` | record — provider → env vars + CLI flags 對映，含 `claude()`、`codex()`、`gemini()` 靜態工廠 |
+| `src/main/java/io/github/samzhu/grimo/cli/api/CliInvocationOptions.java` | record — provider → env vars + CLI flags 對映，含 `claude()`、`codex()`、`gemini()` 靜態工廠 |
 
 ### New test files
 
 | File | Description |
 | --- | --- |
-| `src/test/java/io/github/samzhu/grimo/cli/CliInvocationOptionsTest.java` | T0 unit：record 建構驗證、靜態工廠回傳正確 env vars/flags（AC-1 部分） |
+| `src/test/java/io/github/samzhu/grimo/cli/api/CliInvocationOptionsTest.java` | T0 unit：record 建構驗證、靜態工廠回傳正確 env vars/flags（AC-1 部分） |
 | `src/test/java/io/github/samzhu/grimo/cli/ClaudeConfigIT.java` | T3 contract：Claude 認證傳遞（AC-2）+ 記憶體停用（AC-5）+ 缺少認證（AC-6） |
 | `src/test/java/io/github/samzhu/grimo/cli/CodexConfigIT.java` | T3 contract：Codex RO 掛載認證（AC-3） |
 | `src/test/java/io/github/samzhu/grimo/cli/GeminiConfigIT.java` | T3 contract：Gemini API key 認證（AC-4） |
@@ -334,12 +337,130 @@ void claudeAuthViaOAuthToken() {
 
 ### Not touched
 
-- `cli/package-info.java` — `allowedDependencies = {}` 維持不變（`CliInvocationOptions` 只用 `core`（OPEN）和 library 依賴）
+- `cli/package-info.java` — `allowedDependencies = { "core" }` 維持不變（S005 已設定；`CliInvocationOptions` 放入 `api/` 無需額外修改）
+- `cli/api/package-info.java` — `@NamedInterface("api")` 已由 S005 建立，不修改
 - `sandbox/` 模組 — 不修改 `SandboxConfig`（IT 直接用 `GenericContainer`）
 - `build.gradle.kts` — 不新增依賴（Testcontainers 已由 S003 引入）
 - `application.yml` — 無新屬性
-- S005 的檔案 — S005 尚未出貨，不碰
 
 ---
 
-<!-- Sections 6-7 added by /planning-tasks after implementation -->
+## 6. Task Plan
+
+**POC: not required** — S006 使用 Testcontainers `GenericContainer`（S003/S004 已驗證），`CliInvocationOptions` 為純 record，不引入新 SDK。IT 本身即為驗證。
+
+### Task Index
+
+| Task | 主題 | AC 對映 | 依賴 |
+| --- | --- | --- | --- |
+| T1 | `cli-config-matrix.md` + `CliInvocationOptions` record + 單元測試 | **AC-1** | none |
+| T2 | `ClaudeConfigIT` — 認證 + 記憶體停用 + 缺少認證 | **AC-2, AC-5, AC-6** | T1 |
+| T3 | `CodexConfigIT` + `GeminiConfigIT` — 認證 | **AC-3, AC-4** | T1 |
+
+### Execution Order
+
+```
+T1 ─┬─ T2 (AC-2, AC-5, AC-6)
+    └─ T3 (AC-3, AC-4)
+```
+
+### AC Coverage
+
+| AC | Task | Test Class |
+| --- | --- | --- |
+| AC-1 | T1 | `CliInvocationOptionsTest` + `cli-config-matrix.md` 存在 |
+| AC-2 | T2 | `ClaudeConfigIT.claudeAuthViaOAuthToken` |
+| AC-3 | T3 | `CodexConfigIT.codexAuthViaMount` |
+| AC-4 | T3 | `GeminiConfigIT.geminiAuthViaApiKey` |
+| AC-5 | T2 | `ClaudeConfigIT.claudeMemoryDisable` |
+| AC-6 | T2 | `ClaudeConfigIT.missingAuthClearError` |
+
+### S005 出貨後的設計更新
+
+S005 已出貨（2026-04-18），`cli/api/` 套件（`@NamedInterface("api")`）已建立。原 §4 假設「S005 尚未建立 `api/` 套件」已過時。`CliInvocationOptions` 直接放入 `cli/api/`，消費者用 `"cli :: api"` 存取。
+
+## 7. Implementation Results
+
+### Verification Results
+
+| Check | Result |
+| --- | --- |
+| `./gradlew test` | ✅ BUILD SUCCESSFUL — 全部單元測試通過 + Modulith verify 通過 |
+| `./gradlew compileTestJava` | ✅ 所有 IT 編譯通過 |
+| `./gradlew integrationTest -Dgrimo.it.docker=true` | ✅ Claude IT (AC-2, AC-5, AC-6) + Codex IT (AC-3) 通過；Gemini IT (AC-4) 因無 API key 以 assumeTrue 跳過 |
+| AC coverage | ✅ AC-1 (3 tests), AC-2 (1 IT), AC-3 (1 IT), AC-4 (1 IT), AC-5 (1 IT), AC-6 (1 IT) 均有 `@DisplayName("[S006] AC-<N>")` |
+
+### Key Findings
+
+1. **`CLAUDE_CODE_OAUTH_TOKEN` 不接受 Keychain JSON blob。** macOS Keychain 儲存完整 JSON `{"claudeAiOauth":{"accessToken":"...","refreshToken":"...",...}}`。env var 預期的是 `accessToken` 欄位值（bearer token），非完整 JSON。IT 中以字串解析提取 `accessToken`。
+
+2. **`--bare` 確認不可用。** `--bare` 不讀取 `CLAUDE_CODE_OAUTH_TOKEN`（spec D4 預測正確），且殺掉 skill 載入。個別 env var 方案驗證可行。
+
+3. **Claude `--max-turns 1` 對記憶體停用測試不夠。** Claude 可能使用工具呼叫（如 Read）消耗 turn，導致 `error_max_turns`。AC-5 改用 `--max-turns 3`，核心斷言改為回應不含 CLAUDE.md marker（而非 exit code 0）。
+
+4. **Codex CLI 需要 writable CODEX_HOME。** Codex 寫入 cache、session 至 CODEX_HOME，無法對整個 `~/.codex/` RO 掛載。**修正設計：** 僅 RO 掛載 `~/.codex/auth.json` 單檔至容器內 writable 的 `/root/.codex/auth.json`，Codex 可讀取認證且自由寫入 cache。[Implementation note] §2 D2 的「RO 掛載 `~/.codex/`」需修正為「RO 掛載 auth.json 單檔」。
+
+5. **Codex `exec` 需 `--skip-git-repo-check` + `--ephemeral`。** 容器內無 git repo，需 `--skip-git-repo-check` 繞過信任目錄檢查；`--ephemeral` 避免寫入 session 檔案。BDD 中的 `--dangerously-bypass-approvals-and-sandbox` 不是 `exec` 子命令的旗標。
+
+### Correct Usage Patterns
+
+**Keychain token 提取（macOS）：**
+```java
+// Keychain 回傳 JSON: {"claudeAiOauth":{"accessToken":"<token>","refreshToken":"...",...}}
+// 提取 accessToken 作為 CLAUDE_CODE_OAUTH_TOKEN
+Process p = new ProcessBuilder("security", "find-generic-password",
+        "-s", "Claude Code-credentials", "-w").start();
+String json = new String(p.getInputStream().readAllBytes()).trim();
+// 字串解析提取 accessToken
+```
+
+**CliInvocationOptions 靜態工廠：**
+```java
+// Claude — auth + memory disable + telemetry disable
+CliInvocationOptions.claude(oauthToken);
+// → env: CLAUDE_CODE_OAUTH_TOKEN, CLAUDE_CODE_DISABLE_CLAUDE_MDS=1,
+//        CLAUDE_CODE_DISABLE_AUTO_MEMORY=1, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+
+// Codex — file mount auth + telemetry disable
+CliInvocationOptions.codex();
+// → env: CODEX_HOME=/root/.codex
+// → flags: -c analytics.enabled=false
+// → 呼叫者需 RO bind-mount: ~/.codex/auth.json → /root/.codex/auth.json
+
+// Gemini — API key auth
+CliInvocationOptions.gemini(apiKey);
+// → env: GEMINI_API_KEY, GEMINI_CLI_HOME=/tmp/gemini-home
+```
+
+**Codex 容器內呼叫：**
+```java
+container.execInContainer("codex", "exec", "prompt",
+        "--skip-git-repo-check", "--ephemeral", "--json");
+```
+
+### AC Results
+
+| AC | Status | Test |
+| --- | --- | --- |
+| AC-1 | ✅ PASS | `CliInvocationOptionsTest` (3 tests) + `cli-config-matrix.md` |
+| AC-2 | ✅ PASS | `ClaudeConfigIT.claudeAuthViaOAuthToken` |
+| AC-3 | ✅ PASS | `CodexConfigIT.codexAuthViaMount` |
+| AC-4 | ⏳ 編譯通過，待 GEMINI_API_KEY 驗證 | `GeminiConfigIT.geminiAuthViaApiKey` |
+| AC-5 | ✅ PASS | `ClaudeConfigIT.claudeMemoryDisable` |
+| AC-6 | ✅ PASS | `ClaudeConfigIT.missingAuthClearError` |
+
+### Pending Verification
+
+| Test | 原因 | 驗證指令 |
+| --- | --- | --- |
+| ⏳ `GeminiConfigIT.geminiAuthViaApiKey` | 無 `GEMINI_API_KEY` env var | `GEMINI_API_KEY=<key> ./gradlew integrationTest --tests "*.GeminiConfigIT" -Dgrimo.it.docker=true` |
+
+### QA Review
+Date: 2026-04-18
+Verdict: PASS
+
+| # | Severity | Issue | Status |
+|---|----------|-------|--------|
+| 1 | MINOR | `codex()` Javadoc 說「RO 掛載 `~/.codex/`」但實作為 `auth.json` 單檔掛載。消費者 API 文件不準確。 | FIXED — QA 時修正 Javadoc + cli-config-matrix.md |
+| 2 | MINOR | `extractAccessToken()` 使用字串解析而非 JSON parser。對 Keychain JSON 格式變動脆弱。 | OPEN — test-only code，MVP 可接受 |
+| 3 | MINOR | GeminiConfigIT (AC-4) 因環境缺少 GEMINI_API_KEY 以 assumeTrue 跳過，未實際驗證 | OPEN — 已登記 tech debt |

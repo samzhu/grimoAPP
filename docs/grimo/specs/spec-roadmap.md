@@ -80,30 +80,9 @@
 
 ---
 
-## 里程碑 3：CLI 配置（優先級「研究 CLI 配置」）
+## 里程碑 3：CLI 配置 ✅（2026-04-18）
 
-**目標。** 記錄各 CLI 的配置介面；將 Grimo 的框架策略（例如 Claude-Code 記憶體關閉）套用至每個容器化呼叫。
-**完成條件。** S006 ✅。
-
-| # | 規格 | 點數 | 狀態 |
-| --- | --- | --- | --- |
-| S006 | CLI 配置研究 + 策略驗證 | S (11) | ⏳ Design |
-
-### S006 — CLI 配置研究 + 策略驗證 · S (11)
-
-**描述。** 第一階段：調查三 CLI 配置介面（環境變數、設定檔、CLI 旗標），將研究結果記錄於 `docs/grimo/cli-config-matrix.md`。第二階段：以 Docker IT **逐一驗證**各策略可行性——Claude 認證（macOS Keychain → `CLAUDE_CODE_OAUTH_TOKEN` env var 注入容器）、Codex 認證（RO 掛載 `~/.codex/`）、Gemini 認證（`GEMINI_API_KEY` env var）、Claude 記憶體停用（個別 env var，非 `--bare`）、遙測停用。驗證成果固化為 `CliInvocationOptions` record。**2026-04-18 修正：** 原描述「只讀掛載 `~/.claude/` / `~/.gemini/`」不成立——macOS 上 Claude 認證在 Keychain（非檔案），Gemini 認證檔加密綁定 hostname。
-
-**依賴。** S004 ✅；S005 為排序依賴（非程式碼依賴——IT 直接用 Testcontainers）。
-
-**SBE（設計時細化，見 spec 檔案 §3）。**
-- **AC-1** `docs/grimo/cli-config-matrix.md` 存在，列出三 CLI 的所有配置介面，附官方文件 URL。
-- **AC-2** Claude 認證：容器注入 `CLAUDE_CODE_OAUTH_TOKEN` → `claude -p "hello"` 成功。
-- **AC-3** Codex 認證：容器 RO 掛載 `~/.codex/` → `codex exec "hello"` 成功。
-- **AC-4** Gemini 認證：容器注入 `GEMINI_API_KEY` → `gemini -p "hello"` 成功。
-- **AC-5** Claude 記憶體停用：容器注入 `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1` → 不載入 CLAUDE.md。
-- **AC-6** 缺少認證時 CLI 回傳清楚錯誤（非 segfault）。
-
-**估算。** 技術 2 · 不確定性 1 · 依賴 2 · 範疇 2 · 測試 3 · 可逆性 1 = **11 / S**（研究完成後：不確定性 3→1，測試 1→3）
+1/1 規格完成（S006）。詳見 `specs/archive/2026-04-18-S006-cli-config-validation.md`。
 
 ---
 
@@ -293,3 +272,5 @@
 | S005 | `cli/package-info.java` Javadoc 仍寫 "strictest white-list" 但 `allowedDependencies` 已改為 `{ "core" }` | drift | 低 | 🔲 |
 | S005 | architecture.md §1 聲稱 `Type.OPEN` 模組消費者無需宣告 `allowedDependencies`，實際 Modulith 2.0.5 仍需顯式宣告 | drift | 中 | ✅ S005 出貨時修正 |
 | S005 | ContainerizedAgentModelIT (AC-2, AC-3) 編譯通過但未在 Docker 環境執行 | skip | 中 | 🔲 |
+| S006 | GeminiConfigIT (AC-4) 編譯通過但因無 GEMINI_API_KEY 以 assumeTrue 跳過 | skip | 中 | 🔲 |
+| S006 | cli-config-matrix.md 的 Codex 認證描述需更新為「RO 掛載 auth.json 單檔」（非整個目錄） | drift | 低 | ✅ QA 時修正 |
