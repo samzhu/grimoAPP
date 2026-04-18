@@ -25,7 +25,7 @@
 
 ## 2. 模組地圖（MVP）
 
-> **2026-04-16 更新（S002）：** 隨容器優先 MVP 重新規劃，本節改列 MVP 真正落地的 6 個模組。原 v1 模組（`session`、`router`、`memory`、`jury`、`cost`、`web`、`nativeimage`）已移至下方 §2.x「Backlog 模組（晉升時恢復）」附錄；它們未被刪除，晉升時可原地恢復。
+> **2026-04-18 更新（v3 藍圖）：** 隨 v3 重新規劃，本節改列 MVP 真正落地的 6 個模組。`agent` 模組在 S007 先用主機 claude，S008 起整合容器化。`subagent` 移至 Backlog（委派 + 工作樹 + 子代理生命週期待容器化 + session + skill 驗證後晉升）。原 v1 模組（`session`、`router`、`memory`、`jury`、`cost`、`web`、`nativeimage`）已移至下方 §2.x「Backlog 模組（晉升時恢復）」附錄。
 
 ```
 io.github.samzhu.grimo                                   # 根（GrimoApplication）
@@ -36,9 +36,9 @@ io.github.samzhu.grimo                                   # 根（GrimoApplicatio
 │                                           # Cost 由未來的成本遙測規格擁有，不在此處
 ├── sandbox                                 # Sandbox SPI (agent-sandbox-core) + bind-mount 適配器（S003）
 ├── cli                                     # ContainerizedAgentModelFactory（docker exec wrapper → AgentModel）（S005 ✅）
-├── agent                                   # 主代理 CLI 直通（grimo chat）（S007）
-├── subagent                                # 委派 + 工作樹 + 子代理生命週期（S008–S010）
-└── skills                                  # SKILL.md 登錄檔 + 注入子代理容器（S011、S012）
+├── agent                                   # 主代理對話（S007 主機 → S008 容器化 Claude → S009/S010 Gemini/Codex）
+├── subagent                                # 委派 + 工作樹 + 子代理生命週期（Backlog，待晉升）
+└── skills                                  # SKILL.md 登錄檔 + 預裝至 Agent 容器（S012、S013）
 ```
 
 `core` 標記為 `@ApplicationModule(type = Type.OPEN)`。**Modulith 2.0.5 行為：** 即使目標模組為 `OPEN`，消費者若設定了 `allowedDependencies`，仍須顯式列出 `"core"`（S005 §7 發現）。因此需要引用 `core` 型別的模組以 `allowedDependencies = { "core" }` 起步，由各自的 owning spec 在第一次跨模組引用時擴充（同步埠透過 `<publisher>::api`，事件透過 `<publisher>::events`，見 §1 與 `development-standards.md` §13）。
@@ -52,9 +52,9 @@ io.github.samzhu.grimo                                   # 根（GrimoApplicatio
 | `core` | — | — | — | S001 ✅ |
 | `sandbox` | — | `Sandbox` SPI（`agent-sandbox-core`）+ bind-mount 適配器 | — | S003 |
 | `cli` | `ContainerizedAgentModelFactory`（`@NamedInterface("api")`） | —（WrapperScriptGenerator 內部直接呼叫 docker exec） | `CliUnavailable`、`CliInvocationFailed`（S006 規劃） | S005 ✅ / S006 |
-| `agent` | `MainAgentChatUseCase`（`grimo chat` 入口） | `AgentCliPort`（消費 `cli` 模組的同步埠） | — | S007 |
-| `subagent` | `DelegateTaskUseCase` | `Sandbox`（`agent-sandbox-core` SPI）、`WorktreePort`、`AgentCliPort` | `SubagentStarted`、`SubagentCompleted`、`SubagentFailed` | S008–S010 |
-| `skills` | `SkillRegistryUseCase` | `SkillStorePort`（檔案系統） | `SkillEnabled`、`SkillDisabled` | S011 / S012 |
+| `agent` | `MainAgentChatUseCase`（`grimo chat` 入口） | S007: 無（主機 claude）；S008+: `cli :: api`（容器化）、`sandbox :: api` | — | S007 → S008–S010 |
+| `subagent` | `DelegateTaskUseCase` | `Sandbox`（SPI）、`WorktreePort`、`AgentCliPort` | `SubagentStarted`、`SubagentCompleted`、`SubagentFailed` | Backlog（v2 S008–S010） |
+| `skills` | `SkillRegistryUseCase` | `SkillStorePort`（檔案系統） | `SkillEnabled`、`SkillDisabled` | S012 / S013 |
 
 ### 2.x Backlog 模組（晉升時恢復）
 
