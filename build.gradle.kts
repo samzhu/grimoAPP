@@ -23,6 +23,11 @@ extra["springModulithVersion"] = "2.0.5"
 dependencies {
 	implementation("org.springframework.modulith:spring-modulith-starter-core")
 	implementation("org.springaicommunity:agent-sandbox-core:0.9.1")
+	implementation("org.springaicommunity.agents:agent-client-core:0.12.2")
+	implementation("org.springaicommunity.agents:agent-model:0.12.2")
+	implementation("org.springaicommunity.agents:agent-claude:0.12.2")
+	implementation("org.springaicommunity.agents:agent-codex:0.12.2")
+	implementation("org.springaicommunity.agents:agent-gemini:0.12.2")
 	implementation("org.testcontainers:testcontainers:1.20.4")
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testImplementation("org.springframework.modulith:spring-modulith-starter-test")
@@ -38,6 +43,9 @@ dependencyManagement {
 
 tasks.withType<Test> {
 	useJUnitPlatform()
+	// §7.7: 轉發 API key 至測試 JVM，供 CLI IT 使用
+	listOf("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY")
+		.forEach { k -> System.getenv(k)?.let { environment(k, it) } }
 }
 
 // IT 類別（*IT.java）由專用任務執行，不在 ./gradlew test 中跑

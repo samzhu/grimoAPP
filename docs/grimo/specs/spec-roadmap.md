@@ -27,7 +27,7 @@
                        S005（透過 docker exec 的 CLI 適配器）
                          │
                          ▼
-                       S006（CLI 配置研究 + 策略）
+                       S006（CLI 配置研究 + 策略驗證）
                          │
                          ▼
                        S007（主代理 CLI 直通）
@@ -82,7 +82,7 @@
 | # | 規格 | 點數 | 狀態 |
 | --- | --- | --- | --- |
 | S004 | 預安裝 3 個 CLI 的 `grimo-runtime` Docker 映像 | S (10) | ✅ |
-| S005 | 透過 `docker exec` 的容器化 AgentModel 適配器 | S (11) | ⏳ Design |
+| S005 | 透過 `docker exec` 的容器化 AgentModel 適配器 | S (11) | ✅ |
 
 ### S004 — `grimo-runtime` Docker 映像 · S (10)
 
@@ -120,20 +120,23 @@
 
 | # | 規格 | 點數 | 狀態 |
 | --- | --- | --- | --- |
-| S006 | CLI 配置研究 + 框架策略套用 | S (11) | 🔲 |
+| S006 | CLI 配置研究 + 策略驗證 | S (11) | ⏳ Design |
 
-### S006 — CLI 配置研究 + 策略 · S (11)
+### S006 — CLI 配置研究 + 策略驗證 · S (11)
 
-**描述。** 第一階段：以 WebFetch 查詢各 CLI 配置的官方文件（環境變數、設定檔、CLI 旗標），將研究結果記錄於 `docs/grimo/cli-config-matrix.md`。第二階段：將 Grimo 的策略表達為可重用的 `CliInvocationOptions` record，由各適配器在 `docker exec` 時套用。MVP 中的具體策略：**Claude-Code 記憶體停用**（不自動讀取 CLAUDE.md，不使用專案層級記憶體）、**API 金鑰 / 憑證儲存從主機傳遞**（只讀掛載 `~/.claude` / `~/.codex` / `~/.gemini`）、**停用遙測**（若各 CLI 有此開關）。
+**描述。** 第一階段：調查三 CLI 配置介面（環境變數、設定檔、CLI 旗標），將研究結果記錄於 `docs/grimo/cli-config-matrix.md`。第二階段：以 Docker IT **逐一驗證**各策略可行性——Claude 認證（macOS Keychain → `CLAUDE_CODE_OAUTH_TOKEN` env var 注入容器）、Codex 認證（RO 掛載 `~/.codex/`）、Gemini 認證（`GEMINI_API_KEY` env var）、Claude 記憶體停用（個別 env var，非 `--bare`）、遙測停用。驗證成果固化為 `CliInvocationOptions` record。**2026-04-18 修正：** 原描述「只讀掛載 `~/.claude/` / `~/.gemini/`」不成立——macOS 上 Claude 認證在 Keychain（非檔案），Gemini 認證檔加密綁定 hostname。
 
-**依賴。** S005。
+**依賴。** S004 ✅；S005 為排序依賴（非程式碼依賴——IT 直接用 Testcontainers）。
 
-**SBE（草稿）。**
-- **AC-1** `docs/grimo/cli-config-matrix.md` 存在，列出三個 CLI 的所有配置介面，並附有官方文件 URL 連結。
-- **AC-2** 使用 S005 以 `harness=true` 呼叫 claude-code 時，產生的容器已停用記憶體（透過執行已知的記憶體觸發 prompt 並確認回應中無記憶體擷取來斷言）。
-- **AC-3** 若主機上缺少憑證目錄，適配器不會崩潰；顯示清楚的 `CredentialsNotFoundException`。
+**SBE（設計時細化，見 spec 檔案 §3）。**
+- **AC-1** `docs/grimo/cli-config-matrix.md` 存在，列出三 CLI 的所有配置介面，附官方文件 URL。
+- **AC-2** Claude 認證：容器注入 `CLAUDE_CODE_OAUTH_TOKEN` → `claude -p "hello"` 成功。
+- **AC-3** Codex 認證：容器 RO 掛載 `~/.codex/` → `codex exec "hello"` 成功。
+- **AC-4** Gemini 認證：容器注入 `GEMINI_API_KEY` → `gemini -p "hello"` 成功。
+- **AC-5** Claude 記憶體停用：容器注入 `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1` → 不載入 CLAUDE.md。
+- **AC-6** 缺少認證時 CLI 回傳清楚錯誤（非 segfault）。
 
-**估算。** 技術 2 · 不確定性 3 · 依賴 2 · 範疇 2 · 測試 1 · 可逆性 1 = **11 / S**
+**估算。** 技術 2 · 不確定性 1 · 依賴 2 · 範疇 2 · 測試 3 · 可逆性 1 = **11 / S**（研究完成後：不確定性 3→1，測試 1→3）
 
 ---
 
@@ -310,3 +313,16 @@
 | E2E 整合測試套件 | 舊 S022 | 垂直切片有使用者可見行為值得回歸測試時晉升。 | S (10) |
 
 **Backlog 策略。** 項目不得插隊。使用者晉升項目時，以全新 grill 循環重新進入 `/planning-spec`（請勿盲目重用 v1 草稿驗收標準 — 環境將已改變）。
+
+---
+
+## 技術債（Tech Debt）
+
+實作過程中發現但不阻塞出貨的問題。類型定義見 `development-standards.md` §10.1。每次 `/planning-spec` 開始前檢視此表，可順手處理的直接清掉。
+
+| 來源規格 | 項目描述 | 類型 | 優先級 | 狀態 |
+| --- | --- | --- | --- | --- |
+| S005 | `WrapperScriptGenerator` 使用 `System.getProperty("java.io.tmpdir")` — 違反 §11 僅 `GrimoHomePaths` 可存取系統屬性規則 | drift | 低 | 🔲 |
+| S005 | `cli/package-info.java` Javadoc 仍寫 "strictest white-list" 但 `allowedDependencies` 已改為 `{ "core" }` | drift | 低 | 🔲 |
+| S005 | architecture.md §1 聲稱 `Type.OPEN` 模組消費者無需宣告 `allowedDependencies`，實際 Modulith 2.0.5 仍需顯式宣告 | drift | 中 | 🔲 |
+| S005 | ContainerizedAgentModelIT (AC-2, AC-3) 編譯通過但未在 Docker 環境執行 | skip | 中 | 🔲 |

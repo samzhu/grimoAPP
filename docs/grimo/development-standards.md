@@ -182,6 +182,24 @@ CI 將其 `secrets:` 直接對映至環境變數。金鑰缺失 → IT 透過 `a
 - 架構變更 → 在同一 PR 中更新 `architecture.md`。
 - 規格位於 `docs/grimo/specs/S<NNN>-<slug>.md`；必要章節見 `qa-strategy.md`。
 
+### 10.1 技術債追蹤
+
+技術債統一記錄於 `spec-roadmap.md` 的 `## 技術債（Tech Debt）` 區段，與 Backlog 共用相同的晉升機制（`/planning-spec` grill 循環）。
+
+**三種類型：**
+
+| 類型 | 定義 | 範例 |
+| --- | --- | --- |
+| `bug` | 實作缺陷，已知但非阻塞出貨 | 錯誤處理路徑未覆蓋、邊界條件未測試 |
+| `drift` | 文件與實作不符 | architecture.md 描述與實際行為矛盾、spec §2 設計碼過時 |
+| `skip` | 測試編譯通過但未執行（環境不可用） | IT 需要 Docker / 外部服務，開發時跳過 |
+
+**三條規則：**
+
+1. **規格關閉時必須登記。** 實作過程中發現的技術債，在 spec §7 記錄後，同步在 `spec-roadmap.md` 技術債表新增條目。不得只記在 spec 而不索引。
+2. **Architecture / development-standards 不符實作的發現，必須在同一 PR 修正。** 文件飄移的修正成本在發現當下最低。來不及修的標記 `drift` 進技術債。
+3. **技術債晉升走正常 grill 循環。** 每次 `/planning-spec` 開始前檢視技術債表，可順手清掉的直接處理，需要獨立規格的走 Backlog 晉升流程。
+
 ## 11. 禁止的模式
 
 - 繞過 Spring AOT 的執行期反射探索（使用來自設定的字串呼叫 `Class.forName`、未登錄服務的 `ServiceLoader`）。

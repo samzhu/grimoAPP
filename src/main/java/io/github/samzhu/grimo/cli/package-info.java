@@ -12,7 +12,7 @@
  */
 @ApplicationModule(
     displayName = "Grimo :: CLI",
-    allowedDependencies = {}
+    allowedDependencies = { "core" }
 )
 package io.github.samzhu.grimo.cli;
 
