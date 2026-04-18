@@ -3,8 +3,8 @@ name: planning-tasks
 description: >
   Loop controller for per-spec development. Breaks a designed spec into
   BDD task files, runs the task loop (implementing-task ping-pong),
-  performs final verification, consolidates results back to spec, and
-  cleans up temporary task files.
+  performs final verification via independent subagent, consolidates
+  results back to spec, and cleans up temporary task files.
   Use to start a spec, break into tasks, find next, or run auto loop.
 argument-hint: "[spec-id] or [next] or [auto]"
 allowed-tools:
@@ -17,7 +17,7 @@ allowed-tools:
   - Agent
 metadata:
   author: samzhu
-  version: 1.0.0
+  version: 2.0.0
   category: workflow-automation
   pattern: context-aware-routing
 ---
@@ -41,8 +41,7 @@ Valid:  Every SBE criterion has a corresponding task.
         Task files form ordered verification chain.
         After completion: results in spec file, task files deleted.
 Next:   /implementing-task [spec-id] (task loop)
-        /shipping-release (all pass)
-        /verifying-quality [spec-id] (L+ or fail)
+        /shipping-release (all pass + QA pass)
 ```
 
 ## Key Principles
@@ -52,6 +51,12 @@ Next:   /implementing-task [spec-id] (task loop)
 - Task files in `docs/grimo/tasks/` are **temporary work items**
 - After all tasks pass → results consolidated into spec file section 7
 - Task files are then **deleted** (the spec file is the permanent record)
+
+### Independent Verification via Subagent
+
+After all tasks pass, quality verification is performed by a **subagent**
+— a fresh context that re-reads the spec, re-reads the code, and evaluates
+independently. This catches blind spots that same-session self-review misses.
 
 ### POC Before Production
 
@@ -181,36 +186,20 @@ After `/implementing-task` returns, re-enter Phase 2 (check next task).
 
 Update `spec-roadmap.md` status to `⏳ Dev` on first task start.
 
-### Phase 3: Final Verification + Consolidation
+### Phase 3: Consolidation + Independent Verification
 
-All tasks PASS. Three steps:
+All tasks PASS. Four steps:
 
-**Step 1: Deterministic checks**
+**Step 1: Deterministic checks (inline)**
 
-Run the project's standard pipeline commands as declared in the QA
-strategy doc. Prefer ecosystem-native commands; fall back to custom
-scripts only when explicitly noted there.
-
-Common shape:
+Run the project's standard pipeline commands. Each must exit 0.
 
 ```
 <ecosystem test command>        # e.g., gradlew test, pytest, npm test
-<ecosystem coverage command>    # if coverage gating is part of the pipeline
-<ecosystem arch/boundary check> # if project has module / arch rules
+<ecosystem compile check>       # e.g., gradlew compileTestJava
 ```
 
-Each command must exit 0. If any fails, identify the failing task and
-re-enter Phase 2. Do NOT introduce a bespoke shell wrapper around
-these commands just to "normalize output" — the runner's exit code IS
-the signal.
-
-**AC coverage verification** piggybacks on the same test run: each
-spec's live ACs must appear as @DisplayName / @Tag / test-name
-per the AC-to-test contract documented in the QA strategy. If the
-standard runner does not surface missing-AC-coverage, add a single
-ecosystem-native test for that (e.g., a JUnit test that parses the
-spec file and asserts a matching @DisplayName exists) — do NOT reach
-for shell scripts.
+If any fails, identify the failing task and re-enter Phase 2.
 
 **Step 2: Consolidate results into spec file**
 
@@ -251,13 +240,54 @@ rm -rf poc/<spec-id>/
 Task details are now preserved in spec section 6 (plan + POC findings) +
 section 7 (results). The spec file is the single permanent record.
 
+**Step 4: Spawn independent verification subagent**
+
+**Why a subagent?** Same-session verification has blind spots — the
+implementer tends to confirm their own work. A fresh agent context
+provides independent scrutiny of test coverage, code quality, and
+spec compliance.
+
+Use the **Agent tool** to spawn a verification subagent:
+
+```
+Agent tool parameters:
+  description: "QA verify [spec-id]"
+  prompt: |
+    You are an independent QA reviewer. Run /verifying-quality for spec [spec-id].
+    
+    The spec file is at: docs/grimo/specs/<spec-file>.md
+    (or docs/grimo/specs/archive/<spec-file>.md if already archived)
+    
+    Read the spec file (all sections), then independently:
+    1. Run ./gradlew test and ./gradlew compileTestJava
+    2. Verify every AC in §3 has a matching @DisplayName test
+    3. Read all production code and test files listed in §5
+    4. Check code quality against docs/grimo/development-standards.md
+    5. Check Javadoc accuracy — does it match actual implementation?
+    6. Check for design drift between §2/§4 and actual code
+    7. Append QA Review section to spec §7 with verdict (PASS/REJECT)
+    
+    Return your verdict and any findings.
+  subagent_type: "general-purpose"
+```
+
+**After subagent returns:**
+- **PASS** → proceed to Routing
+- **REJECT with CRITICAL** → address findings, re-enter Phase 2
+- **REJECT with only IMPORTANT/MINOR** → if subagent already fixed
+  them in-place, accept as PASS. Otherwise fix and re-verify.
+
 ### Routing
 
-| Spec size | Checks | Action |
-|---|---|---|
-| XS/S/M | ✅ | Stop. Tell the user the spec is ready; ask them to run `/shipping-release`. This skill cannot auto-invoke shipping (it is marked `disable-model-invocation: true` because its actions — commit, tag, archive — require explicit user authorization). |
-| XS/S/M | ❌ | Identify failing task. Re-enter loop. |
-| L+ | ✅ | Always → `/verifying-quality [spec-id]` |
+After Phase 3 Step 4 (subagent QA) passes:
+
+| Spec size | Action |
+|---|---|
+| All sizes | Stop. Tell the user the spec is ready to ship. Instruct them to run `/shipping-release`. |
+
+This skill cannot auto-invoke shipping — shipping is intentionally
+gated because its actions (commit, tag, archive) require explicit
+user authorization.
 
 ## Semi-Auto Mode (`auto`)
 
@@ -267,13 +297,13 @@ section 7 (results). The spec file is the single permanent record.
 
 | Size | Behavior |
 |---|---|
-| **XS/S** | Full auto: plan → task loop → verify → consolidate → ship. Only stop on failure. |
-| **M** | Stop after design for user confirmation. Then auto through task loop → ship. |
+| **XS/S** | Full auto: plan → task loop → consolidate → subagent QA → report. Only stop on failure. |
+| **M** | Stop after design for user confirmation. Then auto through task loop → subagent QA → report. |
 | **L+** | Stop at every phase boundary. Equivalent to manual mode. |
 
 Stop conditions:
 - Any task `FAIL`
-- Checks fail
+- Subagent QA REJECT with CRITICAL
 - Spec needs human judgment (M+ design decisions)
 - No more specs available
 - User interrupts
@@ -333,14 +363,8 @@ Procedure:
 After Phase 1 or when Phase 2 finds a pending task, immediately invoke
 `/implementing-task [spec-id]`. Do not wait for user confirmation.
 
-After Phase 3 verification passes (XS/S/M), **stop and tell the user
-the spec is ready to ship**. Instruct them to run `/shipping-release`
-themselves. This skill cannot auto-invoke the shipping skill: shipping
-is intentionally gated with `disable-model-invocation: true` because
-its actions (commit, tag, archive) require explicit user authorization.
-
-After Phase 3 for L+ specs, immediately invoke
-`/verifying-quality [spec-id]`. Do not wait for user confirmation.
+After Phase 3 Step 4 (subagent QA passes), **stop and tell the user
+the spec is ready to ship**. Instruct them to run `/shipping-release`.
 
 ## Escalate
 

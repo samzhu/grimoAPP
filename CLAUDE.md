@@ -4,17 +4,25 @@
 
 IMPORTANT: Follow these in every session.
 
-- **First Principles Thinking**: 思考根本問題, 不是只解決表面狀況
-- **設計說明註解**: 了解功能需求或目的後, 記得寫為什麼這樣設計的註解
-- **上網查證優先**: 上網查證優先會比反覆嘗試更快解決問題, 參考資料要附上來源
-- **Log 驅動除錯**: log 不足以確認根本問題時, 多加 log 重新測試, 釐清問題後才做修改計劃
-- **禁用過時 API**: check `architecture.md` for exact versions and import paths — do NOT guess
+- **First Principles Thinking**: Address root causes, not surface symptoms
+- **Design-Intent Comments**: After understanding the requirement, document *why* the design was chosen
+- **Web-Verify First**: Searching official docs is faster than trial-and-error — cite sources
+- **Log-Driven Debugging**: When logs are insufficient to identify the root cause, add more logs and retest before planning a fix
+- **No Deprecated APIs**: Check `architecture.md` for exact versions and import paths — do NOT guess
 
 ## Workflow Skills
 
-7 skills form the development pipeline:
+7 skills form the development pipeline. Full reference: `.claude/skills/references/workflow-guide.md`
 
-`/defining-product` → `/planning-project` → `/planning-spec S00N` → `/planning-tasks S00N` ⟺ `/implementing-task` (loop) → `/verifying-quality S00N` → `/shipping-release`
+```
+/defining-product → /planning-project → /planning-spec S00N
+    → /planning-tasks S00N ⟺ /implementing-task (loop)
+    → [subagent QA: /verifying-quality] → /shipping-release
+```
+
+Key: `/planning-tasks` is the hub. After all tasks pass, it spawns a
+**subagent** to run `/verifying-quality` independently (fresh context
+catches blind spots that same-session review misses).
 
 ## Where things live (read this before ls-ing)
 
