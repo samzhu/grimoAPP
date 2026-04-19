@@ -72,4 +72,32 @@ class ChatCommandRunnerTest {
         assertThat(stderr).contains(errorMessage);
         assertThat(stderr).doesNotContain("at io.github.samzhu");
     }
+
+    @Test
+    @DisplayName("[S011] AC-1: 'chat --resume' calls resumeChat")
+    void chatResumeCallsResumeChat() {
+        // Given
+        var args = new DefaultApplicationArguments("chat", "--resume");
+
+        // When
+        runner.run(args);
+
+        // Then
+        verify(chatUseCase).resumeChat(any(Path.class));
+        verify(chatUseCase, never()).startChat(any(Path.class));
+    }
+
+    @Test
+    @DisplayName("[S011] AC-3: 'chat' without --resume calls startChat")
+    void chatWithoutResumeCallsStartChat() {
+        // Given
+        var args = new DefaultApplicationArguments("chat");
+
+        // When
+        runner.run(args);
+
+        // Then
+        verify(chatUseCase).startChat(any(Path.class));
+        verify(chatUseCase, never()).resumeChat(any(Path.class));
+    }
 }

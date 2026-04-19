@@ -6,12 +6,14 @@ import java.io.InputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.springaicommunity.agents.claude.ClaudeSessionConnector;
 import org.springaicommunity.agents.model.AgentGeneration;
 import org.springaicommunity.agents.model.AgentResponse;
 import org.springaicommunity.agents.model.AgentSession;
@@ -23,7 +25,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -143,5 +147,35 @@ class MainAgentChatServiceTest {
         // Then
         verify(session, never()).prompt(anyString());
         verify(session).close();
+    }
+
+    @Test
+    @DisplayName("[S011] AC-2: resumeChat falls back to new session when no previous session exists")
+    void resumeChatFallsBackToNewSession() {
+        // Given: ClaudeSessionConnector.continueLastSession throws (no prior session)
+        var fallbackSession = mock(AgentSession.class);
+        when(fallbackSession.getSessionId()).thenReturn("fallback-session");
+        when(registry.create(any(Path.class))).thenReturn(fallbackSession);
+
+        System.setIn(new ByteArrayInputStream("/exit\n".getBytes(StandardCharsets.UTF_8)));
+        var outCapture = new ByteArrayOutputStream();
+        System.setOut(new PrintStream(outCapture));
+
+        try (MockedStatic<ClaudeSessionConnector> connector = mockStatic(ClaudeSessionConnector.class)) {
+            connector.when(() -> ClaudeSessionConnector.continueLastSession(
+                    any(Path.class), any(Duration.class), isNull(), isNull()))
+                    .thenThrow(new IllegalStateException("No previous session"));
+
+            // When
+            service.resumeChat(Path.of("/tmp"));
+        }
+
+        // Then: prints fallback message
+        var output = outCapture.toString(StandardCharsets.UTF_8);
+        assertThat(output).contains("No previous session found, starting new session");
+
+        // And: falls back to registry.create (new session)
+        verify(registry).create(any(Path.class));
+        verify(fallbackSession).close();
     }
 }

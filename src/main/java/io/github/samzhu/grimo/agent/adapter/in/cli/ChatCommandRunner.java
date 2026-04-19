@@ -23,8 +23,13 @@ class ChatCommandRunner implements ApplicationRunner {
         if (!args.getNonOptionArgs().contains("chat")) {
             return;
         }
+        Path workDir = Path.of("").toAbsolutePath();
         try {
-            chatUseCase.startChat(Path.of("").toAbsolutePath());
+            if (args.containsOption("resume")) {
+                chatUseCase.resumeChat(workDir);
+            } else {
+                chatUseCase.startChat(workDir);
+            }
         } catch (ChatSessionException e) {
             System.err.println(e.getMessage());
         }

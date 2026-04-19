@@ -2,6 +2,7 @@ package io.github.samzhu.grimo.poc;
 
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Iterator;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Assumptions;
@@ -14,6 +15,9 @@ import org.springaicommunity.agents.claude.ClaudeAgentSessionRegistry;
 import org.springaicommunity.agents.model.AgentResponse;
 import org.springaicommunity.agents.model.AgentSession;
 import org.springaicommunity.agents.model.AgentSessionRegistry;
+import org.springaicommunity.claude.agent.sdk.ClaudeClient;
+import org.springaicommunity.claude.agent.sdk.ClaudeSyncClient;
+import org.springaicommunity.claude.agent.sdk.transport.CLIOptions;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -193,6 +197,116 @@ class AgentSessionLifecyclePocIT {
             }
         } catch (Exception e) {
             System.out.println("exploration failed: " + e.getMessage());
+        }
+    }
+
+    @Test
+    @Order(7)
+    void poc7_continueFlag_resumeLastSession() {
+        // 先建一個 session 並植入上下文，然後關閉，
+        // 再用 --continue flag 建新 client 看能否自動接回
+
+        Path workDir = Path.of("").toAbsolutePath();
+
+        // Step 1: 建立 session 並植入上下文
+        AgentSession firstSession = registry.create(workDir);
+        String firstId = firstSession.getSessionId();
+        System.out.println("=== POC7 ===");
+        System.out.println("first session id: " + firstId);
+
+        AgentResponse r1 = firstSession.prompt(
+                "Remember this secret number: 42. Just acknowledge briefly.");
+        System.out.println("first prompt response: " + r1.getText());
+        firstSession.close();
+
+        // Step 2: 用 SDK 直接建 client，帶 --continue flag
+        try {
+            CLIOptions options = CLIOptions.builder()
+                    .continueConversation(true)
+                    .build();
+
+            ClaudeSyncClient client = ClaudeClient.sync(options)
+                    .workingDirectory(workDir)
+                    .timeout(Duration.ofMinutes(5))
+                    .build();
+
+            client.connect();
+
+            // 消耗初始回應（resume 的 init message）
+            var initResponse = client.receiveResponse();
+            while (initResponse.hasNext()) {
+                var msg = initResponse.next();
+                System.out.println("init msg type: " + msg.getClass().getSimpleName());
+            }
+
+            // Step 3: 問 secret number
+            client.query("What was the secret number I told you? Just say the number.");
+            var response = client.receiveResponse();
+            StringBuilder sb = new StringBuilder();
+            while (response.hasNext()) {
+                var msg = response.next();
+                // 嘗試取得文字內容
+                System.out.println("response msg type: " + msg.getClass().getSimpleName()
+                        + " → " + msg);
+            }
+
+            client.close();
+            System.out.println("--continue flag test completed");
+
+        } catch (Exception e) {
+            System.out.println("--continue test failed: " + e.getClass().getName());
+            System.out.println("message: " + e.getMessage());
+            e.printStackTrace(System.out);
+        }
+    }
+
+    @Test
+    @Order(8)
+    void poc8_sdkDirect_resumeWithSessionId() {
+        Assumptions.assumeTrue(savedSessionId != null, "poc1 must pass first");
+
+        // 用 SDK 直接建 client，帶 --resume <savedSessionId>
+        Path workDir = Path.of("").toAbsolutePath();
+
+        System.out.println("=== POC8 ===");
+        System.out.println("attempting resume with sessionId: " + savedSessionId);
+
+        try {
+            CLIOptions options = CLIOptions.builder()
+                    .resume(savedSessionId)
+                    .build();
+
+            ClaudeSyncClient client = ClaudeClient.sync(options)
+                    .workingDirectory(workDir)
+                    .timeout(Duration.ofMinutes(5))
+                    .build();
+
+            client.connect();
+
+            // 消耗 init
+            var initResponse = client.receiveResponse();
+            String initSessionId = null;
+            while (initResponse.hasNext()) {
+                var msg = initResponse.next();
+                System.out.println("init msg: " + msg.getClass().getSimpleName());
+            }
+
+            // 問 PINEAPPLE（來自 poc2 的上下文）
+            client.query("What was the secret code word from earlier? Just the word.");
+            var response = client.receiveResponse();
+            while (response.hasNext()) {
+                var msg = response.next();
+                System.out.println("response: " + msg.getClass().getSimpleName()
+                        + " → " + msg);
+            }
+
+            client.close();
+            System.out.println("--resume <id> direct SDK test completed");
+
+        } catch (Exception e) {
+            System.out.println("--resume <id> test failed: " + e.getClass().getName());
+            System.out.println("message: " + e.getMessage());
+            e.printStackTrace(System.out);
         }
     }
 }

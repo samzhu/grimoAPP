@@ -14,4 +14,14 @@ public interface MainAgentChatUseCase {
      *         if claude CLI is not installed or session fails to start
      */
     void startChat(Path workingDirectory);
+
+    /**
+     * Resumes the most recent session in the working directory.
+     * Falls back to a new session if no previous session exists.
+     *
+     * @param workingDirectory the user's working directory (claude's project root)
+     * @throws io.github.samzhu.grimo.agent.domain.ChatSessionException
+     *         if claude CLI is not installed
+     */
+    void resumeChat(Path workingDirectory);
 }

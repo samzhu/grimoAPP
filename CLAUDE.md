@@ -2,6 +2,8 @@
 
 ## Principles
 
+先了解產品設計資訊 docs/grimo/PRD.md
+
 IMPORTANT: Follow these in every session.
 
 - **First Principles Thinking**: Address root causes, not surface symptoms
