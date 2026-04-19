@@ -125,3 +125,29 @@ Research findings MUST be persisted in the spec file's §2.3 Research Citations 
 - **Include raw source URLs.** Prefer `raw.githubusercontent.com` links over docs page URLs for API signatures.
 
 This ensures future spec revisions don't need to re-research, downstream specs can reference upstream findings, and `/implementing-task` has an audit trail for API decisions.
+
+## Cross-Cutting Research Persistence
+
+When research during spec planning produces findings that go **beyond the scope of the current spec** (e.g., competitive analysis, technology selection rationale, memory architecture research, rejected alternatives with detailed reasoning), persist them in `docs/local/` as a research note file.
+
+**When to create a `docs/local/` research note:**
+- Research covers a topic that multiple future specs will reference (e.g., "H2 vs SQLite" informs S011, S014, and Backlog memory specs)
+- Competitive analysis is updated with new findings (e.g., Hermes self-evolution analysis)
+- A technology was deeply evaluated and rejected — the rejection rationale saves future re-research
+
+**Format:** `docs/local/<topic>-research.md` with sections: conclusions table, key findings, rejected alternatives, reference sources.
+
+**What stays in the spec vs what goes to `docs/local/`:**
+- Spec §2.3: citations directly relevant to THIS spec's approach decision
+- `docs/local/`: broader research that informs the ecosystem, not just one spec
+
+**Anti-pattern:** Research findings that exist only in the conversation context. If the conversation is lost, the research must be re-done. Persist early.
+
+## Spec Change Tracking
+
+When research during planning leads to **new spec proposals** (e.g., S011 planning splits out S014 for compaction strategy), or changes to existing spec dependencies/estimates:
+
+1. Record the new/changed spec in `spec-roadmap.md` immediately (status 🔲)
+2. Update the dependency graph if the new spec changes the critical path
+3. Note the source in the v-note at the top of the roadmap (e.g., "S014 split from S011 during planning")
+4. Add tech debt entries if architecture.md or other docs drift from the new design
