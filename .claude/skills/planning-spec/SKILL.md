@@ -16,7 +16,7 @@ allowed-tools:
   - WebFetch
 metadata:
   author: samzhu
-  version: 1.0.0
+  version: 2.0.0
   category: workflow-automation
   pattern: iterative-refinement
 ---
@@ -166,6 +166,43 @@ For every major design decision, briefly challenge:
 - "What breaks if this assumption is wrong?"
 - Document the rationale in the spec's approach section.
 
+### Research Sufficiency Gate — classify confidence before designing
+
+After research completes but BEFORE writing the spec, classify each
+load-bearing design decision:
+
+| Confidence | Meaning | Action |
+|---|---|---|
+| **Validated** | Raw source confirms the API/behavior exists and works as assumed | Design with confidence. Cite source in §2.3. |
+| **Hypothesis** | Research suggests it should work, but no hands-on proof. E.g., "this SPI *should* support decoration" or "these two libraries *should* integrate" | **Mark as POC-required** in spec §2. Design the approach but flag uncertainty. |
+| **Unknown** | Research could not determine whether the approach works. E.g., library has no docs for this use case, or the behavior depends on runtime interaction | **Stop. More research needed** — dispatch targeted agents, or ask the user for guidance. Do NOT design around unknowns. |
+
+**When research is insufficient to validate a key design decision:**
+
+1. Do NOT guess and write the spec as if it's validated.
+2. Explicitly declare `POC: required` in spec §2 with:
+   - **What to test**: the specific design hypothesis (not "does the SDK work")
+   - **Why research couldn't answer it**: what's missing from docs/source
+   - **Suggested POC scope**: minimal test that would confirm or deny
+3. The spec's §4 (Interface Design) may still be written, but annotate
+   hypothesis-dependent interfaces with `[needs POC validation]`.
+4. `/planning-tasks` will execute the POC plan before creating task files.
+
+**Examples:**
+- Research finds `AgentSession` has `resume()` method → **Validated**
+  (raw source confirms). Design can rely on it.
+- Research finds `SessionService` exists but no evidence it integrates
+  with `AgentSession` → **Hypothesis**. POC needed: "Can we bridge
+  these two APIs? Does the type conversion work?"
+- Research finds the framework's SPI *might* support decoration but
+  no existing implementation demonstrates it → **Hypothesis**. POC
+  needed: "Build a minimal decorator, verify the framework accepts it."
+
+**Anti-pattern:** Writing a confident spec §2 Approach when the core
+design decision is actually a hypothesis. This pushes risk downstream
+to `/planning-tasks`, where discovering the hypothesis is wrong wastes
+all task planning effort.
+
 ### Design depth scales with estimation
 
 Read `references/estimation-scale.md` for the full six-dimension rubric (tech risk, uncertainty, dependencies, scope, testing, reversibility), scoring criteria (1–3 per dimension), worked examples, and literature citations. The rubric determines the size bucket:
@@ -252,6 +289,37 @@ Rationale: pre-populated config drift is a common source of "this was never need
 **Symptom:** The roadmap says "use X" but X doesn't exist or works differently than described.
 **Root cause:** Normal — roadmap is coarse-grained by design. Spec planning is where API verification happens.
 **Fix:** Note the contradiction explicitly in the first grill question. Update the roadmap description in the same commit as the spec file.
+
+### Spec designs a complex solution when the framework already solves it
+**Symptom:** During `/planning-tasks` POC, the framework's native
+capability is discovered to be sufficient. The spec's entire approach
+(custom decorators, bridge code, external dependencies) is unnecessary.
+**Root cause:** Research mapped what the libraries *expose* but didn't
+test what the libraries *already do*. Example: research found
+`AgentSessionRegistry` has `find()` and `resume()`, but didn't test
+whether `resume()` actually restores conversation context — which it
+does, making a custom persistence layer unnecessary.
+**Fix:** Research must distinguish between "API surface mapping" and
+"behavior validation." When the spec's core value proposition is "add
+capability X that the framework lacks," research MUST verify the
+framework genuinely lacks X. If verification requires running code,
+declare `POC: required` with the specific hypothesis. Do NOT assume
+a gap from docs alone.
+
+### Spec introduces dependency to solve a non-existent problem
+**Symptom:** The spec adds a new library (e.g., `spring-ai-session`)
+to provide functionality that the existing stack already handles
+natively (e.g., CLI's own session persistence via `--resume`).
+**Root cause:** Research focused on the new library's capabilities
+without first asking "does the existing stack already solve this?"
+Step 0.5 mapped the library's API but didn't validate the product
+requirement against the existing stack.
+**Fix:** Before evaluating any NEW dependency, answer: "What does the
+existing stack provide TODAY for this use case?" This question must
+be answered by inspecting actual behavior (source code, test runs),
+not by assuming capabilities from names or docs. If the existing
+stack provides 80%+ of the requirement, design around it — don't
+add a dependency for the remaining 20%.
 
 ## Handoff
 

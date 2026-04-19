@@ -17,7 +17,7 @@ allowed-tools:
   - Agent
 metadata:
   author: samzhu
-  version: 2.0.0
+  version: 3.0.0
   category: workflow-automation
   pattern: context-aware-routing
 ---
@@ -46,6 +46,51 @@ Next:   /implementing-task [spec-id] (task loop)
 
 ## Key Principles
 
+### Validate Before Planning
+
+Never create task files based on unverified design assumptions. The
+spec's §2 Approach was written during design phase — it may contain
+assumptions about library capabilities, API compatibility, or
+architecture patterns that have not been tested against real code.
+
+**Rule: POC validates the approach BEFORE task files are created.**
+Task files encode the implementation plan. If the approach is wrong,
+every task file is wasted work. Discovering a design flaw in POC
+costs minutes; discovering it mid-task-loop costs hours.
+
+### Read Before Researching
+
+Before spawning research agents or fetching external docs, exhaust
+what the project already knows:
+
+1. **Existing research notes** — check `docs/local/` for prior
+   research on the same libraries or patterns.
+2. **Prior spec findings** — shipped specs' §7 may contain validated
+   API usage patterns. A re-research of something already proven is
+   pure waste.
+3. **PRD decisions and principles** — the spec's approach must align
+   with product-level decisions. Cross-validate, don't assume.
+
+**Anti-pattern:** Spawning 3 parallel research agents to investigate
+an API that was already thoroughly analyzed in a local research note.
+One targeted agent to fill gaps is sufficient.
+
+### Challenge Inherited Assumptions
+
+The spec's §2 Approach inherits assumptions from the roadmap and PRD.
+These assumptions were written with less information than you have now.
+Before planning tasks, explicitly verify:
+
+- Does the spec's chosen approach match the PRD's stated principles?
+- Does the spec assume a library feature that doesn't actually exist?
+- Is there a simpler approach the spec didn't consider because
+  research at design time was incomplete?
+- Has the upstream library evolved since the spec was designed?
+
+When a contradiction is found, **stop and escalate** to
+`/planning-spec [spec-id]` for a design revision — do not silently
+plan tasks around a flawed design.
+
 ### Spec File is the Living Document
 
 - Task files in `docs/grimo/tasks/` are **temporary work items**
@@ -63,9 +108,10 @@ independently. This catches blind spots that same-session self-review misses.
 - When a spec introduces **new packages, SDKs, or unfamiliar APIs**, validate
   in an isolated `poc/<spec-id>/` folder first — never experiment directly in
   the project codebase.
-- POC scope: minimal code proving packages work, APIs behave as documented,
-  and key integration points connect.
-- Only after POC passes → implement tasks in the actual project, referencing
+- POC scope goes beyond "do objects construct" — it validates whether
+  the **design approach itself** is correct. A POC that proves the SDK
+  works but doesn't test the core design hypothesis is incomplete.
+- Only after POC passes → create task files and implement, referencing
   POC findings for correct API usage.
 
 ## Usage
@@ -85,16 +131,135 @@ independently. This catches blind spots that same-session self-review misses.
 | Status | Check | Action |
 |---|---|---|
 | `🔲` | — | → `/planning-spec [id]` |
-| `⏳ Design` | Spec file has sections 1-5? | Yes → Phase 1. No → `/planning-spec [id]` |
-| `⏳ Plan` | Task files exist? | Yes → Phase 2. No → Phase 1 |
-| `⏳ Dev` | All tasks PASS? | Yes → Phase 3. No → Phase 2 |
+| `⏳ Design` | Spec file has sections 1-5? | Yes → Phase 0. No → `/planning-spec [id]` |
+| `⏳ Plan` | Task files exist? | Yes → Phase 3. No → Phase 0 |
+| `⏳ Dev` | All tasks PASS? | Yes → Phase 4. No → Phase 3 |
 | `✅` | — | Skip, find next |
 
 ## When invoked with a spec-id
 
 Check which phase to enter based on existing artifacts.
 
-### Phase 1: Create Task Files
+### Phase 0: Pre-Flight Validation
+
+**Always run this phase first.** Even if task files already exist,
+re-validate when re-entering the spec after a pause.
+
+**Step 1: Read existing knowledge.**
+
+Before any new research or planning, read what the project already
+knows. This prevents redundant research and catches stale assumptions.
+
+- Scan for existing research notes (e.g., `docs/local/`) related to
+  this spec's domain. If found, read them — they likely contain API
+  findings, rejected alternatives, and design rationale that inform
+  task planning.
+- Check prior shipped specs' §7 for validated API patterns this spec
+  depends on. Reuse proven patterns, don't re-research them.
+
+**Step 2: Cross-validate spec design against product requirements.**
+
+Read the product requirements document. Check:
+- Does the spec's §2 Approach align with stated product principles?
+- Do the product-level decisions (e.g., "own the session" vs
+  "delegate to framework") still hold given what we now know?
+- Does the spec reference libraries/APIs that the product requirements
+  assumed work differently than they actually do?
+
+**Step 3: Question the approach.**
+
+Ask explicitly:
+- "Does the framework/library the spec wraps already solve this
+  problem natively?" (e.g., the CLI might already persist sessions
+  — no need for an external persistence layer.)
+- "Is there a simpler approach the spec didn't consider?"
+- "Are we adding a dependency to solve a problem that doesn't exist?"
+
+If any contradiction is found → **stop and escalate** to
+`/planning-spec [spec-id]` for design revision. Do NOT plan tasks
+around a flawed design.
+
+If pre-flight passes → proceed to Phase 1.
+
+### Phase 1: POC Validation (conditional)
+
+**This phase runs BEFORE task file creation.** POC validates the
+approach so task files are based on proven assumptions, not
+speculative design.
+
+Skip if spec §2 does not declare `POC: required` AND Phase 0 did
+not identify any unvalidated assumptions.
+
+**Where does the POC plan come from?**
+
+The POC plan originates in `/planning-spec`. During spec design,
+research classifies each design decision as Validated, Hypothesis,
+or Unknown. Decisions classified as **Hypothesis** produce a POC
+plan in spec §2, specifying:
+- What to test (the design hypothesis)
+- Why research couldn't answer it
+- Suggested POC scope
+
+If `/planning-spec` did thorough research, this phase is either
+skipped or executes a well-defined POC plan. If Phase 0 discovers
+the spec lacks a POC plan despite having unvalidated assumptions,
+**escalate to `/planning-spec`** to add one — do not improvise a
+POC without a clear hypothesis.
+
+**Fallback assessment (when spec §2 doesn't classify confidence):**
+
+| Signal | POC needed? |
+|---|---|
+| Spec introduces packages/SDKs **never used before** in this project | **Always Yes** — even if spec research is thorough, API semantics (return values, exception behavior, builder patterns) must be verified against real code |
+| Spec integrates with unfamiliar external APIs | Yes |
+| **Spec's approach wraps/extends a framework SPI** | **Yes** — verify the SPI's actual behavior before designing a wrapper. The SPI may already provide what the spec builds manually |
+| High uncertainty on whether approach will work | Yes |
+| Spec only modifies existing, well-understood code | No |
+| All packages already validated by prior specs | No |
+
+**POC scope — validate the APPROACH, not just the SDK:**
+
+A POC that proves "the SDK's objects construct successfully" but
+doesn't test the core design hypothesis is incomplete. The POC must
+answer the **design question**, not just the API question.
+
+Examples:
+- Wrong scope: "Can I create a `SessionService` and call
+  `appendEvent()`?" (tests the SDK)
+- Right scope: "Can `AgentSession.resume()` restore conversation
+  context across JVM restarts?" (tests the design hypothesis)
+
+The right POC question comes from §2 Approach — what is the spec
+betting on? Test that bet.
+
+**POC execution:**
+
+1. Create `poc/<spec-id>/` directory with minimal setup — or a test
+   class in the main project if dependencies are already available.
+   Prefer the lightest approach that answers the hypothesis.
+2. Implement the **minimum code** to validate:
+   - The core design hypothesis (does the approach work?)
+   - Key integration points connect
+   - Correct usage patterns discovered
+3. Run POC tests — all must pass
+4. Document findings in the spec file section 6 under `### POC Findings`:
+   - **Design hypothesis verdict** — does the approach hold?
+   - Correct API usage patterns (code snippets)
+   - Gotchas discovered (deprecated APIs, version quirks)
+   - Verified dependency versions
+5. POC passes and approach confirmed → proceed to Phase 2
+6. POC passes but reveals simpler approach → **stop and escalate**
+   to `/planning-spec [spec-id]` with findings. The spec design
+   needs revision before task planning.
+7. POC fails → stop and report to user with findings
+
+Record the decision in the spec file section 6 header:
+`POC: required` or `POC: not required` with rationale.
+
+**POC directory is temporary** — cleaned up in Phase 4 after results
+are consolidated into the spec file.
+
+### Phase 2: Create Task Files
 
 Skip if task files already exist for this spec.
 
@@ -104,27 +269,6 @@ Before planning, check:
 - Criteria are concrete SBE examples? (if abstract, refine)
 
 Too large or abstract → escalate to `/planning-spec [spec-id]`.
-
-**Assess POC need:**
-
-| Signal | POC needed? |
-|---|---|
-| Spec introduces packages/SDKs **never used before** in this project | **Always Yes** — even if spec research is thorough, API semantics (return values, exception behavior, builder patterns) must be verified against real code |
-| Spec integrates with unfamiliar external APIs | Yes |
-| High uncertainty on whether approach will work | Yes |
-| Spec only modifies existing, well-understood code | No |
-| All packages already validated by prior specs | No |
-
-**First-time SDK rule:** When a spec introduces a dependency the
-project has never imported before, always run a lightweight POC
-(5–10 minutes). A single test class in `poc/<spec-id>/` that proves:
-(a) objects construct successfully, (b) return-value semantics (e.g.
-what makes `isSuccessful()` true), (c) which setters/builders
-actually exist on the options classes. This is faster than discovering
-API quirks mid-RED through bytecode inspection or trial-and-error.
-
-Record the decision in the spec file section 6 header:
-`POC: required` or `POC: not required` with rationale.
 
 **Task granularity by spec size:**
 
@@ -145,50 +289,31 @@ and GREEN is creating a 5-line file, the task is too small.
 
 Read the template from `references/task-file-template.md`.
 
+**Important:** Task files must reflect POC findings. If the POC
+revealed different API patterns than the spec assumed, the task
+files must use the validated patterns, not the spec's original
+assumptions. Note any divergence.
+
 **Add section 6 (Task Plan) to the spec file** — a lightweight index
 of all tasks, their AC mapping, execution order, and POC decision.
 
 Update `spec-roadmap.md` status to `⏳ Plan`.
 
-### Phase 1.5: POC Validation (conditional)
-
-Skip if POC assessment = `not required`.
-
-**Goal**: Prove packages/SDKs/APIs work correctly in isolation before
-touching the project codebase.
-
-1. Create `poc/<spec-id>/` directory with its own minimal project setup
-   (e.g., standalone build file, minimal dependencies — only what needs validation)
-2. Implement the **minimum code** to validate:
-   - Package imports and API calls work
-   - Key integration points connect
-   - Correct usage patterns (struct names, method signatures, config formats)
-3. Run POC tests — all must pass
-4. Document findings in the spec file section 6 under `### POC Findings`:
-   - Correct API usage patterns (code snippets)
-   - Gotchas discovered (deprecated APIs, version quirks)
-   - Verified dependency versions
-5. POC passes → proceed to Phase 2
-6. POC fails → stop and report to user with findings
-
-**POC directory is temporary** — cleaned up in Phase 3 after results
-are consolidated into the spec file.
-
-### Phase 2: Task Loop
+### Phase 3: Task Loop
 
 1. Scan task files: `docs/grimo/tasks/*-<spec-id>-*.md`
 2. Find first task with `Status: pending` (respect dependency order)
 3. If found → `/implementing-task [spec-id]`
-4. If all tasks `PASS` → proceed to Phase 3
+4. If all tasks `PASS` → proceed to Phase 4
 5. If any task `FAIL` → stop and report to user
 
-After `/implementing-task` returns, re-enter Phase 2 (check next task).
+After `/implementing-task` returns, re-enter Phase 3 (check next task).
 
 Update `spec-roadmap.md` status to `⏳ Dev` on first task start.
 
-### Phase 3: Consolidation + Independent Verification
+### Phase 4: Consolidation + Independent Verification
 
-All tasks PASS. Four steps:
+All tasks PASS. Five steps:
 
 **Step 1: Deterministic checks (inline)**
 
@@ -199,7 +324,7 @@ Run the project's standard pipeline commands. Each must exit 0.
 <ecosystem compile check>       # e.g., gradlew compileTestJava
 ```
 
-If any fails, identify the failing task and re-enter Phase 2.
+If any fails, identify the failing task and re-enter Phase 3.
 
 **Step 2: Consolidate results into spec file**
 
@@ -273,13 +398,13 @@ Agent tool parameters:
 
 **After subagent returns:**
 - **PASS** → proceed to Routing
-- **REJECT with CRITICAL** → address findings, re-enter Phase 2
+- **REJECT with CRITICAL** → address findings, re-enter Phase 3
 - **REJECT with only IMPORTANT/MINOR** → if subagent already fixed
   them in-place, accept as PASS. Otherwise fix and re-verify.
 
 ### Routing
 
-After Phase 3 Step 4 (subagent QA) passes:
+After Phase 4 Step 5 (subagent QA) passes:
 
 | Spec size | Action |
 |---|---|
@@ -297,8 +422,8 @@ user authorization.
 
 | Size | Behavior |
 |---|---|
-| **XS/S** | Full auto: plan → task loop → consolidate → subagent QA → report. Only stop on failure. |
-| **M** | Stop after design for user confirmation. Then auto through task loop → subagent QA → report. |
+| **XS/S** | Full auto: pre-flight → POC → plan → task loop → consolidate → subagent QA → report. Only stop on failure or design revision. |
+| **M** | Stop after pre-flight for user confirmation. Then auto through POC → task loop → subagent QA → report. |
 | **L+** | Stop at every phase boundary. Equivalent to manual mode. |
 
 Stop conditions:
@@ -320,7 +445,7 @@ Procedure:
 1. **Stop the current task.** If a task was in progress when the
    change arrived, mark its status `SUPERSEDED` with a one-line note
    (`removed YYYY-MM-DD by user: <reason>`). SUPERSEDED is NOT a
-   failure — it is a valid terminal state and Phase 3 treats it as
+   failure — it is a valid terminal state and Phase 4 treats it as
    "covered by explicit deferral".
 2. **Propagate the change:**
    - Delete task files rendered obsolete.
@@ -332,7 +457,7 @@ Procedure:
    - Update the spec's §6 task plan (table, POC rationale, AC
      coverage).
    - Update the roadmap entry if the overall spec scope collapsed.
-3. **Resume the loop.** Re-enter Phase 2 against the new task graph.
+3. **Resume the loop.** Re-enter Phase 3 against the new task graph.
    Find the next pending task.
 4. **Audit downstream impact.** If the change touches
    project-level decisions, update the relevant docs in the same
@@ -360,11 +485,60 @@ Procedure:
 
 ## Handoff
 
-After Phase 1 or when Phase 2 finds a pending task, immediately invoke
+After Phase 2 or when Phase 3 finds a pending task, immediately invoke
 `/implementing-task [spec-id]`. Do not wait for user confirmation.
 
-After Phase 3 Step 4 (subagent QA passes), **stop and tell the user
+After Phase 4 Step 5 (subagent QA passes), **stop and tell the user
 the spec is ready to ship**. Instruct them to run `/shipping-release`.
+
+## Troubleshooting — Known Failure Modes
+
+### Task files created based on wrong design assumptions
+**Symptom:** POC reveals the spec's approach is fundamentally wrong.
+All task files must be discarded.
+**Root cause:** Phase ordering violation — task files were created
+before POC validated the approach.
+**Fix:** Always run Phase 0 (pre-flight) and Phase 1 (POC) before
+Phase 2 (task files). If you catch yourself creating tasks before
+running POC, stop and reorder.
+
+### Redundant research — existing notes ignored
+**Symptom:** You spawned 3+ research agents to investigate something
+the project already has a research note about.
+**Root cause:** Skipped Phase 0 Step 1 (read existing knowledge).
+**Fix:** Before ANY external research, scan the project's research
+notes directory and prior spec findings. One targeted agent to fill
+gaps is better than three agents re-covering known ground.
+
+### Spec design contradicts product requirements
+**Symptom:** User points out "go back and read the PRD" — the spec's
+approach violates a stated product principle or decision.
+**Root cause:** Skipped Phase 0 Step 2 (cross-validate with PRD).
+The spec was designed with assumptions that diverged from product
+intent.
+**Fix:** Always cross-validate the spec's §2 Approach against the
+PRD's principles and decision log before planning tasks. Catch
+contradictions early — escalate to `/planning-spec` for revision.
+
+### POC tests SDK but misses the design question
+**Symptom:** POC proves "the library works" but doesn't test whether
+the spec's *approach* is correct. Mid-task-loop, you discover the
+library already solves the problem natively — no custom code needed.
+**Root cause:** POC scope was too narrow — tested API mechanics
+instead of the design hypothesis.
+**Fix:** The POC question must come from the spec's §2 Approach.
+Ask: "What is the spec betting on?" and test that bet. Example:
+instead of "can I call `SessionService.appendEvent()`?", ask
+"can `AgentSession.resume()` restore context across restarts?"
+
+### Adding a dependency to solve a problem that doesn't exist
+**Symptom:** The spec introduces a complex dependency (with schema,
+config, bridge code) when the framework already handles the problem.
+**Root cause:** Skipped Phase 0 Step 3 (question the approach).
+The spec assumed a gap that doesn't exist.
+**Fix:** Before accepting any new dependency, ask: "Does the
+framework already solve this?" Test the framework's native
+capability in POC before designing a wrapper.
 
 ## Escalate
 

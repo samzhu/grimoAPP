@@ -114,6 +114,34 @@ If a sub-agent identifies a gap that requires a second fetch, that fetch should 
 
 If a sub-agent's finding is the load-bearing decision of the spec (the whole §2 Approach hinges on it), do a second WebFetch to confirm before committing the spec file. A spec with a wrong API signature becomes a task loop of corrections.
 
+## Confidence Classification — Validated vs Hypothesis
+
+After all research agents return, classify EACH load-bearing design
+decision before writing the spec:
+
+| Confidence | Evidence required | Spec annotation |
+|---|---|---|
+| **Validated** | Raw source confirms API exists with expected signature and behavior. Or a prior shipped spec's §7 proved it in production code. | Cite source URL in §2.3. No further action. |
+| **Hypothesis** | Docs suggest it works. Source shows the API exists. But actual runtime behavior (return values, error paths, integration with other APIs) is unproven. | Mark `[needs POC validation]` in §2. Declare `POC: required` with specific test plan. |
+| **Unknown** | Could not determine from docs or source. Behavior depends on runtime interaction, undocumented conventions, or versions we haven't tested. | **Do not design around it.** Either dispatch a targeted research agent to resolve, or ask the user. |
+
+**The distinction that matters:** "API surface mapping" (what methods
+exist) vs "behavior validation" (what those methods actually do).
+Research can map the surface; POC validates the behavior.
+
+**Example from S011 (the lesson that created this rule):**
+- Research mapped `AgentSession.resume()` — method exists ✓
+- Research mapped `SessionService.appendEvent()` — method exists ✓
+- But research did NOT test: "Does `resume()` actually restore
+  conversation context?" (behavior) or "Do we even NEED
+  `SessionService` if `resume()` already handles persistence?"
+  (approach validity)
+- Result: spec designed a complex decorator + spring-ai-session
+  bridge that turned out to be unnecessary — `resume()` natively
+  restores context via CLI's own transcript files.
+- Fix: POC should have tested the behavior hypothesis BEFORE the
+  spec committed to the approach.
+
 ## Research Persistence Rules
 
 Research findings MUST be persisted in the spec file's §2.3 Research Citations section — not just in the conversation context.

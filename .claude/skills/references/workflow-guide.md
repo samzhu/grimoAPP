@@ -58,7 +58,7 @@ docs/grimo/specs/YYYY-MM-DD-S<NNN>-<slug>.md
   Section 5: File Plan             <- /planning-spec creates
   ---
   Section 6: Task Plan + POC       <- /planning-tasks adds
-  Section 7: Implementation Results <- /planning-tasks adds (Phase 3)
+  Section 7: Implementation Results <- /planning-tasks adds (Phase 4)
              + QA Review           <- /verifying-quality appends
 ```
 
@@ -76,35 +76,43 @@ consolidation into section 7.
 |---|---|---|
 | `🔲` | — | Not started |
 | `⏳ Design` | `/planning-spec` | Sections 1-5 complete |
-| `⏳ Plan` | `/planning-tasks` Phase 1 | Task files created, section 6 added |
-| `⏳ Dev` | `/planning-tasks` Phase 2 | First task started |
-| `✅ Done` | `/planning-tasks` Phase 3 | All tasks pass, section 7 written, QA pass |
+| `⏳ Plan` | `/planning-tasks` Phase 2 | Task files created, section 6 added |
+| `⏳ Dev` | `/planning-tasks` Phase 3 | First task started |
+| `✅ Done` | `/planning-tasks` Phase 4 | All tasks pass, section 7 written, QA pass |
 
 Note: There is no separate `⏳ QA` status. QA runs as a subagent
-inside Phase 3 and the result is embedded in the spec file.
+inside Phase 4 and the result is embedded in the spec file.
 
 ## The Task Loop (planning-tasks is the Hub)
 
 `/planning-tasks` is the central coordinator. It manages 3 phases:
 
-### Phase 1: Create Task Files
-- Assess POC need (first-time SDK -> always POC in `poc/<spec-id>/`)
+### Phase 0: Pre-Flight Validation
+- Read existing research notes — don't re-research known findings
+- Cross-validate spec design against product requirements
+- Question the approach: does the framework already solve this?
+- If contradiction found -> escalate to `/planning-spec`
+
+### Phase 1: POC Validation (conditional)
+- **Runs BEFORE task files** — validates the approach, not just the SDK
+- POC must test the design hypothesis, not just API mechanics
+- Document findings in spec section 6
+- POC reveals simpler approach -> escalate to `/planning-spec`
+- POC fails -> stop and report
+
+### Phase 2: Create Task Files
 - Break spec into BDD task files in `docs/grimo/tasks/`
+- Task files must reflect POC findings (validated patterns)
 - Add section 6 to spec file
 - Status -> `⏳ Plan`
 
-### Phase 1.5: POC Validation (conditional)
-- Run POC in isolated `poc/<spec-id>/` directory
-- Document findings in spec section 6
-- POC fails -> stop and report
-
-### Phase 2: Task Loop
+### Phase 3: Task Loop
 - Find next pending task -> invoke `/implementing-task`
 - `/implementing-task` completes one task -> returns here
-- Re-check: more pending? -> loop. All PASS? -> Phase 3
+- Re-check: more pending? -> loop. All PASS? -> Phase 4
 - Status -> `⏳ Dev`
 
-### Phase 3: Consolidation + Independent QA
+### Phase 4: Consolidation + Independent QA
 1. **Deterministic checks** (inline): run test suite, verify compilation
 2. **Consolidate** into spec section 7: results, findings, usage patterns
 3. **Clean up**: delete task files and POC directory
@@ -123,7 +131,7 @@ After subagent REJECT -> fix findings, re-verify.
 
 ## Verification Model
 
-Two-stage verification, both executed during Phase 3:
+Two-stage verification, both executed during Phase 4:
 
 | Stage | Method | What it checks |
 |---|---|---|

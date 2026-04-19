@@ -302,4 +302,37 @@ class SessionPersistenceConfig {
 
 ---
 
-<!-- Sections 6-7 added by /planning-tasks after implementation -->
+## 6. Task Plan
+
+**POC: required** — `spring-ai-starter-session-jdbc:0.2.0` 從未在此專案中使用過。即使 spec research 已引用 raw source，`SessionService` / `SessionEvent` / `CreateSessionRequest` 的 builder API 語義（回傳值、例外行為、必填欄位）需透過 POC 驗證。
+
+### Task Index
+
+| Task | Topic | AC Coverage | Depends On | Status |
+|------|-------|-------------|------------|--------|
+| T1 | Infrastructure + Session persistence decorator (create path) | AC-1, AC-4 | — | pending |
+| T2 | --resume flow + error handling | AC-2, AC-3 | T1 | pending |
+| T3 | Integration tests covering all ACs | AC-1-4 | T2 | pending |
+
+### AC → Task Mapping
+
+| AC | Task(s) |
+|----|---------|
+| AC-1: 對話事件持久化至 H2 | T1 (decorator), T3 (IT) |
+| AC-2: --resume 恢復先前對話 | T2 (resume flow), T3 (IT) |
+| AC-3: 無效 sessionId 印出錯誤 | T2 (error handling), T3 (IT) |
+| AC-4: ~/.grimo/db/ 自動建立 | T1 (GrimoHomePaths.db()), T3 (IT) |
+
+### Execution Order
+
+```
+T1 (deps + decorator + unit tests)
+  └─▶ T2 (resume + REPL mods + unit tests)
+        └─▶ T3 (integration test + arch doc update)
+```
+
+### POC Findings
+
+*(to be filled after Phase 1.5)*
+
+<!-- Section 7 added after implementation -->
