@@ -6,6 +6,10 @@ Research is Phase 2 of the planning-spec process. It MUST complete before Phase 
 
 **Rationale:** Grilling before research leads to approach comparisons based on assumptions. When research findings arrive, they invalidate earlier assumptions, causing multiple approach pivots and wasted cycles. Research first → grill with facts → one-shot approach selection.
 
+## Roadmap vs Spec Research — Scope Distinction
+
+Roadmap planning（`/planning-project`）lists broad direction and coarse dependencies. It does NOT deeply research library APIs. **Spec planning（`/planning-spec`）is where deep research happens.** Never assume the roadmap's SBE draft or description has validated any API surface. Treat every library interaction as unverified until raw source confirms it.
+
 ## Step 0: Prior Art / Ecosystem Scan
 
 Before investigating specific APIs, ask: **does the upstream ecosystem already provide a ready-made solution for this spec's goal?**
@@ -18,9 +22,34 @@ Check:
 
 If a viable upstream solution exists, evaluate reuse vs build-own as the **first grill question**, before diving into implementation details.
 
+## Step 0.5: Exhaust Pinned Libraries' Own API Surface (MANDATORY)
+
+**Before researching how Library A integrates with Library B, map what Library A already offers on its own.**
+
+This step exists because skipping it caused a 6:1 user-correction ratio on S011. The root cause: assuming a library's scope from its name (`agent-client` = "just a CLI wrapper") instead of reading its actual public API. 30 seconds of package browsing prevents 6 rounds of correction.
+
+**Action:**
+1. For each pinned library in `architecture.md` that this spec touches:
+   - Fetch the GitHub repo tree (top-level packages only): `https://github.com/<org>/<repo>/tree/main/<module>/src/main/java/...`
+   - List every public **interface** and **abstract class** in the relevant module
+   - Flag interfaces whose name matches this spec's domain concepts (e.g., spec says "session" → find all `*Session*`, `*Registry*`, `*Advisor*` interfaces)
+2. For each flagged interface:
+   - Fetch raw source to read the **full method list and Javadoc**
+   - Record: "Library X already provides interface Y with methods [list]"
+   - Note extension points: SPI, decorator hooks, builder parameters, advisor chains
+3. Record findings in §2.3 Research Citations under "Library API Surface"
+4. Any interface that already models the spec's domain concept becomes a **MANDATORY grill question**: "Should we use/extend this existing abstraction or build our own? What does it NOT provide that we need?"
+
+**Anti-patterns this step prevents:**
+- Designing a custom `PersistentAgentSession` without first discovering `AgentSessionRegistry` (which the library explicitly designed as the extension point)
+- Building a custom advisor chain without first discovering the library already has `AgentCallAdvisor` + `AgentCallAdvisorChain`
+- Researching "how to bridge Library A with Library B" when Library A already has an SPI designed for exactly that bridge
+
+**Skip ONLY when:** The spec touches exclusively standard library APIs or surfaces already fully mapped by a prior shipped spec's §7 Findings (with raw source citations, not just prose descriptions).
+
 ## Steps 1–5: Dispatch Sequence
 
-1. **List ALL load-bearing APIs this spec touches.** Read the roadmap deliverables, architecture doc, and any SBE drafts. Name each API by library + entrypoint (e.g., `<library>: <class/annotation/function>`). One entry per distinct surface. **Be exhaustive** — under-scoping the API list is the #1 cause of repeated research rounds.
+1. **List ALL load-bearing APIs this spec touches.** Read the roadmap deliverables, architecture doc, and any SBE drafts. Name each API by library + entrypoint (e.g., `<library>: <class/annotation/function>`). One entry per distinct surface. **Be exhaustive** — under-scoping the API list is the #1 cause of repeated research rounds. **Include interfaces discovered in Step 0.5** — these are often the most important APIs and the ones most likely to be missed if Step 0.5 was skipped.
 2. **Dispatch 3–5 sub-agents in parallel IMMEDIATELY** — one round, full coverage. Budget per sub-agent: 10 tool calls max. Cover the ENTIRE API surface relevant to this spec, not just the specific method in question. S-sized specs: 2–3 agents. M+ specs: 3–5 agents.
 3. **WAIT for all agents to return.** Do NOT begin the grill loop while agents are running. Integrate ALL findings before the first user question.
 4. **Integrate findings into working context.** Fold each finding into a research summary. If a finding contradicts the roadmap's SBE draft (e.g., roadmap assumes method X, docs show X is deprecated and Y is current), note it for the first grill question.

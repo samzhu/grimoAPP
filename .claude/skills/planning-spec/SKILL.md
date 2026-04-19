@@ -72,7 +72,12 @@ Phase 1 — Context (no user interaction)
 - [ ] Estimate (initial) — score the six dimensions from the roadmap entry to determine size bucket.
 
 Phase 2 — Research (BLOCKING GATE — must complete before Phase 3)
-- [ ] Research — dispatch parallel sub-agents on ALL load-bearing framework APIs.
+- [ ] Step 0.5 — Map pinned libraries' own API surface FIRST.
+      For each pinned library this spec touches: fetch repo tree, list public
+      interfaces, flag domain-matching abstractions (Session, Registry, Advisor, etc.).
+      This step prevents the #1 failure mode: assuming library scope from its name.
+- [ ] Research — dispatch parallel sub-agents on ALL load-bearing framework APIs
+      (including interfaces discovered in Step 0.5).
       This phase is BLOCKING: do NOT ask the user any grill questions until all
       research agents have returned and findings are integrated.
       Skip ONLY when the spec touches nothing beyond pure standard library or
@@ -136,18 +141,23 @@ For key design decisions (interface shape, data model, error strategy), explicit
 
 After a technology/framework is chosen (pinned in the architecture doc), the default posture is **reuse its types, interfaces, and patterns**. Custom abstractions are justified only when the framework genuinely cannot serve the need.
 
-**Reuse checklist (run during Research, before designing interfaces):**
+**Step 0.5 is the enforcement mechanism.** Before designing any interface, `research-protocol.md` Step 0.5 requires mapping every pinned library's public API surface. This step catches the most common reuse failure: assuming a library's scope from its name instead of reading its actual interfaces.
+
+**Reuse checklist (run during Research, after Step 0.5 completes):**
 1. Does the framework already define an interface for this capability? → Use it as the port.
 2. Does the framework already define request/response types? → Use them, don't invent parallel DTOs.
 3. Does the framework provide a configuration/extension point (builder, factory, path override, SPI)? → Use it, even if the mechanism is indirect (e.g., a wrapper script injected via a binary-path setting).
-4. Does an upstream model/adapter already integrate with the infrastructure this spec needs? → Inject and configure, don't rewrite.
+4. Does the framework provide an **advisor/interceptor chain**? → Use it for cross-cutting concerns (persistence, logging, metrics), don't wrap the entire class.
+5. Does an upstream model/adapter already integrate with the infrastructure this spec needs? → Inject and configure, don't rewrite.
 
 **Custom implementation is justified when:**
 - The framework has a verified gap (confirmed by raw source inspection, not assumption).
 - The gap is documented in §2 Challenges Considered with the source URL.
 - The custom code follows the framework's own patterns (e.g., implements its SPI, returns its response types).
 
-**Anti-pattern:** Designing a custom port interface + custom response types + custom parsing when the framework already provides all three. This creates a parallel type system that must be maintained alongside the framework's evolution.
+**Anti-patterns:**
+- Designing a custom port interface + custom response types + custom parsing when the framework already provides all three. This creates a parallel type system that must be maintained alongside the framework's evolution.
+- **Assuming a library's scope from its name.** Example: `agent-client` sounds like "just a CLI wrapper" but actually provides `AgentSession` (multi-turn abstraction), `AgentSessionRegistry` (lifecycle SPI), and `AgentCallAdvisor` (interceptor chain). Skipping Step 0.5 causes this failure mode — designing a custom persistence wrapper when the library already has an extension point designed for exactly that purpose.
 
 ### Challenge assumptions (built-in)
 
@@ -220,6 +230,28 @@ An XS or S spec MUST NOT pre-create files — configs, placeholders, empty direc
 Exception: project-wide formatters, linters, CI configs, or other cross-cutting tooling where the cost of retro-fitting exceeds the cost of early adoption. These MUST be explicitly justified in the spec's Approach section (§2) and tied to an acceptance criterion.
 
 Rationale: pre-populated config drift is a common source of "this was never needed" cleanup work, and it hides the real dependency graph between specs. A spec should add only what its own acceptance criteria demand.
+
+## Troubleshooting — Known Failure Modes
+
+### User keeps correcting your design direction
+**Symptom:** User provides URLs to library source code you should have found yourself. Correction ratio > 2:1.
+**Root cause:** Step 0.5 was skipped or under-scoped. You assumed a library's capabilities from its name or from the roadmap description, which is intentionally coarse-grained.
+**Fix:** Stop the grill loop. Go back to Step 0.5. Fetch the repo tree for every pinned library this spec touches. List all public interfaces. Resume the grill only after the API surface is mapped.
+
+### Approach comparison table gets rebuilt after research
+**Symptom:** You presented a comparison table, then research findings invalidated it, forcing a rebuild.
+**Root cause:** Phase 2 gate violation — grill questions were asked before research completed.
+**Fix:** Never present a comparison table until ALL research agents have returned. This is a hard rule, not a guideline.
+
+### Two libraries from the same ecosystem don't integrate
+**Symptom:** You designed a bridge between Library A and Library B, but user points out Library A already has an SPI for this purpose.
+**Root cause:** Researched Library B's API without first mapping Library A's extension points. Example: researching `spring-ai-session`'s `SessionMemoryAdvisor` without first discovering `agent-client`'s `AgentCallAdvisor` chain.
+**Fix:** Step 0.5 requires mapping EACH library independently before researching their integration. The integration question comes AFTER both surfaces are mapped.
+
+### Roadmap description contradicts actual API
+**Symptom:** The roadmap says "use X" but X doesn't exist or works differently than described.
+**Root cause:** Normal — roadmap is coarse-grained by design. Spec planning is where API verification happens.
+**Fix:** Note the contradiction explicitly in the first grill question. Update the roadmap description in the same commit as the spec file.
 
 ## Handoff
 

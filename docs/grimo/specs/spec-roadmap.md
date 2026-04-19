@@ -181,15 +181,17 @@
 
 | # | 規格 | 點數 | 狀態 |
 | --- | --- | --- | --- |
-| S011 | Session 持久化 | S (11) | 🔲 |
+| S011 | Session 持久化 | S (10) | ⏳ Design |
 
-### S011 — Session 持久化 · S (11)
+### S011 — Session 持久化 · S (10)
 
-**描述。** 整合 `spring-ai-session-jdbc` 0.2.0 + H2 檔案模式（`~/.grimo/db/grimo.mv.db`）。`SessionMemoryAdvisor` 在每輪對話後自動持久化 `Message` 事件至 `AI_SESSION` / `AI_SESSION_EVENT` 表。`grimo chat --resume <id>` 從 DB 載入先前 session 的對話歷史並注入至新的 `AgentSession`。
+**描述。** 透過 decorator 模式包裝 `AgentSession` / `AgentSessionRegistry`（agent-client 0.12.2 SPI），在每輪 `prompt()` 前後將 user/assistant 訊息寫入 H2（via `SessionService`，spring-ai-session-jdbc 0.2.0）。`grimo chat --resume <id>` 恢復先前 session。不含壓縮策略選型（另行研究 spec）。
 
-**競品參考。** T3 Code Event Sourcing（sequence-based partial replay，§3.1）+ Aizen ACP Session Resume（`acpSessionId` 持久化 + replay 去重，§3.2）。
+**設計要點。** 研究確認 `SessionMemoryAdvisor` 為 ChatClient advisor，無法掛載到 `AgentSession`（不同 API 層次）。改用 decorator：`PersistentAgentSession` 包裝任意 `AgentSession`，`PersistentAgentSessionRegistry` 包裝任意 `AgentSessionRegistry`，以 `@Primary` bean 透明替換。
 
-**依賴。** S007 或 S008（需要一個可運作的 chat session）。
+**競品參考。** T3 Code Event Sourcing（sequence-based partial replay，§3.1）+ Hermes Agent 四層記憶架構（§6.3.3）。
+
+**依賴。** S007（程式碼層級 — 需修改 REPL 加入 `--resume` 旗標）。
 
 **SBE（草稿）。**
 - **AC-1** `grimo chat` 對話後，`AI_SESSION_EVENT` 表中存在該 session 的事件記錄。
@@ -197,7 +199,7 @@
 - **AC-3** 無效或不存在的 `sessionId` 印出清楚錯誤，不崩潰。
 - **AC-4** `~/.grimo/db/` 目錄在首次使用時自動建立（via `GrimoHomePaths.db()`）。
 
-**估算。** 技術 2 · 不確定性 2 · 依賴 2 · 範疇 2 · 測試 2 · 可逆性 1 = **11 / S**
+**估算。** 技術 2 · 不確定性 1 · 依賴 2 · 範疇 2 · 測試 2 · 可逆性 1 = **10 / S**
 
 ---
 
