@@ -1,14 +1,15 @@
 /**
- * Grimo :: Agent — hosts the main-agent CLI passthrough use case
- * ({@code grimo chat}, S007). Wires user stdin/stdout to a containerised
- * {@code claude-code} process running inside the {@code grimo-runtime}
- * image.
+ * Grimo :: Agent — hosts the main-agent interactive chat use case
+ * ({@code grimo chat}, S007). Uses {@code AgentSessionRegistry} to
+ * maintain a persistent host {@code claude} CLI process, with
+ * {@code AgentSession.prompt()} driving multi-turn conversation via
+ * a terminal REPL.
  *
- * <p>Empty in S002. The first concrete type lands with S007.
+ * <p>S008+ will switch to containerised claude-code inside
+ * {@code grimo-runtime}.
  *
- * <p>{@code allowedDependencies = {}} starts as the strictest white-list
- * — see Cross-Module Communication Policy in
- * {@code development-standards.md} §13.
+ * <p>{@code allowedDependencies = {}} — all imports come from library
+ * dependencies (agent-client, Spring Boot), no cross-module references.
  */
 @ApplicationModule(
     displayName = "Grimo :: Agent",
