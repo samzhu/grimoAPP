@@ -89,16 +89,25 @@ inside Phase 4 and the result is embedded in the spec file.
 
 ### Phase 0: Pre-Flight Validation
 - Read existing research notes — don't re-research known findings
-- Cross-validate spec design against product requirements
-- Question the approach: does the framework already solve this?
-- If contradiction found -> escalate to `/planning-spec`
+- Re-read the PRD — verify spec aligns with product positioning
+- **Existing stack audit** — ask "does the current stack already solve
+  this use case?" Test with a lightweight POC if needed. Inspecting
+  source code alone is insufficient for behavior questions.
+- Cross-validate spec design against product requirements and POC findings
+- Question the approach: is the spec adding complexity for a problem
+  the existing framework already handles?
+- If contradiction found → escalate to `/planning-spec`
 
 ### Phase 1: POC Validation (conditional)
 - **Runs BEFORE task files** — validates the approach, not just the SDK
+- **Correct POC sequence:** (1) test existing stack capabilities first,
+  (2) identify the gap, (3) only then test proposed new dependency
 - POC must test the design hypothesis, not just API mechanics
+- A POC that confirms "new library works" without first confirming
+  "existing stack can't do this" is incomplete
 - Document findings in spec section 6
-- POC reveals simpler approach -> escalate to `/planning-spec`
-- POC fails -> stop and report
+- POC reveals simpler approach → escalate to `/planning-spec`
+- POC fails → stop and report
 
 ### Phase 2: Create Task Files
 - Break spec into BDD task files in `docs/grimo/tasks/`

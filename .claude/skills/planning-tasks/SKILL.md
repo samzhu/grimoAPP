@@ -114,6 +114,27 @@ independently. This catches blind spots that same-session self-review misses.
 - Only after POC passes → create task files and implement, referencing
   POC findings for correct API usage.
 
+### POC Must Validate the Design Hypothesis, Not Just the SDK
+
+A common failure mode: the POC confirms "the new dependency's API
+works" but never tests "do we actually NEED this dependency?" This
+leads to specs that introduce dependencies to solve problems the
+existing stack already handles.
+
+**Correct POC sequence:**
+1. **First:** Test what the existing stack can do for this use case
+   (run the current framework's APIs, observe actual behavior)
+2. **Then:** Identify the specific gap the existing stack cannot fill
+3. **Only then:** Test whether the proposed new dependency fills that gap
+
+**If the POC reveals the existing stack already solves the problem,**
+escalate to `/planning-spec [spec-id]` for a design revision. Do NOT
+proceed with task planning for an approach that's more complex than
+necessary.
+
+**A POC that only tests "does Library X's API work?" without first
+testing "does our existing stack already do this?" is incomplete.**
+
 ## Usage
 
 ```

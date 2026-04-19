@@ -67,21 +67,32 @@ Read the architecture doc for framework versions and patterns. **Use the exact v
 
 ```
 Phase 1 — Context (no user interaction)
+- [ ] Scan existing research — check for prior research notes, competitive analysis, or prior spec findings related to this spec's topic. Re-research is the most expensive form of waste.
+- [ ] Re-sync PRD — scan the PRD for product-level decisions that constrain this spec. Verify the spec's goal aligns with the product's positioning (e.g., "manage X" vs "replace X" vs "bridge X and Y").
 - [ ] Inspect current state — list the project directory; diff against what the last planning step recorded.
-- [ ] Re-sync PRD — scan the PRD for edits since design started.
 - [ ] Estimate (initial) — score the six dimensions from the roadmap entry to determine size bucket.
 
 Phase 2 — Research (BLOCKING GATE — must complete before Phase 3)
-- [ ] Step 0.5 — Map pinned libraries' own API surface FIRST.
-      For each pinned library this spec touches: fetch repo tree, list public
-      interfaces, flag domain-matching abstractions (Session, Registry, Advisor, etc.).
-      This step prevents the #1 failure mode: assuming library scope from its name.
+- [ ] Step -1 — Scan existing research (prior notes, shipped spec findings,
+      competitive analysis). Do NOT re-research what's already known.
+- [ ] Step 0.5 — Map EXISTING dependencies' capabilities for this spec's goal.
+      Sequence matters: understand what you already have BEFORE evaluating
+      what you might add. For each pinned library this spec touches: fetch
+      repo tree, list public interfaces, flag domain-matching abstractions.
+- [ ] Existing stack audit — answer: "Does the current stack already solve
+      this use case?" This must be answered by inspecting actual behavior
+      (source code, POC runs), not by assuming capabilities from names/docs.
+      If the existing stack covers 80%+ of the requirement, design around it.
 - [ ] Research — dispatch parallel sub-agents on ALL load-bearing framework APIs
       (including interfaces discovered in Step 0.5).
       This phase is BLOCKING: do NOT ask the user any grill questions until all
       research agents have returned and findings are integrated.
       Skip ONLY when the spec touches nothing beyond pure standard library or
       surfaces already validated by a prior shipped spec's §7 Findings.
+- [ ] Behavior validation gate — for each load-bearing design decision,
+      classify confidence: Validated (source + behavior confirmed),
+      Hypothesis (API exists but behavior unproven → POC required),
+      or Unknown (stop, more research needed). See research-protocol.md.
 
 Phase 3 — Clarify + Design (user interaction)
 - [ ] Clarify — grill-me loop with user (research findings inform questions)

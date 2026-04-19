@@ -10,6 +10,29 @@ Research is Phase 2 of the planning-spec process. It MUST complete before Phase 
 
 Roadmap planning（`/planning-project`）lists broad direction and coarse dependencies. It does NOT deeply research library APIs. **Spec planning（`/planning-spec`）is where deep research happens.** Never assume the roadmap's SBE draft or description has validated any API surface. Treat every library interaction as unverified until raw source confirms it.
 
+## Step -1: Scan Existing Research (MANDATORY)
+
+**Before doing ANY new research, check what's already been researched.**
+
+Re-research is the most expensive form of waste — it consumes agent time, user patience, and context window. Prior research artifacts may already contain the answers needed.
+
+**Action:**
+1. Scan `docs/local/` for research notes related to this spec's topic
+2. Check prior shipped specs' §7 Findings for validated API patterns
+3. Check the spec file itself — it may already have §2.3 Research Citations from a prior design round
+4. Read any competitive analysis or technology evaluation docs that touch this spec's domain
+
+**If prior research exists:**
+- Read it FIRST before dispatching any research agents
+- Note what's still valid vs what needs re-verification (version changes, API drift)
+- Only dispatch agents for gaps not covered by existing research
+
+**If prior research contradicts the current spec design:**
+- Flag the contradiction immediately — it may invalidate the entire approach
+- This is a signal that the spec needs redesign, not more research on the wrong approach
+
+**Skip ONLY when:** This is the first spec in the project (no prior artifacts exist).
+
 ## Step 0: Prior Art / Ecosystem Scan
 
 Before investigating specific APIs, ask: **does the upstream ecosystem already provide a ready-made solution for this spec's goal?**
@@ -26,13 +49,13 @@ If a viable upstream solution exists, evaluate reuse vs build-own as the **first
 
 **Before researching how Library A integrates with Library B, map what Library A already offers on its own.**
 
-This step exists because skipping it caused a 6:1 user-correction ratio on S011. The root cause: assuming a library's scope from its name (`agent-client` = "just a CLI wrapper") instead of reading its actual public API. 30 seconds of package browsing prevents 6 rounds of correction.
+Skipping this step is the #1 cause of multi-round user corrections. The root cause: assuming a library's scope from its name instead of reading its actual public API. 30 seconds of package browsing prevents multiple rounds of correction.
 
 **Action:**
-1. For each pinned library in `architecture.md` that this spec touches:
-   - Fetch the GitHub repo tree (top-level packages only): `https://github.com/<org>/<repo>/tree/main/<module>/src/main/java/...`
+1. For each pinned library that this spec touches:
+   - Fetch the repo tree (top-level packages only)
    - List every public **interface** and **abstract class** in the relevant module
-   - Flag interfaces whose name matches this spec's domain concepts (e.g., spec says "session" → find all `*Session*`, `*Registry*`, `*Advisor*` interfaces)
+   - Flag interfaces whose name matches this spec's domain concepts
 2. For each flagged interface:
    - Fetch raw source to read the **full method list and Javadoc**
    - Record: "Library X already provides interface Y with methods [list]"
@@ -41,11 +64,29 @@ This step exists because skipping it caused a 6:1 user-correction ratio on S011.
 4. Any interface that already models the spec's domain concept becomes a **MANDATORY grill question**: "Should we use/extend this existing abstraction or build our own? What does it NOT provide that we need?"
 
 **Anti-patterns this step prevents:**
-- Designing a custom `PersistentAgentSession` without first discovering `AgentSessionRegistry` (which the library explicitly designed as the extension point)
-- Building a custom advisor chain without first discovering the library already has `AgentCallAdvisor` + `AgentCallAdvisorChain`
-- Researching "how to bridge Library A with Library B" when Library A already has an SPI designed for exactly that bridge
+- Designing a custom wrapper without first discovering the library already has an extension point designed for exactly that purpose
+- Building a custom integration bridge when the library already has an SPI for it
+- Researching "how to bridge Library A with Library B" when Library A's own API already covers the use case
 
 **Skip ONLY when:** The spec touches exclusively standard library APIs or surfaces already fully mapped by a prior shipped spec's §7 Findings (with raw source citations, not just prose descriptions).
+
+### Existing Stack Before New Dependencies (sub-rule of Step 0.5)
+
+**Before evaluating any NEW dependency, validate what the existing stack already provides for this use case.**
+
+This is a sequencing rule: research the capabilities of what you already have BEFORE researching what you might add. The question "does the existing stack already solve this?" must be answered first.
+
+**Enforcement sequence:**
+1. Map existing dependencies' capabilities for this spec's goal
+2. Identify the specific gap (if any) that existing dependencies cannot fill
+3. Only THEN evaluate candidate new dependencies to fill that gap
+4. If the existing stack covers 80%+ of the requirement, design around it — don't add a dependency for the remaining 20%
+
+**Why this order matters:** Researching a new library's API creates anchoring bias — once you've mapped how Library X solves the problem, you'll design around it even if the existing stack could have solved it more simply. Research the existing stack first to avoid this trap.
+
+**The question that must be answered before adding any dependency:**
+- "What does the current stack provide TODAY for this use case?"
+- This must be answered by inspecting actual behavior (source code, tests, POC runs), not by assuming capabilities from names or docs.
 
 ## Steps 1–5: Dispatch Sequence
 
@@ -121,26 +162,40 @@ decision before writing the spec:
 
 | Confidence | Evidence required | Spec annotation |
 |---|---|---|
-| **Validated** | Raw source confirms API exists with expected signature and behavior. Or a prior shipped spec's §7 proved it in production code. | Cite source URL in §2.3. No further action. |
-| **Hypothesis** | Docs suggest it works. Source shows the API exists. But actual runtime behavior (return values, error paths, integration with other APIs) is unproven. | Mark `[needs POC validation]` in §2. Declare `POC: required` with specific test plan. |
+| **Validated** | Raw source confirms API exists with expected signature and behavior. Or a prior shipped spec's §7 proved it in production code. **Or a POC test has exercised the API and confirmed actual runtime behavior.** | Cite source URL in §2.3. No further action. |
+| **Hypothesis** | Docs suggest it works. Source shows the API exists. But actual runtime behavior (return values, error paths, integration with other APIs) is unproven. | Mark `[needs POC validation]` in §2. Declare `POC: required` with specific test plan. **Do NOT write a committed approach around a hypothesis.** |
 | **Unknown** | Could not determine from docs or source. Behavior depends on runtime interaction, undocumented conventions, or versions we haven't tested. | **Do not design around it.** Either dispatch a targeted research agent to resolve, or ask the user. |
 
-**The distinction that matters:** "API surface mapping" (what methods
-exist) vs "behavior validation" (what those methods actually do).
-Research can map the surface; POC validates the behavior.
+### API Surface Mapping vs Behavior Validation
 
-**Example from S011 (the lesson that created this rule):**
-- Research mapped `AgentSession.resume()` — method exists ✓
-- Research mapped `SessionService.appendEvent()` — method exists ✓
-- But research did NOT test: "Does `resume()` actually restore
-  conversation context?" (behavior) or "Do we even NEED
-  `SessionService` if `resume()` already handles persistence?"
-  (approach validity)
-- Result: spec designed a complex decorator + spring-ai-session
-  bridge that turned out to be unnecessary — `resume()` natively
-  restores context via CLI's own transcript files.
-- Fix: POC should have tested the behavior hypothesis BEFORE the
-  spec committed to the approach.
+This is the single most important distinction in research. Confusing the
+two leads to specs designed around assumptions that collapse at POC time.
+
+| Type | What it answers | Method | Sufficient for design? |
+|---|---|---|---|
+| **API surface mapping** | "What methods exist?" | Read source code, list interfaces | Necessary but NOT sufficient |
+| **Behavior validation** | "What do those methods actually DO?" | Run the code in a POC | **Required** for load-bearing decisions |
+
+**When behavior validation is required (mandatory POC):**
+- The spec's core value proposition is "add capability X that the
+  framework lacks" — you must PROVE the framework lacks X, not assume it
+- The spec bridges two libraries that have never been integrated before
+  in this project — prove the integration works
+- The spec relies on a specific runtime behavior (return values, state
+  changes, error semantics) that docs don't explicitly guarantee
+
+**When API surface mapping is sufficient (no POC needed):**
+- The spec uses a well-documented, widely-used API in its standard way
+- A prior shipped spec already validated this exact pattern in §7
+- The API's behavior is trivially predictable from its signature
+
+**Anti-pattern: Designing a complex solution for a non-existent gap.**
+Research may show that Library A "lacks" persistence. But if you only
+mapped Library A's API without testing its actual behavior, you might
+discover (too late) that Library A delegates persistence to an
+underlying system that already handles it. The gap was assumed, not
+verified. A 15-minute POC would have caught this before days of
+spec design and task planning.
 
 ## Research Persistence Rules
 
@@ -159,7 +214,7 @@ This ensures future spec revisions don't need to re-research, downstream specs c
 When research during spec planning produces findings that go **beyond the scope of the current spec** (e.g., competitive analysis, technology selection rationale, memory architecture research, rejected alternatives with detailed reasoning), persist them in `docs/local/` as a research note file.
 
 **When to create a `docs/local/` research note:**
-- Research covers a topic that multiple future specs will reference (e.g., "H2 vs SQLite" informs S011, S014, and Backlog memory specs)
+- Research covers a topic that multiple future specs will reference (e.g., a database comparison that informs the current spec and future related specs)
 - Competitive analysis is updated with new findings (e.g., Hermes self-evolution analysis)
 - A technology was deeply evaluated and rejected — the rejection rationale saves future re-research
 
@@ -173,9 +228,9 @@ When research during spec planning produces findings that go **beyond the scope 
 
 ## Spec Change Tracking
 
-When research during planning leads to **new spec proposals** (e.g., S011 planning splits out S014 for compaction strategy), or changes to existing spec dependencies/estimates:
+When research during planning leads to **new spec proposals** (e.g., current spec planning discovers a sub-topic that warrants its own spec), or changes to existing spec dependencies/estimates:
 
 1. Record the new/changed spec in `spec-roadmap.md` immediately (status 🔲)
 2. Update the dependency graph if the new spec changes the critical path
-3. Note the source in the v-note at the top of the roadmap (e.g., "S014 split from S011 during planning")
+3. Note the source in the v-note at the top of the roadmap (e.g., "new spec split from current spec during planning")
 4. Add tech debt entries if architecture.md or other docs drift from the new design
