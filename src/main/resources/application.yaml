@@ -4,3 +4,9 @@ spring:
   threads:
     virtual:
       enabled: true            # P7 / architecture §4
+  datasource:
+    url: jdbc:h2:file:${user.home}/.grimo/db/grimo;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+  sql:
+    init:
+      mode: embedded           # H2 embedded → auto-init schema

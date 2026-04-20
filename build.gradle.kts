@@ -19,6 +19,7 @@ repositories {
 }
 
 extra["springModulithVersion"] = "2.0.5"
+extra["springAiVersion"] = "2.0.0-M4"
 
 dependencies {
 	implementation("org.springframework.modulith:spring-modulith-starter-core")
@@ -30,6 +31,8 @@ dependencies {
 	implementation("org.springaicommunity.agents:agent-gemini:0.12.2")
 	implementation("org.springaicommunity:spring-ai-agent-utils:0.7.0")
 	implementation("org.testcontainers:testcontainers:1.20.4")
+	implementation("org.springframework.boot:spring-boot-starter-jdbc")
+	runtimeOnly("com.h2database:h2")
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testImplementation("org.springframework.modulith:spring-modulith-starter-test")
 	testImplementation("org.testcontainers:junit-jupiter:1.20.4")
@@ -39,6 +42,7 @@ dependencies {
 dependencyManagement {
 	imports {
 		mavenBom("org.springframework.modulith:spring-modulith-bom:${property("springModulithVersion")}")
+		mavenBom("org.springframework.ai:spring-ai-bom:${property("springAiVersion")}")
 	}
 }
 

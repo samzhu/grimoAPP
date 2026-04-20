@@ -135,22 +135,24 @@
 | --- | --- | --- | --- |
 | S017 | Grimo Session Memory（session 模組 + ChatMemory + H2） | S (9) | ⏳ Design |
 
-### S017 — Grimo Session Memory · S (10)
+### S017 — Grimo Session Memory · S (9)
 
-**描述。** 新建 `session` Modulith 模組（Backlog 晉升）。`RecordingAgentSession` decorator 攔截每輪 prompt/response，存入 Spring AI `ChatMemory`。`JdbcChatMemoryRepository` + H2 持久化。與 Claude CLI 的 `.jsonl` transcript 完全獨立 — Grimo 擁有 provider-agnostic 的對話歷史。
+**描述。** 新建 `session` Modulith 模組（Backlog 晉升）。`RecordingAgentSession` decorator 攔截每輪 `AgentSession.prompt()`，透過 Modulith event 非同步持久化至 H2 自建表 `grimo_conversation_turn`。記錄 user/assistant message + rich metadata（model、duration、tokens、finish reason）。與 Claude CLI 的 `.jsonl` transcript 完全獨立。
 
-**參考。** [Spring AI Agentic Patterns Part 6: AutoMemoryTools](https://spring.io/blog/2026/04/07/spring-ai-agentic-patterns-6-memory-tools) 兩層記憶架構。
+**v2 重設計（2026-04-20）。** v1 使用 Spring AI `ChatMemory` + `JdbcChatMemoryRepository`，POC 發現 metadata 丟棄、全量替換語意、H2 相容性問題。v2 改用 decorator + event + 自建 JDBC 表，完全控制 schema。
 
-**依賴。** S007（主代理 REPL）、S011（AgentSession API 驗證）。
+**參考。** [Spring AI Agentic Patterns Part 6](https://spring.io/blog/2026/04/07/spring-ai-agentic-patterns-6-memory-tools) — Session Memory（本 spec）vs Long-term Memory（Backlog AutoMemoryTools）兩層互補。
 
-**SBE（草稿）。**
-- **AC-1** prompt/response 每輪存入 ChatMemory（UserMessage + AssistantMessage）。
-- **AC-2** 多輪累積：3 輪 → 6 條 Messages。
+**依賴。** S007 ✅（主代理 REPL）、S011 ✅（AgentSession API 驗證）。
+
+**SBE。**
+- **AC-1** 每輪 prompt/response + metadata（model/duration/tokens/finishReason）存入 `grimo_conversation_turn`。
+- **AC-2** 多輪 append-only：3 輪 → 3 筆 INSERT（非全量替換）。
 - **AC-3** Registry decorator 透明包裝：sessionId/workDir 與底層一致。
-- **AC-4** H2 持久化：`SPRING_AI_CHAT_MEMORY` 表存在對話記錄。
+- **AC-4** H2 持久化：`grimo_conversation_turn` 表含 11 欄位。
 - **AC-5** Modulith verify 通過，session 模組邊界合規。
 
-**POC: required（低風險）** — Spring AI BOM 2.0.0-M4 統一管理版本。POC 驗證 H2 datasource + schema init + ChatMemory.add/get 端對端。
+**POC: not required** — 所有元件為標準 Spring Boot / Modulith 功能。JdbcTemplate + H2 已在專案中驗證。
 
 **估算。** 技術 1 · 不確定性 1 · 依賴 1 · 範疇 2 · 測試 2 · 可逆性 2 = **9 / S**
 
