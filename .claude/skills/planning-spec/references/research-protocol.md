@@ -94,6 +94,37 @@ Skipping this step is the #1 cause of multi-round user corrections. The root cau
 
 **Skip ONLY when:** The spec touches exclusively standard library APIs or surfaces already fully mapped by a prior shipped spec's §7 Findings (with raw source citations, not just prose descriptions).
 
+### Library Surface Completeness Gate (sub-rule of Step 0.5)
+
+Step 0.5 is not complete until EVERY pinned library this spec touches
+has been fully scanned. "Fully scanned" has a concrete exit criterion:
+
+**Exit criterion:** For each library, you can name every top-level
+package AND every public class in those packages. Not just the classes
+mentioned in `architecture.md` — ALL of them.
+
+**Enforcement sequence:**
+1. Fetch the repo tree (`https://api.github.com/repos/{owner}/{repo}/git/trees/main?recursive=1`)
+   or use `WebFetch` on the GitHub directory listing
+2. List every top-level package (e.g., `tools/`, `advisors/`, `skills/`,
+   `interceptors/`, `listeners/`)
+3. For each package that MIGHT be relevant to this spec's domain, list
+   the public classes inside
+4. Record findings in §2.3: "Library X has packages: [list]. Domain-
+   relevant packages: [list]. Public classes in those packages: [list]."
+
+**The test that proves completeness:**
+Ask yourself: "Is there a package in this library I have NOT looked
+inside?" If the answer is "I don't know" — the scan is incomplete.
+
+**Anti-pattern this gate prevents:**
+Treating `spring-ai-agent-utils` as "a Skills library" because
+`architecture.md` only lists `SkillsTool.Skill` and `SkillsFunction`
+— while the library also contains `advisors/AutoMemoryToolsAdvisor`,
+`advisors/AutoMemoryToolsSystemPromptAdvisor`, and other cross-cutting
+abstractions. The architecture doc lists what the PROJECT uses, not
+what the LIBRARY provides. These are different sets.
+
 ### Existing Stack Before New Dependencies (sub-rule of Step 0.5)
 
 **Before evaluating any NEW dependency, validate what the existing stack already provides for this use case.**
@@ -145,6 +176,82 @@ Step 0.5 maps "what methods exist." This step answers "what do those methods act
    - Does the class use `new InternalDep()` hardcoded? → Cannot inject alternatives
 
 **Record findings in §2.3** under "Dependency Behavior Deep Dive" — include what works, what doesn't, and which classification applies.
+
+### Persistence / Storage Layer Audit (sub-rule of Step 0.75)
+
+**MANDATORY when:** The spec wraps, delegates to, or stores data
+through any third-party Repository, DAO, ChatMemoryRepository,
+SessionRepository, or equivalent persistence abstraction.
+
+A persistence layer's public API (`save()`, `add()`, `get()`) reveals
+WHAT you can call. It does NOT reveal:
+- **What survives the round-trip** — which fields are persisted vs discarded
+- **Write semantics** — append-only INSERT vs full-replace (DELETE + re-INSERT)
+- **Serialization format** — plain text vs JSON vs binary
+- **Schema constraints** — column types, CHECK constraints, reserved words
+
+These four properties are load-bearing for any spec that relies on
+persisted data. Discovering them at POC time wastes the entire spec
+design + task planning effort.
+
+**Enforcement sequence:**
+1. Fetch the Repository implementation's raw source code (not the
+   interface — the IMPLEMENTATION class)
+2. Read `save()` / `saveAll()` / `add()` line by line. Answer:
+   - Does it DELETE before INSERT? (full-replace) Or INSERT only? (append)
+   - Which fields from the domain object are actually written to SQL?
+   - Is metadata (Map<String, Object>) serialized or discarded?
+3. Read the `RowMapper` / deserialization code. Answer:
+   - Which fields are reconstructed on read?
+   - What is LOST in the round-trip? (metadata? nested objects? type info?)
+4. Read the schema SQL file bundled with the library. Answer:
+   - Does the schema match the current database version? (reserved words,
+     CHECK constraints, data types)
+   - Are there columns for ALL the data the spec needs to store?
+
+**Exit criterion:** You can answer "After a round-trip through this
+persistence layer, these fields survive: [list]. These fields are
+LOST: [list]. Write semantics: [append/replace]. Schema compatibility
+with our DB: [yes/issue]."
+
+**Record findings in §2.3** under "Persistence Layer Audit."
+
+**Anti-pattern this gate prevents:**
+Using `JdbcChatMemoryRepository` because its `ChatMemory.add()` API
+looks like append-only storage — without reading `saveAll()` which
+does DELETE-all + re-INSERT, discards all Message metadata (model,
+tokens, duration), and stores only plain text content. Discovering
+this at POC time after the spec and task plan are written wastes an
+entire design cycle.
+
+### Downstream Consumer Schema Check (sub-rule of Step 0.75)
+
+**MANDATORY when:** The spec designs or adopts a database schema.
+
+Before accepting ANY schema (third-party or custom), enumerate all
+known downstream consumers of the stored data and verify the schema
+has fields for everything they need.
+
+**Enforcement sequence:**
+1. List every downstream consumer from the roadmap:
+   - Cost tracking → needs: tokens_in, tokens_out, model, provider
+   - Session replay / cross-CLI switch → needs: user_message, assistant_message, session_id, timestamp
+   - Session export / audit → needs: all of the above + duration, finish_reason
+   - Long-term memory distillation → needs: conversation content + metadata
+2. For each consumer, list required fields
+3. Verify the schema has a column for EACH required field
+4. Fields that are missing → either add to schema or explicitly mark
+   as "deferred — will be added by spec S0XX"
+
+**Exit criterion:** Every downstream consumer's required fields are
+either present in the schema OR explicitly marked as deferred with a
+spec ID.
+
+**Anti-pattern this gate prevents:**
+Adopting a 4-column schema (conversation_id, content, type, timestamp)
+when downstream cost tracking needs token counts and model name.
+The gap is discovered only when the cost module starts, requiring a
+schema migration and data backfill.
 
 **Skip ONLY when:** The dependency's behavior has been fully validated by a prior shipped spec's §7 Findings (with runtime-verified findings, not just API mapping).
 

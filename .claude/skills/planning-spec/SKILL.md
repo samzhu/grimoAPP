@@ -106,6 +106,17 @@ Phase 2 — Research (BLOCKING GATE — must complete before Phase 3)
       classify confidence: Validated (source + behavior confirmed),
       Hypothesis (API exists but behavior unproven → POC required),
       or Unknown (stop, more research needed). See research-protocol.md.
+- [ ] Enforcement gates (see research-protocol.md for details):
+      - Library Surface Completeness Gate (Step 0.5) — can you name
+        EVERY top-level package in each pinned library? Not just the
+        classes in architecture.md — ALL packages.
+      - Persistence Layer Audit (Step 0.75) — if spec uses ANY
+        third-party Repository/DAO, have you read the IMPLEMENTATION
+        source (not interface) and answered: what survives round-trip?
+        what is lost? append or full-replace? schema compatible?
+      - Downstream Consumer Schema Check (Step 0.75) — if spec
+        designs or adopts a schema, have you verified it has columns
+        for ALL downstream consumers' required fields?
 
 Phase 3 — Clarify + Design (user interaction)
 - [ ] Clarify — grill-me loop with user (research findings inform questions)
