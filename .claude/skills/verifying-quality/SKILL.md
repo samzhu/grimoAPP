@@ -1,10 +1,12 @@
 ---
 name: verifying-quality
 description: >
-  Independent QA review for any completed spec. Checks spec compliance,
-  test coverage, code quality, and AC-to-test mapping. Use after all
-  tasks pass, when auto-verify raises issues, or when the user requests
-  manual QA review. Designed to run as a subagent for independent scrutiny.
+  Independent QA review with testability gate. Performs three-layer
+  verification (automated, integration, manual) and blocks shipping
+  when required tests are missing. If a spec should be integration-tested
+  but no test infrastructure exists, REJECTS and proposes a testing spec.
+  Use after all tasks pass, when auto-verify raises issues, or when the
+  user requests QA review.
 argument-hint: "[spec-id]"
 allowed-tools:
   - Read
@@ -13,9 +15,11 @@ allowed-tools:
   - Bash
   - Write
   - Edit
+  - Agent
+  - WebSearch
 metadata:
   author: samzhu
-  version: 2.0.0
+  version: 4.0.0
   category: workflow-automation
   pattern: domain-specific-intelligence
 ---
@@ -24,175 +28,288 @@ metadata:
 
 ## Role: QA Engineer
 
-Thorough, skeptical, detail-oriented. Your job is to find what the
-implementer missed. You are deliberately separated from the implementation
-context to provide fresh, independent scrutiny.
+Thorough, skeptical, evidence-driven. Your job is to find what the
+implementer missed — and to block shipping when verification is
+incomplete, not just when tests fail.
 
-## Contract
+**Core principle: If it should be tested but can't be, that's not
+"pending" — that's a gap. Fill the gap before shipping.**
+
+## Why Independent Verification
+
+Same-session verification has blind spots — the implementer confirms
+their own assumptions. This skill follows the **QA-Checker pattern**
+(CodeAgent, EMNLP 2024): a supervisory agent independently reviews
+another agent's work.
+
+The outer harness (Fowler, Harness Engineering 2026) has three layers:
+1. **Preventive controls** — catch issues before they happen
+2. **Feedback loops** — self-correct without human intervention
+3. **Quality gates** — block shipping when loops can't self-correct
+
+This skill is the quality gate.
+
+## Process Overview
 
 ```
-Paths:  All paths relative to project root. Artifacts → docs/grimo/
-Input:  docs/grimo/specs/*-<spec-id>-*.md (spec file with sections 1-7)
-        OR docs/grimo/specs/archive/*-<spec-id>-*.md (if already archived)
-        docs/grimo/qa-strategy.md
-        docs/grimo/development-standards.md
-        docs/grimo/glossary.md
-        Production code + test files
-Output: Updated spec file section 7 with QA verdict appended
-Valid:  Every AC checked. Every issue has severity rating.
-Next:   /shipping-release (pass) or /planning-tasks [spec-id] (reject)
+Step 0: Gather context
+Step 1: Layer 1 — Automated checks (unit, compile, lint)
+Step 2: Layer 2 — Coverage & integration
+Step 3: Layer 3 — Manual verification readiness
+Step 4: Testability gate ← KEY STEP: can every AC be verified?
+Step 5: Execute available tests, capture evidence
+Step 6: Code quality review
+Step 7: Design sync check
+Step 8: Verdict (evidence-based)
+Step 9: Record results & handoff
 ```
-
-## Why Independent Verification Matters
-
-Same-session verification has blind spots: the implementer tends to
-confirm their own assumptions. This skill is designed to run as a
-**subagent** — a fresh context that re-reads the spec, re-reads the
-code, re-runs the tests, and evaluates independently.
-
-Even for XS/S/M specs, independent verification catches:
-- Javadoc that drifted from implementation
-- Missing edge-case test coverage
-- AC-to-test mapping gaps
-- Development-standards violations the implementer overlooked
-- Design-section drift that wasn't annotated
 
 ## Process
 
-### 0. Read inputs
+### 0. Gather context
 
-Read these files (do NOT skip any):
-1. The spec file — ALL sections (1-7)
-2. `docs/grimo/qa-strategy.md`
-3. `docs/grimo/development-standards.md`
-4. `docs/grimo/glossary.md`
+Read ALL of the following from the project:
 
-Use section 7 (Implementation Results) as context, but **re-verify
-independently** — do not trust it blindly.
+1. **The spec file** — all sections (design through results)
+2. **QA strategy document** — test pipeline, verification commands,
+   coverage targets, test classification
+3. **Development standards** — naming, structure, forbidden patterns
+4. **Glossary** — domain terminology consistency
 
-### 1. Deterministic checks
+Use implementation results as context, but **re-verify independently**.
 
-Run the project's standard pipeline commands. Each must exit 0.
+### 1. Layer 1 — Automated checks
 
-```bash
-# Unit tests + Modulith verify
-./gradlew test
+Run the project's standard test pipeline. Every command must exit 0.
+Discover commands from the project's QA strategy document.
 
-# Compilation of all test code (including ITs)
-./gradlew compileTestJava
+| Ecosystem | Typical commands |
+|-----------|-----------------|
+| JVM (Gradle) | `./gradlew test`, `./gradlew compileTestJava` |
+| JVM (Maven) | `mvn test` |
+| Node.js | `npm test`, `npx tsc --noEmit` |
+| Python | `pytest`, `python -m mypy .` |
+| Rust | `cargo test`, `cargo clippy` |
+
+### 2. Layer 2 — Coverage & integration
+
+**Coverage:** If coverage tool is configured, run it. Check changed
+files against the project's stated targets. Flag 0% on new files.
+
+**Integration tests:** Classify and decide:
+
+| Spec touches | Action |
+|---|---|
+| External subprocess / CLI / API | Run ITs with environment guards |
+| Database / Docker / containers | Run ITs if environment available |
+| Pure internal logic | Skip — unit tests sufficient |
+
+### 3. Layer 3 — Manual verification readiness
+
+Identify ACs requiring human interaction (interactive CLI, UI, end-to-end
+user workflows). Check if a testing guide exists.
+
+### 4. Testability gate (the critical step)
+
+**For each AC, classify its verification status:**
+
+| Classification | Definition | Action |
+|---|---|---|
+| `VERIFIED` | Automated test exists, ran, and passed | Record output as evidence |
+| `EXECUTABLE` | Test/guide exists but could not run (environment missing) | Run it now if possible; otherwise mark pending with specific prereqs |
+| `MANUAL-READY` | Testing guide exists, requires human execution | Verify guide is complete and executable |
+| `MANUAL-MISSING` | Needs human verification but no guide exists | Generate guide, classify as MANUAL-READY |
+| `UNTESTABLE` | **Should be testable but no test infrastructure exists** | **REJECT — propose testing spec** |
+
+**The UNTESTABLE classification triggers a hard stop.**
+
+An AC is UNTESTABLE when:
+- It describes user-visible behavior (CLI output, file creation,
+  API response) that SHOULD have an automated or scripted test
+- But no test exists, no testing guide exists, and no test
+  infrastructure supports creating one
+- The gap is not "we chose not to test" but "we can't test because
+  the testing capability doesn't exist yet"
+
+**Examples:**
+- Spec adds `grimo skill list` but there's no way to invoke the
+  JAR and check stdout → UNTESTABLE (need CLI test harness)
+- Spec adds file projection but no integration test verifies the
+  projected file exists → UNTESTABLE (need projection IT)
+- Spec adds a domain record with validation → NOT untestable
+  (unit test is sufficient and exists)
+
+**When UNTESTABLE is found:**
+
+1. Document which ACs are untestable and why
+2. Propose a **testing infrastructure spec** that would make them
+   testable. Include:
+   - What test capability is missing
+   - What the test should verify
+   - Suggested approach (IT class, CLI test harness, smoke script)
+3. REJECT the current spec with verdict `BLOCKED-BY-TESTABILITY`
+4. Route to `/planning-spec` to design and implement the testing
+   capability
+5. After the testing spec ships, re-run `/verifying-quality` on the
+   original spec
+
+**This is not bureaucracy — it's the difference between "we think it
+works" and "we proved it works."**
+
+### 5. Execute and capture evidence
+
+For every VERIFIED and EXECUTABLE AC, **actually run the test** and
+capture the output. Evidence means:
+
+```markdown
+### Test Evidence
+
+**AC-1: skill list displays entries**
+Command: `java -jar build/libs/app.jar skill list`
+Output:
+  Skills (1 found):
+    greet                enabled    A greeting skill
+Exit code: 0
+Result: PASS
+
+**AC-3: skill projection**
+Command: `diff ~/.grimo/skills/greet/SKILL.md .claude/skills/greet/SKILL.md`
+Output: (no output — files identical)
+Result: PASS
 ```
 
-If the QA strategy doc lists additional verification commands, run
-those as well.
+For integration tests that involve non-deterministic output (LLM CLI),
+apply **Golden Path testing** — verify structure, not exact content:
+- Response is non-empty
+- Output format matches expected schema
+- Error inputs produce clean error messages
 
-### 2. Spec compliance — AC-to-test mapping
+**Do NOT mark an AC as PASS without evidence.** "Code review looks
+correct" is not evidence. Running the code and seeing the output is.
 
-For each AC in spec §3, find the corresponding test:
+### 6. Code quality review
 
-```
-| AC   | Test File              | Test Name / @DisplayName          | Result |
-|------|------------------------|-----------------------------------|--------|
-| AC-1 | ...Test.java           | [S00N] AC-1: ...                  | PASS   |
-```
+Check against the project's development standards:
 
-Verify:
-- Every AC has at least one `@DisplayName("[S00N] AC-<N>")` test
-- Tests actually assert what the AC describes (not just compile)
-- Tests follow Given/When/Then structure matching the SBE scenario
+- **Naming**: Types match glossary, methods follow conventions
+- **Package/module structure**: Correct placement per project layout
+- **Immutability**: Domain types use value objects, no mutable leaks
+- **Dependency injection**: Constructor injection only (if applicable)
+- **Forbidden patterns**: Check the project's explicit forbidden list
+- **Documentation accuracy**: Comments match implementation?
+- **Security**: No hardcoded secrets, no command injection, no
+  unsanitized user input. AI-generated code has 2.74x higher XSS
+  introduction rate (GitClear 2025) — pay extra attention.
+- **No orphaned TODO/FIXME**: Search changed files
 
-### 3. Test coverage depth
+### 7. Design-section sync check
 
-Go beyond "does it pass" — check:
-- **Error paths**: Are failure scenarios tested?
-- **Edge cases**: Null inputs, empty collections, boundary values?
-- **Resource cleanup**: try-with-resources, @AfterEach, temp file deletion?
-- **Skip guards**: Do ITs follow dev-standards §7.5 three-layer skip strategy?
+Compare spec design sections against actual implementation:
+- Statements that no longer match reality
+- Missing implementation-note annotations
+- Findings that should have updated the design section
 
-### 4. Code quality review
+### 8. Verdict
 
-Against `docs/grimo/development-standards.md` and `docs/grimo/glossary.md`:
+**Four-layer result table:**
 
-- **Naming**: Types match glossary, methods follow conventions (§3)
-- **Package structure**: Correct placement per §2 module layout
-- **Immutability**: Domain types are records, no mutable state leaks (§3)
-- **DI**: Constructor injection only, no field injection (§4)
-- **Forbidden patterns**: No `System.getenv` outside allowed locations,
-  no `Mockito.mock(Process.class)`, no static mutable state (§11)
-- **Javadoc accuracy**: Do comments match actual implementation?
-  (Drift between docs and code is a common blind spot)
-- **Security**: No hardcoded secrets, no command injection vectors
-- **No orphaned TODO/FIXME**: Search for these in changed files
-
-### 5. Design-section sync check
-
-Compare spec §2 (Approach) and §4 (Interface/API Design) against the
-actual implementation. Look for:
-- Statements in §2/§4 that no longer match reality
-- Missing `[Implementation note]` annotations
-- Key findings in §7 that should have updated §2/§4
-
-### 6. Verdict
-
-**PASS:**
-```
-QA PASSED — [spec-id]
-Spec: N/N AC covered | Coverage: OK | Quality: OK
+```markdown
+| Layer | Result | Detail |
+|-------|--------|--------|
+| Automated tests | PASS/FAIL | [command + outcome] |
+| Coverage / Integration | PASS/SKIP/PENDING | [% or IT status] |
+| Manual verification | READY/MISSING/N-A | [guide location] |
+| Testability gate | CLEAR/BLOCKED | [all ACs verifiable?] |
 ```
 
-**REJECT** (with actionable items):
-```
-QA REJECTED — [spec-id]
-1. [CRITICAL] ... (blocks shipping)
-2. [IMPORTANT] ... (should fix before shipping)
-3. [MINOR] ... (note for future, does not block)
-```
+**Verdict outcomes:**
 
-CRITICAL = missing AC coverage, test that doesn't test what it claims,
-security vulnerability, or build breakage.
-IMPORTANT = Javadoc drift, missing edge-case test, dev-standards violation.
-MINOR = Style nit, documentation wording, cosmetic issue.
+| Verdict | Condition | Next action |
+|---------|-----------|-------------|
+| `PASS` | All layers pass, all ACs verified or MANUAL-READY, evidence recorded | → `/shipping-release` |
+| `REJECT-FIX` | Tests fail, code quality issues, or missing guides | Fix issues, re-verify |
+| `REJECT-BLOCKED` | UNTESTABLE ACs found — testing infrastructure gap | → `/planning-spec` for testing spec |
 
-### 7. Update spec file
+**Severity levels for individual findings:**
 
-Append QA findings to section 7 of the spec file:
+| Level | Definition | Effect |
+|-------|-----------|--------|
+| CRITICAL | Missing AC coverage, test doesn't test what it claims, security vulnerability, build breakage, **UNTESTABLE AC** | Blocks shipping |
+| IMPORTANT | Doc drift, missing edge-case test, standards violation | Should fix |
+| MINOR | Style nit, cosmetic issue | Note for future |
+
+### 9. Record results and handoff
+
+Append to the spec's results section:
 
 ```markdown
 ### QA Review
 Date: YYYY-MM-DD
-Verdict: PASS | REJECT
+Reviewer: Independent QA
+Verdict: PASS / REJECT-FIX / REJECT-BLOCKED
 
+#### Testability Assessment
+| AC | Classification | Evidence | Result |
+|----|---------------|----------|--------|
+| AC-1 | VERIFIED | [command + output summary] | PASS |
+| AC-2 | MANUAL-READY | testing-guide.md Step 3 | READY |
+| AC-3 | UNTESTABLE | No CLI test harness | BLOCKED |
+
+#### Findings
 | # | Severity | Issue | Status |
 |---|----------|-------|--------|
-| 1 | CRITICAL/IMPORTANT/MINOR | description | OPEN/FIXED |
+| 1 | CRITICAL | AC-3 untestable — need CLI smoke test spec | OPEN |
+
+#### Test Evidence
+[Captured output from Step 5]
 ```
 
-If issues are found and fixable in-place (MINOR Javadoc fixes, doc
-drift corrections), fix them immediately and mark as FIXED.
+**Handoff rules:**
 
-## Handoff
+- **PASS** → Spec is ready to ship. Inform caller or instruct user
+  to run `/shipping-release`.
 
-After QA verdict:
-- **PASS** → Tell the caller the spec is ready to ship. If running as
-  a subagent, return the verdict and findings to the parent.
-  If running standalone, instruct the user to run `/shipping-release`.
-- **REJECT with CRITICAL** → Return findings. Parent/user must fix
-  issues via `/planning-tasks [spec-id]` before re-verification.
-- **REJECT with only IMPORTANT/MINOR** → Fix in-place if possible,
-  re-run tests, upgrade to PASS if all fixed.
+- **REJECT-FIX** → Return findings. Caller fixes via
+  `/planning-tasks [spec-id]`, then re-runs `/verifying-quality`.
+
+- **REJECT-BLOCKED** → This is the testability gate in action.
+  1. Document which ACs are blocked and what's missing
+  2. Propose a testing spec with:
+     - Spec title: "Integration test harness for [capability]"
+     - What it should test (specific ACs from the blocked spec)
+     - Suggested approach
+  3. Tell the caller: "Spec [id] is blocked by testability gap.
+     Proposed testing spec: [description]. Run `/planning-spec`
+     to design the testing infrastructure, then re-verify [id]."
+  4. The blocked spec does NOT ship until re-verification passes.
 
 ## Troubleshooting
 
-### Tests pass but AC coverage is incomplete
-**Cause:** Tests exist but don't reference AC ids in their names/tags.
-**Solution:** Check the AC-to-test naming contract in the QA strategy
-doc. Add `@DisplayName("[S00N] AC-N ...")` to uncovered tests.
+### UNTESTABLE vs. MANUAL-READY confusion
+**Rule of thumb:** If a developer can follow a written guide and
+verify the behavior in under 5 minutes, it's MANUAL-READY. If there's
+no way to verify without building new tooling first, it's UNTESTABLE.
 
-### Deterministic checks fail on unrelated tests
-**Cause:** A prior spec's test is broken by this spec's changes.
-**Solution:** Fix the regression before proceeding. If non-trivial,
-file it as a `bug` tech debt entry and note in QA verdict.
+### Tests pass but evidence is missing
+**Cause:** Tests exist but QA didn't capture their output.
+**Fix:** Re-run tests with output capture. A PASS verdict without
+evidence is incomplete — the spec file must contain proof.
 
-### Code diverges from spec design sections
-**Cause:** Implementation discovered constraints not anticipated in design.
-**Solution:** Update spec §2/§4 with `[Implementation note]` annotations
-and record divergences in §7 Key Findings.
+### Integration test environment unavailable
+**Cause:** Docker not running, CLI not installed, API key missing.
+**Decision tree:**
+- Can you set up the environment now? → Do it, run the test
+- Is it a CI-only concern? → Mark EXECUTABLE with prereqs, not UNTESTABLE
+- Is there no test at all? → That's UNTESTABLE if the AC warrants one
+
+### AI-generated code quality drift
+**Cause:** AI accumulates complexity (cognitive complexity +39%,
+code clones +12.3% per GitClear/Qodo 2025).
+**Fix:** Flag duplicated logic, unnecessary abstractions, overly
+complex control flow. Suggest simplifications.
+
+### REJECT-BLOCKED feels heavy for a small spec
+**Response:** The cost of shipping untested code exceeds the cost
+of a small testing spec. A testing harness is an investment — it
+pays off on every subsequent spec that touches the same capability.
+XS testing specs (6-8 points) are common and fast to ship.

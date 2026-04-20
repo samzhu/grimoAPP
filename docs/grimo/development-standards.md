@@ -62,6 +62,7 @@ io.github.samzhu.grimo
 - **不可變性：** 領域型別為 `record` 或 final 類別。可變狀態限制在 `application/service/` 中，且必須在明確的同步或單執行緒 virtual thread 派送下使用。
 - **Null 紀律：** 優先使用 `@org.jspecify.annotations.Nullable`（JSpecify 1.0 隨 JDK 附帶）。任何地方均不使用 `javax` 注解。
 - **日誌：** SLF4J 搭配 Spring Boot 預設。絕不使用 `System.out`。INFO 記錄意圖，DEBUG 記錄參數，ERROR 附帶 throwable + correlationId。
+  - **CLI adapter 豁免（S016 釘定）：** `adapter/in/cli/` 套件中的 `ApplicationRunner` 實作允許使用 `System.out` / `System.err` 進行使用者對話輸出（如 skill list 表格、usage 說明、錯誤訊息）。這些是 CLI 介面的直接輸出，非日誌。業務邏輯（`application/service/`）和領域層（`domain/`）仍然禁止。
 
 ## 4. 依賴注入
 
@@ -250,3 +251,19 @@ org.springframework.modulith.core.Violations:
 ```
 
 訊息清楚指出兩個模組 + 兩個違規類別 + 「Allowed targets: none.」（消費模組的 `allowedDependencies = {}`）。修法：在 PR 內把消費模組的 `allowedDependencies` 加上 `"<publisher>::api"` 或 `"<publisher>::events"`，並確保被引用的型別位於對應的 `@NamedInterface` 套件中。
+
+## 14. Skill 投影與 .gitignore（S016 釘定）
+
+Grimo 在 `grimo chat` 啟動前將已啟用 Skill 從 `~/.grimo/skills/` 投影至 `<workdir>/.claude/skills/`。投影檔案是暫存副本，不應進入版控。
+
+**規則：**
+- 投影的 Skill 以 `Files.copy(REPLACE_EXISTING)` 覆寫，每次 chat 啟動時刷新。
+- 若工作目錄的 `.claude/skills/` 已有專案自有的 skill（如 workflow skill），投影與自有 skill 共存。
+- Grimo 投影的 skill 名稱來自 `~/.grimo/skills/<name>/`，使用者應確保不與專案 skill 同名。
+- 專案的 `.gitignore` 應忽略 Grimo 投影的 skill 目錄。建議模式（根據實際使用的 skill name 調整）：
+
+```gitignore
+# Grimo 投影的 skill（grimo chat 啟動時自動產生）
+# 列出由 Grimo 管理而非專案自有的 skill 名稱
+# .claude/skills/greet/
+```
