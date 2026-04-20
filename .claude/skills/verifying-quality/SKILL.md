@@ -159,13 +159,48 @@ works" and "we proved it works."**
 ### 5. Execute and capture evidence
 
 For every VERIFIED and EXECUTABLE AC, **actually run the test** and
-capture the output. Evidence means:
+capture the output.
+
+#### Isolated test environment (hermetic testing)
+
+When the spec produces a runnable artifact (JAR, binary, Docker image,
+CLI tool), **do not test in-place within the source tree.** Build
+artifacts carry implicit context from the project directory (config
+files, skill directories, cached state). Testing in-place conflates
+"it works because of project context" with "it works standalone."
+
+**Protocol:**
+
+```
+1. Clean build     → ecosystem clean + build (e.g. `./gradlew clean bootJar`)
+2. Create sandbox  → mkdir <isolated-dir> (e.g. `test/`)
+3. Copy artifact   → cp <build-output> <isolated-dir>/
+4. Set up fixtures → create minimal test data the spec requires
+5. Run tests       → execute from <isolated-dir>, capture output
+6. Verify          → compare actual output to expected
+7. Record evidence → write results to spec §7
+8. Tear down       → rm -rf <isolated-dir>
+```
+
+**Why this matters:**
+- A CLI that works from the project root (where `.claude/skills/`
+  already exists) may fail from a clean directory
+- File projection that "succeeds" may just be reading a stale file
+- A clean directory proves the artifact is self-contained
+
+**When to use:** Any spec that produces an executable artifact with
+user-visible behavior. Skip for pure library/API specs where unit
+tests are sufficient.
+
+#### Evidence format
+
+Evidence means captured command output, not "I reviewed the code."
 
 ```markdown
-### Test Evidence
+### Test Evidence (isolated: test/)
 
 **AC-1: skill list displays entries**
-Command: `java -jar build/libs/app.jar skill list`
+Command: `java -jar grimo.jar skill list`
 Output:
   Skills (1 found):
     greet                enabled    A greeting skill
@@ -173,8 +208,10 @@ Exit code: 0
 Result: PASS
 
 **AC-3: skill projection**
-Command: `diff ~/.grimo/skills/greet/SKILL.md .claude/skills/greet/SKILL.md`
-Output: (no output — files identical)
+Pre-check: `ls test/.claude/skills/greet/` → not found (clean)
+Command: `echo "/exit" | java -jar grimo.jar chat`
+Post-check: `diff ~/.grimo/skills/greet/SKILL.md test/.claude/skills/greet/SKILL.md`
+Output: (no difference)
 Result: PASS
 ```
 
@@ -240,7 +277,12 @@ Compare spec design sections against actual implementation:
 
 ### 9. Record results and handoff
 
-Append to the spec's results section:
+**All evidence goes into the spec file, not a separate report.**
+
+The spec file is the single permanent record. Append results to
+the spec's implementation results section (typically §7). A separate
+testing guide may exist for human instructions, but the test
+outcomes and evidence live in the spec.
 
 ```markdown
 ### QA Review
@@ -252,17 +294,24 @@ Verdict: PASS / REJECT-FIX / REJECT-BLOCKED
 | AC | Classification | Evidence | Result |
 |----|---------------|----------|--------|
 | AC-1 | VERIFIED | [command + output summary] | PASS |
-| AC-2 | MANUAL-READY | testing-guide.md Step 3 | READY |
+| AC-2 | MANUAL-READY | spec Appendix Step 3 | READY |
 | AC-3 | UNTESTABLE | No CLI test harness | BLOCKED |
+
+#### Integration Test Evidence (isolated: <dir>/)
+| # | AC | Command | Actual Output | Result |
+|---|----|---------|---------------|--------|
+| 1 | AC-1 | `skill list` | `Skills (1 found): ...` | ✅ |
+| 2 | AC-3 | `diff source target` | no difference | ✅ |
 
 #### Findings
 | # | Severity | Issue | Status |
 |---|----------|-------|--------|
 | 1 | CRITICAL | AC-3 untestable — need CLI smoke test spec | OPEN |
-
-#### Test Evidence
-[Captured output from Step 5]
 ```
+
+**After recording, clean up the isolated test directory.** The
+evidence in the spec file is the permanent record; the test
+environment is ephemeral.
 
 **Handoff rules:**
 

@@ -324,9 +324,23 @@ String action = nonOption.get(nonOption.indexOf("skill") + 1);
 | AC-3 | PASS | `SkillProjectionServiceTest` (4 tests) + `ChatCommandRunnerTest` inOrder verify (3 tests) |
 | AC-4 | PASS | `SkillCommandRunnerTest.skillEnableNonexistentPrintsError()` + `skillWithoutSubcommandPrintsUsage()` |
 
-### Pending Verification
+### Integration Test Evidence (2026-04-20 · isolated environment)
 
-- ⏳ **人工驗證計畫**（Appendix）— 需 `./gradlew bootJar` + 主機 claude CLI + `~/.grimo/skills/greet/` 測試 skill。開發者手動執行。
+**Environment:** `./gradlew clean bootJar` → `cp build/libs/*.jar test/` → run from `test/`
+
+| # | AC | Command | Expected | Actual | Result |
+|---|----|---------|----------|--------|--------|
+| 1 | AC-1 | `skill list` | greet + enabled + description | `Skills (1 found): greet enabled A greeting skill for MVP verification` | ✅ PASS |
+| 2 | AC-2 | `skill disable greet` | Disabled + .state.json updated | `Disabled: greet` + `"enabled": false` in .state.json | ✅ PASS |
+| 3 | AC-2 | `skill enable greet` | Enabled + .state.json updated | `Enabled: greet` + `"enabled": true` in .state.json | ✅ PASS |
+| 4 | AC-4 | `skill enable nonexistent` | stderr error | `Skill not found: nonexistent` | ✅ PASS |
+| 5 | AC-4 | `skill` (no subcommand) | usage message | `Usage: grimo skill <command>` + 3 subcommands | ✅ PASS |
+| 6 | AC-3 | `chat` → check `test/.claude/skills/greet/` | file exists + content match | `diff` → no difference → `CONTENT MATCH` | ✅ PASS |
+| 7 | — | interactive chat | Claude responds | ⏳ requires human | ⏳ MANUAL |
+| 8 | — | skill usage in conversation | response references skill | ⏳ requires human | ⏳ MANUAL |
+| 9 | — | `chat --resume` | resumes prior session | ⏳ requires human | ⏳ MANUAL |
+
+**Automated: 6/9 PASS. Manual items (7-9) require developer terminal session.**
 
 ---
 
