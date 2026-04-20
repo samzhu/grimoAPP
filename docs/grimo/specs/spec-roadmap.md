@@ -128,33 +128,34 @@
 
 ## Session 記錄層（M5 → M6）
 
-**目標。** 建立 Grimo 自有的對話歷史記錄層。Decorator 攔截 `AgentSession.prompt()`，每輪存入 `ChatMemory` + H2。為跨 CLI 切換打基礎。
+**目標。** 建立 Grimo 自有的 event-sourced 對話歷史記錄層。Decorator 攔截 `AgentSession.prompt()`，以 JSON payload + metadata 持久化至 append-only event store + session projection。定義 Compaction SPI 供 S014 插入策略。Schema 預留 Claude Code 對話 fork 支援。
 **完成條件。** S017 ✅。
 
 | # | 規格 | 點數 | 狀態 |
 | --- | --- | --- | --- |
-| S017 | Grimo Session Memory（session 模組 + ChatMemory + H2） | S (9) | ⏳ Design |
+| S017 | Grimo Session Memory（event-sourced session 模組） | S (11) | ⏳ Design |
 
-### S017 — Grimo Session Memory · S (9)
+### S017 — Grimo Session Memory · S (11)
 
-**描述。** 新建 `session` Modulith 模組（Backlog 晉升）。`RecordingAgentSession` decorator 攔截每輪 `AgentSession.prompt()`，透過 Modulith event 非同步持久化至 H2 自建表 `grimo_conversation_turn`。記錄 user/assistant message + rich metadata（model、duration、tokens、finish reason）。與 Claude CLI 的 `.jsonl` transcript 完全獨立。
+**描述。** 新建 `session` Modulith 模組（Backlog 晉升）。`RecordingAgentSession` decorator 攔截每輪 `AgentSession.prompt()`，透過 Modulith event 非同步持久化至 H2 event store `grimo_session_event`（append-only，`payload_json` + `metadata_json`）。每輪產生 USER + ASSISTANT 兩筆 events。`grimo_session` projection 表物化 session 摘要，含 `parent_id` + `fork_turn` 預留 Claude Code 對話 fork。Schema 預留 `synthetic` flag + `SUMMARY` event type 供 S014 compaction 使用。
 
-**v2 重設計（2026-04-20）。** v1 使用 Spring AI `ChatMemory` + `JdbcChatMemoryRepository`，POC 發現 metadata 丟棄、全量替換語意、H2 相容性問題。v2 改用 decorator + event + 自建 JDBC 表，完全控制 schema。
+**v3 重設計（2026-04-20）。** v1 使用 `ChatMemory`（POC 否決）。v2 使用 flat table（schema 不夠靈活）。v3 受 T3 Code event sourcing 啟發，借鑑 Spring AI Session API（Part 7 blog）的 turn 概念，改用 event store + projection。Compaction SPI 由 S014 負責。
 
-**參考。** [Spring AI Agentic Patterns Part 6](https://spring.io/blog/2026/04/07/spring-ai-agentic-patterns-6-memory-tools) — Session Memory（本 spec）vs Long-term Memory（Backlog AutoMemoryTools）兩層互補。
+**參考。** [Spring AI Session API (Part 7)](https://spring.io/blog/2026/04/15/spring-ai-session-management) — turn-safe compaction、four strategies。[Spring AI Agentic Patterns Part 6](https://spring.io/blog/2026/04/07/spring-ai-agentic-patterns-6-memory-tools) — Session Memory vs Long-term Memory 兩層互補。[competitive-analysis.md §3.1](docs/local/competitive-analysis.md) — T3 Code event sourcing schema。
 
 **依賴。** S007 ✅（主代理 REPL）、S011 ✅（AgentSession API 驗證）。
 
 **SBE。**
-- **AC-1** 每輪 prompt/response + metadata（model/duration/tokens/finishReason）存入 `grimo_conversation_turn`。
-- **AC-2** 多輪 append-only：3 輪 → 3 筆 INSERT（非全量替換）。
-- **AC-3** Registry decorator 透明包裝：sessionId/workDir 與底層一致。
-- **AC-4** H2 持久化：`grimo_conversation_turn` 表含 11 欄位。
-- **AC-5** Modulith verify 通過，session 模組邊界合規。
+- **AC-1** 每輪產生 USER + ASSISTANT 兩筆 events，payload_json + metadata_json。
+- **AC-2** 多輪 append-only：3 輪 → 6 筆 INSERT，turn_number 遞增。
+- **AC-3** Session projection 自動物化：turn_count、total_tokens、total_duration。
+- **AC-4** Registry decorator 透明包裝：sessionId/workDir 與底層一致。
+- **AC-5** Fork schema 預留：parent_id + fork_turn 欄位存在。
+- **AC-6** Modulith verify 通過，session 模組邊界合規。
 
-**POC: not required** — 所有元件為標準 Spring Boot / Modulith 功能。JdbcTemplate + H2 已在專案中驗證。
+**POC: not required** — Event sourcing 為標準 pattern。JdbcTemplate + H2 + Jackson 已在專案中驗證。
 
-**估算。** 技術 1 · 不確定性 1 · 依賴 1 · 範疇 2 · 測試 2 · 可逆性 2 = **9 / S**
+**估算。** 技術 2 · 不確定性 1 · 依賴 1 · 範疇 3 · 測試 2 · 可逆性 2 = **11 / S**
 
 ---
 
@@ -244,20 +245,21 @@
 
 **估算。** 技術 2 · 不確定性 2 · 依賴 2 · 範疇 2 · 測試 2 · 可逆性 1 = **11 / S**
 
-### S014 — Session 壓縮策略研究 · XS (8)
+### S014 — Session Compaction SPI + 策略實作 + 基準測試 · S (10)
 
-**描述。** 研究並選定 `spring-ai-session` 0.2.0 內建的壓縮策略（`SlidingWindowCompactionStrategy` / `TurnWindowCompactionStrategy` / `TokenCountCompactionStrategy` / `RecursiveSummarizationCompactionStrategy`）與觸發器（`TurnCountTrigger` / `TokenCountTrigger`），整合至 S011 的 `PersistentAgentSession` decorator。含基準測試：不同策略下 `--resume` 的 bootstrap prompt 品質 vs token 消耗。
+**描述。** 定義 `CompactionTrigger` / `CompactionStrategy` SPI 介面（在 `session/domain/`），並提供實作：`TurnCountTrigger`、`TokenCountTrigger`（OR-composite）、`SlidingWindowCompactionStrategy`、`RecursiveSummarizationCompactionStrategy`。整合至 `RecordingAgentSession` decorator — 每輪記錄後檢查 trigger，超過閾值時自動產生 `SUMMARY` synthetic event。含基準測試：不同策略下 bootstrap prompt 品質 vs token 消耗。利用 S017 已建立的 event store schema（`synthetic` flag + `SUMMARY` event type + `turn_number`）。
 
-**競品參考。** Hermes Agent Periodic Nudge 自省機制（§6.3.3）+ Claude Code Auto Dream 200 行閾值。
+**參考。** Spring AI Session API（Part 7）四種策略 + 兩種觸發器。Hermes Agent Periodic Nudge 自省機制（§6.3.3）。
 
-**依賴。** S011（Session 持久化 — 需有 H2 事件資料才能做策略比較）。
+**依賴。** S017（Event-sourced session — event store + projection + turn_number）。
 
 **SBE（草稿）。**
-- **AC-1** 選定壓縮策略 + 觸發器配置，記錄於 spec §7。
-- **AC-2** `PersistentAgentSession` 整合壓縮：超過觸發閾值時自動壓縮舊事件。
-- **AC-3** 壓縮後 `--resume` 的 bootstrap prompt 仍能讓 agent 參考先前上下文。
+- **AC-1** `CompactionTrigger` + `CompactionStrategy` SPI 介面定義在 `session/domain/`，純 Java。
+- **AC-2** 超過觸發閾值時自動壓縮：產生 SUMMARY synthetic event，turn-safe（不切割 turn）。
+- **AC-3** 壓縮後 event store 保留全量歷史（Recall Storage），compacted events 不刪除。
+- **AC-4** 選定壓縮策略 + 觸發器配置，記錄於 spec §7。
 
-**估算。** 技術 2 · 不確定性 2 · 依賴 1 · 範疇 1 · 測試 1 · 可逆性 1 = **8 / XS**
+**估算。** 技術 2 · 不確定性 2 · 依賴 1 · 範疇 2 · 測試 2 · 可逆性 1 = **10 / S**
 
 ### S015 — Skill 複雜度評估 · S (9)
 
@@ -285,10 +287,10 @@
 | M4 主代理對話 | S007 | 7 |
 | M5 Session + Skill 基礎 | S011、S012 | 18 |
 | M6 容器化 CLI 對話 | S008、S009、S010 | 29 |
-| M7 Skill 注入 + 壓縮 + 評估 | S013、S014、S015 | 28 |
+| M7 Skill 注入 + 壓縮 + 評估 | S013、S014、S015 | 30 |
 | 驗證閘門 | S016 | 7 |
-| Session 記錄層 | S017 | 9 |
-| **合計** | **18 個規格** | **169 點** |
+| Session 記錄層 | S017 | 11 |
+| **合計** | **18 個規格** | **173 點** |
 
 v6 藍圖相較 v5（16 規格 / 153 點）新增 1 個規格（S016 MVP 人工驗證閘門，+7 點）。S016 在 M5 → M6 之間插入人工驗證環節：Skill CLI 子命令 + Skill 投影至工作目錄。
 
