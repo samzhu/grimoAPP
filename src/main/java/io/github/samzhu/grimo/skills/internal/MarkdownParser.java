@@ -9,6 +9,8 @@ import org.yaml.snakeyaml.Yaml;
  * SnakeYAML-backed SKILL.md parser.
  * Same public interface as agent-utils {@code MarkdownParser},
  * but supports full YAML 1.1 (nested maps, lists, multi-line scalars).
+ *
+ * @see <a href="https://agentskills.io/specification">Agent Skills Specification</a>
  */
 public class MarkdownParser {
 

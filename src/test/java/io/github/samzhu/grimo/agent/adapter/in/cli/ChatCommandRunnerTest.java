@@ -8,6 +8,7 @@ import org.springframework.boot.DefaultApplicationArguments;
 
 import io.github.samzhu.grimo.agent.application.port.in.MainAgentChatUseCase;
 import io.github.samzhu.grimo.agent.domain.ChatSessionException;
+import io.github.samzhu.grimo.skills.application.port.in.SkillProjectionUseCase;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -19,7 +20,8 @@ import static org.mockito.Mockito.verify;
 class ChatCommandRunnerTest {
 
     private final MainAgentChatUseCase chatUseCase = mock(MainAgentChatUseCase.class);
-    private final ChatCommandRunner runner = new ChatCommandRunner(chatUseCase);
+    private final SkillProjectionUseCase skillProjection = mock(SkillProjectionUseCase.class);
+    private final ChatCommandRunner runner = new ChatCommandRunner(chatUseCase, skillProjection);
 
     @Test
     @DisplayName("[S007] AC-3: 'chat' subcommand detected calls startChat")
@@ -99,5 +101,48 @@ class ChatCommandRunnerTest {
         // Then
         verify(chatUseCase).startChat(any(Path.class));
         verify(chatUseCase, never()).resumeChat(any(Path.class));
+    }
+
+    @Test
+    @DisplayName("[S016] AC-3: 'chat' projects skills before startChat")
+    void chatProjectsSkillsBeforeStart() {
+        // Given
+        var args = new DefaultApplicationArguments("chat");
+
+        // When
+        runner.run(args);
+
+        // Then
+        var inOrder = org.mockito.Mockito.inOrder(skillProjection, chatUseCase);
+        inOrder.verify(skillProjection).projectToWorkDir(any(Path.class));
+        inOrder.verify(chatUseCase).startChat(any(Path.class));
+    }
+
+    @Test
+    @DisplayName("[S016] AC-3: 'chat --resume' projects skills before resumeChat")
+    void chatResumeProjectsSkillsBeforeResume() {
+        // Given
+        var args = new DefaultApplicationArguments("chat", "--resume");
+
+        // When
+        runner.run(args);
+
+        // Then
+        var inOrder = org.mockito.Mockito.inOrder(skillProjection, chatUseCase);
+        inOrder.verify(skillProjection).projectToWorkDir(any(Path.class));
+        inOrder.verify(chatUseCase).resumeChat(any(Path.class));
+    }
+
+    @Test
+    @DisplayName("[S016] non-chat args does not project skills")
+    void nonChatArgsDoesNotProjectSkills() {
+        // Given
+        var args = new DefaultApplicationArguments("other");
+
+        // When
+        runner.run(args);
+
+        // Then
+        verify(skillProjection, never()).projectToWorkDir(any(Path.class));
     }
 }

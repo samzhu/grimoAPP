@@ -52,9 +52,9 @@ io.github.samzhu.grimo                                   # 根（GrimoApplicatio
 | `core` | — | — | — | S001 ✅ |
 | `sandbox` | — | `Sandbox` SPI（`agent-sandbox-core`）+ bind-mount 適配器 | — | S003 |
 | `cli` | `ContainerizedAgentModelFactory`（`@NamedInterface("api")`） | —（WrapperScriptGenerator 內部直接呼叫 docker exec） | `CliUnavailable`、`CliInvocationFailed`（S006 規劃） | S005 ✅ / S006 |
-| `agent` | `MainAgentChatUseCase`（`grimo chat` 入口） | S007: 無（主機 claude）；S008+: `cli :: api`（容器化）、`sandbox :: api` | — | S007 → S008–S010 |
+| `agent` | `MainAgentChatUseCase`（`grimo chat` 入口） | S007: 無（主機 claude）；S016: `skills :: api`（投影）；S008+: `cli :: api`（容器化）、`sandbox :: api` | — | S007 → S016 → S008–S010 |
 | `subagent` | `DelegateTaskUseCase` | `Sandbox`（SPI）、`WorktreePort`、`AgentCliPort` | `SubagentStarted`、`SubagentCompleted`、`SubagentFailed` | Backlog（v2 S008–S010） |
-| `skills` | `SkillRegistryUseCase` | `SkillStorePort`（檔案系統） | `SkillEnabled`、`SkillDisabled` | S012 / S013 |
+| `skills` | `SkillRegistryUseCase`、`SkillProjectionUseCase`（`@NamedInterface("api")`） | `SkillStorePort`（檔案系統） | `SkillEnabled`、`SkillDisabled` | S012 / S013 / S016 |
 
 ### 2.x Backlog 模組（晉升時恢復）
 

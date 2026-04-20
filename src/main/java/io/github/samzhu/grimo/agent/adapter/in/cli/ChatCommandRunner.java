@@ -8,14 +8,18 @@ import org.springframework.stereotype.Component;
 
 import io.github.samzhu.grimo.agent.application.port.in.MainAgentChatUseCase;
 import io.github.samzhu.grimo.agent.domain.ChatSessionException;
+import io.github.samzhu.grimo.skills.application.port.in.SkillProjectionUseCase;
 
 @Component
 class ChatCommandRunner implements ApplicationRunner {
 
     private final MainAgentChatUseCase chatUseCase;
+    private final SkillProjectionUseCase skillProjection;
 
-    ChatCommandRunner(MainAgentChatUseCase chatUseCase) {
+    ChatCommandRunner(MainAgentChatUseCase chatUseCase,
+                      SkillProjectionUseCase skillProjection) {
         this.chatUseCase = chatUseCase;
+        this.skillProjection = skillProjection;
     }
 
     @Override
@@ -24,6 +28,7 @@ class ChatCommandRunner implements ApplicationRunner {
             return;
         }
         Path workDir = Path.of("").toAbsolutePath();
+        skillProjection.projectToWorkDir(workDir);
         try {
             if (args.containsOption("resume")) {
                 chatUseCase.resumeChat(workDir);
