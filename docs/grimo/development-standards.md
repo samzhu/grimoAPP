@@ -34,7 +34,7 @@ io.github.samzhu.grimo
 ├── cli/                            # ContainerizedAgentModelFactory + docker-exec wrapper（S005 ✅）
 ├── agent/                          # 主代理 CLI 直通（S007）
 ├── subagent/                       # 委派 + 工作樹 + 子代理生命週期（S008–S010）
-└── skills/                         # SKILL.md 登錄檔 + 注入子代理容器（S011、S012）
+└── skills/                         # SKILL.md 登錄檔 + 注入子代理容器（S012、S013）
 ```
 
 **Backlog 套件命名注意：** 原生加固模組的套件名為 **`nativeimage`**（不是 `native`）— `native` 是 Java 保留字（JNI modifier），無法當套件名使用。Backlog 模組晉升時請使用 `nativeimage`。

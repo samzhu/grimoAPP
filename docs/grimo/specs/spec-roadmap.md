@@ -103,7 +103,7 @@
 | # | 規格 | 點數 | 狀態 |
 | --- | --- | --- | --- |
 | S011 | Session Resume | XS (6) | ✅ |
-| S012 | Skill 登錄檔 | XS (8) | 🔲 |
+| S012 | Skill 登錄檔 | XS (8) | ✅ |
 
 ### S011 — Session Resume · XS (6)
 
@@ -122,16 +122,18 @@
 
 ### S012 — Skill 登錄檔 · XS (8)
 
-**描述。** 使用 JDK NIO 掃描 `~/.grimo/skills/*/SKILL.md`。建立 `SkillRegistryUseCase`，公開 `list()`、`enable(name)`、`disable(name)`、`get(name) → Optional<Skill>`。啟用狀態持久化至 `~/.grimo/skills/.state.json`。
+**描述。** 重寫 `spring-ai-agent-utils` 0.7.0 的 `Skills` + `MarkdownParser`（保持同介面，內部改用 SnakeYAML），掃描 `~/.grimo/skills/*/SKILL.md`，遵循 [agentskills.io](https://agentskills.io/specification) 開放標準驗證。建立 `SkillRegistryUseCase`，公開 `list()`、`listEnabled()`、`enable(name)`、`disable(name)`、`get(name) → Optional<SkillEntry>`。產出型別為框架原生 `SkillsTool.Skill` record，可直接被 `SkillsFunction` → `ToolCallback` → `ChatClient` 消費。啟用狀態持久化至 `~/.grimo/skills/.state.json`。
 
-**競品參考。** Hermes Agent Closed Learning Loop 觸發條件（§6.3.2）+ Claude Code `.claude/skills/` 結構。
+**設計要點。** agent-utils 的 `MarkdownParser` 為自製 flat parser，不支援巢狀 YAML（`metadata:` map、`allowed-tools:` list、多行 scalar 均解析失敗）。`Skills` 類全 static 無 SPI，`MarkdownParser` 硬編碼無法替換。Grimo 重寫這兩個類別（同介面），改用 SnakeYAML（Boot classpath 已有）+ graceful 錯誤處理（單檔失敗跳過而非全部炸掉）。
+
+**競品參考。** agentskills.io 開放標準（26+ 平台相容）+ Hermes Agent Closed Learning Loop 觸發條件（§6.3.2）+ Claude Code `.claude/skills/` 結構。
 
 **依賴。** S001（`GrimoHomePaths.skills()`，已出貨）。無程式碼層級阻塞。
 
-**SBE（草稿）。**
-- **AC-1** `~/.grimo/skills/hello/SKILL.md` 中的 Skill 出現在 `list()` 中。
+**SBE。**
+- **AC-1** `~/.grimo/skills/hello/SKILL.md`（含巢狀 `metadata` map）出現在 `list()` 中，frontMatter 正確解析。
 - **AC-2** 無效格式的 SKILL.md 記錄警告並跳過（不崩潰）。
-- **AC-3** `disable("hello")` 持久化；重啟後 `list()` 仍標記為已停用。
+- **AC-3** `disable("hello")` 持久化；重啟後 `list()` 仍標記為已停用；`listEnabled()` 不包含。
 
 **估算。** 技術 1 · 不確定性 1 · 依賴 2 · 範疇 2 · 測試 1 · 可逆性 1 = **8 / XS**
 
@@ -195,15 +197,16 @@
 
 ---
 
-## 里程碑 7：Skill 注入 + 壓縮策略（優先級「預裝 skill + 壓縮研究」）
+## 里程碑 7：Skill 注入 + 壓縮策略 + 複雜度評估（優先級「預裝 skill + 壓縮研究 + 智能分級」）
 
-**目標。** 啟動容器化 agent 時預裝已啟用 Skill。研究並選定 Session 壓縮策略，整合至 S011 的 decorator。
-**完成條件。** S013、S014 ✅。
+**目標。** 啟動容器化 agent 時預裝已啟用 Skill。研究並選定 Session 壓縮策略。Skill 安裝時自動評估複雜度，寫入 metadata 供未來成本路由器使用。
+**完成條件。** S013、S014、S015 ✅。
 
 | # | 規格 | 點數 | 狀態 |
 | --- | --- | --- | --- |
 | S013 | Skill 預裝至 Agent 容器 | S (11) | 🔲 |
 | S014 | Session 壓縮策略研究 | XS (8) | 🔲 |
+| S015 | Skill 複雜度評估 | S (9) | 🔲 |
 
 ### S013 — Skill 預裝至 Agent 容器 · S (11)
 
@@ -237,6 +240,19 @@
 
 **估算。** 技術 2 · 不確定性 2 · 依賴 1 · 範疇 1 · 測試 1 · 可逆性 1 = **8 / XS**
 
+### S015 — Skill 複雜度評估 · S (9)
+
+**描述。** Skill 安裝（首次出現在 `~/.grimo/skills/`）時，用 agent 分析 SKILL.md 內容判斷複雜度等級，將結果寫入 `.state.json` 的擴充欄位（如 `complexity`、`recommendedModel`）。評估維度：指令步驟數、工具需求、領域知識要求。用於未來成本路由器選擇模型。
+
+**依賴。** S012（Skill 登錄檔）、S007（主代理 — 需要 agent 做評估）。
+
+**SBE（草稿）。**
+- **AC-1** 新 Skill 出現時，自動觸發複雜度評估，結果寫入 `.state.json`。
+- **AC-2** 評估結果包含 `complexity`（low/medium/high）和 `recommendedModel`。
+- **AC-3** 已評估過的 Skill 不重複評估（除非 SKILL.md 內容變更）。
+
+**估算。** 技術 2 · 不確定性 2 · 依賴 1 · 範疇 2 · 測試 1 · 可逆性 1 = **9 / S**
+
 ---
 
 ## 摘要（MVP）
@@ -250,12 +266,12 @@
 | M4 主代理對話 | S007 | 7 |
 | M5 Session + Skill 基礎 | S011、S012 | 18 |
 | M6 容器化 CLI 對話 | S008、S009、S010 | 29 |
-| M7 Skill 注入 + 壓縮 | S013、S014 | 19 |
-| **合計** | **15 個規格** | **144 點** |
+| M7 Skill 注入 + 壓縮 + 評估 | S013、S014、S015 | 28 |
+| **合計** | **16 個規格** | **153 點** |
 
-v4 藍圖相較 v3（14 規格 / 137 點）新增 1 個規格（S014 壓縮策略研究，+8 點）。核心變化：**S011 提前 3 個 spec**（不再被 S008-S010 阻塞）、**S012 與 S008 可並行**、壓縮策略獨立追蹤。
+v5 藍圖相較 v4（15 規格 / 144 點）新增 1 個規格（S015 Skill 複雜度評估，+9 點）。S012 設計更新：重寫 `Skills` + `MarkdownParser`（同介面，SnakeYAML 內部），遵循 agentskills.io 標準，產出框架原生 `SkillsTool.Skill`。
 
-下一步行動：`/planning-tasks S007`
+下一步行動：`/planning-tasks S012`
 
 ---
 

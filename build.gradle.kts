@@ -28,6 +28,7 @@ dependencies {
 	implementation("org.springaicommunity.agents:agent-claude:0.12.2")
 	implementation("org.springaicommunity.agents:agent-codex:0.12.2")
 	implementation("org.springaicommunity.agents:agent-gemini:0.12.2")
+	implementation("org.springaicommunity:spring-ai-agent-utils:0.7.0")
 	implementation("org.testcontainers:testcontainers:1.20.4")
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testImplementation("org.springframework.modulith:spring-modulith-starter-test")

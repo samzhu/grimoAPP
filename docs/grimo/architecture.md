@@ -94,6 +94,7 @@ io.github.samzhu.grimo                                   # 根（GrimoApplicatio
 | `com.h2database:h2` | 2.3.232 | `org.h2.Driver` | yes |
 | `io.github.wimdeblauwe:htmx-spring-boot` | **5.1.0** | `io.github.wimdeblauwe.htmx.spring.boot.mvc.HtmxResponse` | yes |
 | `io.github.wimdeblauwe:htmx-spring-boot-thymeleaf` | 5.1.0 | Thymeleaf dialect `htmx:*` | yes |
+| `org.springaicommunity:spring-ai-agent-utils` | **0.7.0** | `org.springaicommunity.agent.tools.SkillsTool.Skill`（S012 Skill 登錄檔產出型別）；`org.springaicommunity.agent.tools.SkillsFunction`（S013 ToolCallback 整合）。Grimo 重寫 `Skills` + `MarkdownParser`（同介面，SnakeYAML 內部） | yes — S012 POC 8/8 通過 |
 | `org.springaicommunity.agents:agent-client-core` | **0.12.2** | `org.springaicommunity.agents.client.AgentClient` | yes |
 | `org.springaicommunity.agents:agent-model` | 0.12.2 | `org.springaicommunity.agents.model.AgentModel` | yes |
 | `org.springaicommunity.agents:agent-claude` | 0.12.2 | `org.springaicommunity.agents.claude.ClaudeAgentModel` | yes |

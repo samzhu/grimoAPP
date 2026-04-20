@@ -1,17 +1,13 @@
 /**
- * Grimo :: Skills — hosts {@code SkillRegistryUseCase} (S011) for
+ * Grimo :: Skills — hosts {@code SkillRegistryUseCase} (S012) for
  * scanning {@code ~/.grimo/skills/*\/SKILL.md} and managing enable /
- * disable state, plus skill injection into sub-agent containers (S012).
+ * disable state. Skill injection into agent containers is S013.
  *
- * <p>Empty in S002. The first concrete type lands with S011.
- *
- * <p>{@code allowedDependencies = {}} starts as the strictest white-list
- * — see Cross-Module Communication Policy in
- * {@code development-standards.md} §13.
+ * <p>Uses {@code core} for {@code GrimoHomePaths.skills()}.
  */
 @ApplicationModule(
     displayName = "Grimo :: Skills",
-    allowedDependencies = {}
+    allowedDependencies = { "core" }
 )
 package io.github.samzhu.grimo.skills;
 
