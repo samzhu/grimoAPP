@@ -45,6 +45,30 @@ Check:
 
 If a viable upstream solution exists, evaluate reuse vs build-own as the **first grill question**, before diving into implementation details.
 
+## Step 0.25: Identify Applicable Industry Standards (MANDATORY)
+
+**Before evaluating any framework/library, identify whether an industry standard governs this spec's domain.**
+
+Skipping this step leads to designing around a framework's idiosyncratic behavior when a cross-platform standard exists. Example: designing a custom SKILL.md format when agentskills.io defines the standard that 26+ platforms follow.
+
+**Action:**
+1. Search for open standards that cover this spec's domain (e.g., agentskills.io for skills, OpenAPI for APIs, OCI for containers, A2A for agent interop)
+2. Fetch the standard's specification document — identify required vs optional fields, format rules, validation criteria
+3. Record the standard in §2.3 Research Citations as the **first entry** — standards anchor all subsequent research
+
+**Once a standard is identified:**
+- All subsequent framework research evaluates **compliance with the standard**, not just "does the API work"
+- If a framework's parser/serializer only partially implements the standard, this is a **critical finding** that must be flagged before designing around the framework
+- The spec's validation rules derive from the standard, not from the framework's implementation
+
+**Research order enforced by this step:**
+```
+Standard → Framework capabilities → Gap analysis → Gap remediation
+NOT: Framework capabilities → Design around framework → Discover standard later
+```
+
+**Skip ONLY when:** The spec's domain has no applicable standard (purely project-internal concerns like config layout, internal data flow).
+
 ## Step 0.5: Exhaust Pinned Libraries' Own API Surface (MANDATORY)
 
 **Before researching how Library A integrates with Library B, map what Library A already offers on its own.**
@@ -88,6 +112,42 @@ This is a sequencing rule: research the capabilities of what you already have BE
 - "What does the current stack provide TODAY for this use case?"
 - This must be answered by inspecting actual behavior (source code, tests, POC runs), not by assuming capabilities from names or docs.
 
+## Step 0.75: Dependency Behavior Deep Dive (MANDATORY for load-bearing deps)
+
+**After mapping public APIs (Step 0.5), read to private-method level for every load-bearing dependency.**
+
+Step 0.5 maps "what methods exist." This step answers "what do those methods actually do inside." The distinction matters because a method named `loadDirectory()` might internally use a parser that only supports flat key:value — knowledge that changes the entire design.
+
+**Action:**
+1. For each load-bearing class (parser, loader, serializer, adapter, factory):
+   - Read the **complete source**, including private methods and internal helpers
+   - Identify internal engines: what parser does the YAML loader actually use? What HTTP client does the fetcher use? Is it custom or a standard library?
+   - Map capability boundaries: what inputs does it handle correctly vs incorrectly?
+
+2. **Test with standard-compliant inputs.** If Step 0.25 identified a standard, check whether the dependency's parser/serializer handles the standard's full range:
+   - Feed a representative standard-compliant input through the code path mentally (or in a POC)
+   - Document what works and what breaks
+   - Example: agentskills.io allows nested `metadata:` maps — does the library's YAML parser support nested maps?
+
+3. **Classify interface vs implementation quality:**
+
+   | Classification | Meaning | Design action |
+   |---|---|---|
+   | **Interface-sound, implementation-sound** | API contract correct, internals work as expected | Use directly |
+   | **Interface-sound, implementation-defective** | API contract is reasonable, but internals have gaps (wrong parser, missing error handling, standard non-compliance) | **Rewrite same interface** — keep method signatures, replace internals |
+   | **Interface-defective** | API design itself is wrong for our use case (e.g., all static, no SPI, wrong return types) | Build custom, do not wrap |
+   | **No interface** | Framework has no abstraction for this concern | Build from scratch |
+
+4. **Check extensibility mechanics:**
+   - Is the class `final`? Are methods `static`? → Cannot override
+   - Are there `protected` methods? → Designed for subclassing
+   - Are there SPI interfaces the class implements? → Implement the SPI directly
+   - Does the class use `new InternalDep()` hardcoded? → Cannot inject alternatives
+
+**Record findings in §2.3** under "Dependency Behavior Deep Dive" — include what works, what doesn't, and which classification applies.
+
+**Skip ONLY when:** The dependency's behavior has been fully validated by a prior shipped spec's §7 Findings (with runtime-verified findings, not just API mapping).
+
 ## Steps 1–5: Dispatch Sequence
 
 1. **List ALL load-bearing APIs this spec touches.** Read the roadmap deliverables, architecture doc, and any SBE drafts. Name each API by library + entrypoint (e.g., `<library>: <class/annotation/function>`). One entry per distinct surface. **Be exhaustive** — under-scoping the API list is the #1 cause of repeated research rounds. **Include interfaces discovered in Step 0.5** — these are often the most important APIs and the ones most likely to be missed if Step 0.5 was skipped.
@@ -122,11 +182,23 @@ Adapt to the specific API surface:
        official docs or test suite.
     5. Gotchas called out in the docs or source — nullability, concurrency,
        build/compile-time constraints relevant to this surface.
+    6. Internal engines and capability boundaries — for parsers, serializers,
+       adapters: what engine does the implementation use internally? What
+       inputs does it handle correctly vs incorrectly? Read private methods
+       to answer this. Example: "MarkdownParser uses custom line-split, not
+       SnakeYAML — cannot parse nested YAML maps or arrays."
+    7. Extensibility classification — is the class final? Are key methods
+       static (cannot override)? Are there protected hooks? Does the class
+       implement an SPI interface that could be re-implemented? Are internal
+       dependencies hardcoded (new InternalDep()) or injectable?
 
     Output (≤ 500 words):
     - Answer per question, each with a citation URL (raw source preferred).
     - One-paragraph "implication for this spec" — what the spec's §2
       Approach should lock in based on the findings.
+    - Capability boundary summary: "supports X, does NOT support Y."
+    - Extensibility verdict: "can extend via [mechanism]" or "cannot extend,
+      must rewrite/wrap because [reason]."
     - Gaps / items needing a second fetch.
 
     Do NOT fabricate. If a docs page 404s or is behind anti-bot, say so.
@@ -165,6 +237,27 @@ decision before writing the spec:
 | **Validated** | Raw source confirms API exists with expected signature and behavior. Or a prior shipped spec's §7 proved it in production code. **Or a POC test has exercised the API and confirmed actual runtime behavior.** | Cite source URL in §2.3. No further action. |
 | **Hypothesis** | Docs suggest it works. Source shows the API exists. But actual runtime behavior (return values, error paths, integration with other APIs) is unproven. | Mark `[needs POC validation]` in §2. Declare `POC: required` with specific test plan. **Do NOT write a committed approach around a hypothesis.** |
 | **Unknown** | Could not determine from docs or source. Behavior depends on runtime interaction, undocumented conventions, or versions we haven't tested. | **Do not design around it.** Either dispatch a targeted research agent to resolve, or ask the user. |
+
+### Rewrite-Same-Interface Pattern
+
+When Step 0.75 classifies a dependency as **"Interface-sound, implementation-defective"**, the recommended design action is:
+
+1. **Keep the same public method signatures** (constructor, return types, parameter types)
+2. **Replace the internal implementation** (swap parser engine, fix error handling, add standard compliance)
+3. **Produce the same output types** as the original — so downstream consumers (builders, factories, callbacks) continue to work
+
+This pattern avoids building a parallel type system while fixing the implementation gap. The framework's own types flow through unchanged; only the code that produces them is replaced.
+
+**When to apply:**
+- Framework's interface/record is well-designed but its parser/loader/adapter has capability gaps
+- The framework's output type is consumed by other framework components (e.g., `SkillsTool.Skill` is consumed by `SkillsFunction` → `ToolCallback`)
+- Replacing the output type would break downstream integration
+
+**When NOT to apply:**
+- The interface itself is wrong (wrong abstractions, missing fields) → design a new interface
+- The framework has proper SPI/extension points → implement the SPI instead of rewriting
+
+**Example (from S012):** `spring-ai-agent-utils` `MarkdownParser` uses a custom flat parser (cannot handle nested YAML). Interface is sound (`MarkdownParser(String)` → `getFrontMatter()` / `getContent()`). Grimo rewrites with SnakeYAML internally, keeps same method signatures, produces same `Map<String, Object>` output — but values are now correctly typed (nested maps, lists, not just strings). Downstream `new SkillsTool.Skill(basePath, frontMatter, content)` continues to work unchanged.
 
 ### API Surface Mapping vs Behavior Validation
 

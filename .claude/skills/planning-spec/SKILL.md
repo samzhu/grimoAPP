@@ -1,9 +1,12 @@
 ---
 name: planning-spec
 description: >
-  Analyzes and designs the solution for a single spec. Compares approaches,
-  defines interfaces, writes spec file with SBE acceptance criteria.
-  Use when a spec needs solution design, or the user says "design S002."
+  Analyzes and designs the solution for a single spec. Researches industry
+  standards and framework APIs (to private-method depth), compares approaches
+  grounded in verified facts, defines interfaces that maximize framework reuse,
+  writes spec file with SBE acceptance criteria.
+  Use when a spec needs solution design, the user says "design S002",
+  "plan spec S012", or "research and design [topic]".
 argument-hint: "[spec-id]"
 allowed-tools:
   - Read
@@ -14,9 +17,10 @@ allowed-tools:
   - Edit
   - Agent
   - WebFetch
+  - WebSearch
 metadata:
   author: samzhu
-  version: 2.0.0
+  version: 3.0.0
   category: workflow-automation
   pattern: iterative-refinement
 ---
@@ -75,6 +79,9 @@ Phase 1 — Context (no user interaction)
 Phase 2 — Research (BLOCKING GATE — must complete before Phase 3)
 - [ ] Step -1 — Scan existing research (prior notes, shipped spec findings,
       competitive analysis). Do NOT re-research what's already known.
+- [ ] Step 0.25 — Identify applicable industry standards (agentskills.io,
+      OpenAPI, OCI, A2A, etc.). Standards anchor all subsequent research:
+      framework compliance is evaluated against the standard, not in isolation.
 - [ ] Step 0.5 — Map EXISTING dependencies' capabilities for this spec's goal.
       Sequence matters: understand what you already have BEFORE evaluating
       what you might add. For each pinned library this spec touches: fetch
@@ -83,6 +90,12 @@ Phase 2 — Research (BLOCKING GATE — must complete before Phase 3)
       this use case?" This must be answered by inspecting actual behavior
       (source code, POC runs), not by assuming capabilities from names/docs.
       If the existing stack covers 80%+ of the requirement, design around it.
+- [ ] Step 0.75 — Dependency behavior deep dive. For load-bearing deps,
+      read to PRIVATE METHOD level. Identify internal engines, capability
+      boundaries, extensibility mechanics (final? static? SPI?).
+      Classify: interface-sound + impl-sound → use directly;
+      interface-sound + impl-defective → rewrite same interface;
+      interface-defective → build custom. See research-protocol.md.
 - [ ] Research — dispatch parallel sub-agents on ALL load-bearing framework APIs
       (including interfaces discovered in Step 0.5).
       This phase is BLOCKING: do NOT ask the user any grill questions until all
@@ -166,9 +179,13 @@ After a technology/framework is chosen (pinned in the architecture doc), the def
 - The gap is documented in §2 Challenges Considered with the source URL.
 - The custom code follows the framework's own patterns (e.g., implements its SPI, returns its response types).
 
+**Rewrite-same-interface pattern (from Step 0.75):**
+When a framework's interface is well-designed but its implementation has gaps (e.g., parser doesn't support the applicable standard, error handling is too aggressive), rewrite the implementation while keeping the same method signatures and output types. This preserves downstream integration — framework consumers (builders, factories, callbacks) continue to work with the rewritten version. See `research-protocol.md` "Rewrite-Same-Interface Pattern" for details and worked example.
+
 **Anti-patterns:**
 - Designing a custom port interface + custom response types + custom parsing when the framework already provides all three. This creates a parallel type system that must be maintained alongside the framework's evolution.
 - **Assuming a library's scope from its name.** Example: `agent-client` sounds like "just a CLI wrapper" but actually provides `AgentSession` (multi-turn abstraction), `AgentSessionRegistry` (lifecycle SPI), and `AgentCallAdvisor` (interceptor chain). Skipping Step 0.5 causes this failure mode — designing a custom persistence wrapper when the library already has an extension point designed for exactly that purpose.
+- **Evaluating framework compliance in isolation.** If an industry standard exists (Step 0.25), the question isn't "does the framework's parser work?" but "does the framework's parser implement the standard correctly?" A parser that works for flat inputs but fails on standard-compliant nested inputs is defective, even if its unit tests pass.
 
 ### Challenge assumptions (built-in)
 
@@ -331,6 +348,16 @@ be answered by inspecting actual behavior (source code, test runs),
 not by assuming capabilities from names or docs. If the existing
 stack provides 80%+ of the requirement, design around it — don't
 add a dependency for the remaining 20%.
+
+### Framework parser/serializer doesn't support the applicable standard
+**Symptom:** Spec designs around a framework's parser, then discovers during deep dive (or worse, during implementation) that the parser doesn't handle the industry standard's full input range. Example: a YAML frontmatter parser that only supports flat `key: value` but the standard (agentskills.io) requires nested maps and lists.
+**Root cause:** Step 0.25 (industry standard) was done, Step 0.5 (API surface) was done, but Step 0.75 (behavior deep dive) was skipped. The parser's _interface_ looked fine (`getFrontMatter() → Map<String, Object>`), but its _internals_ used a custom line-splitter instead of a proper YAML engine.
+**Fix:** Step 0.75 is mandatory for parsers, serializers, codecs, and adapters. Read to private method level. Test mentally (or via POC) with a standard-compliant input that exercises nested structures, arrays, and multi-line values. If the implementation is defective but the interface is sound, apply the rewrite-same-interface pattern.
+
+### Designing a parallel type system instead of reusing framework types
+**Symptom:** The spec defines a new domain record (e.g., `Skill`) with fields that mirror an existing framework record (e.g., `SkillsTool.Skill`). Downstream code needs awkward mapping between the two. Framework consumers (builders, factories, callbacks) can't accept the custom type.
+**Root cause:** Defaulted to hexagonal-architecture instinct ("domain types must be framework-free") without first checking if the framework's type is already clean enough to use directly or wrap.
+**Fix:** During Step 0.5, check if framework output types are: (a) immutable records/value objects, (b) usable as constructor parameters in framework consumers, (c) lacking problematic dependencies. If all three, use them directly (or wrap in a thin domain entry with added state). Build custom types only when the framework type is genuinely unsuitable.
 
 ## Handoff
 
