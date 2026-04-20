@@ -126,6 +126,36 @@
 
 ---
 
+## Session 記錄層（M5 → M6）
+
+**目標。** 建立 Grimo 自有的對話歷史記錄層。Decorator 攔截 `AgentSession.prompt()`，每輪存入 `ChatMemory` + H2。為跨 CLI 切換打基礎。
+**完成條件。** S017 ✅。
+
+| # | 規格 | 點數 | 狀態 |
+| --- | --- | --- | --- |
+| S017 | Grimo Session Memory（session 模組 + ChatMemory + H2） | S (9) | ⏳ Design |
+
+### S017 — Grimo Session Memory · S (10)
+
+**描述。** 新建 `session` Modulith 模組（Backlog 晉升）。`RecordingAgentSession` decorator 攔截每輪 prompt/response，存入 Spring AI `ChatMemory`。`JdbcChatMemoryRepository` + H2 持久化。與 Claude CLI 的 `.jsonl` transcript 完全獨立 — Grimo 擁有 provider-agnostic 的對話歷史。
+
+**參考。** [Spring AI Agentic Patterns Part 6: AutoMemoryTools](https://spring.io/blog/2026/04/07/spring-ai-agentic-patterns-6-memory-tools) 兩層記憶架構。
+
+**依賴。** S007（主代理 REPL）、S011（AgentSession API 驗證）。
+
+**SBE（草稿）。**
+- **AC-1** prompt/response 每輪存入 ChatMemory（UserMessage + AssistantMessage）。
+- **AC-2** 多輪累積：3 輪 → 6 條 Messages。
+- **AC-3** Registry decorator 透明包裝：sessionId/workDir 與底層一致。
+- **AC-4** H2 持久化：`SPRING_AI_CHAT_MEMORY` 表存在對話記錄。
+- **AC-5** Modulith verify 通過，session 模組邊界合規。
+
+**POC: required（低風險）** — Spring AI BOM 2.0.0-M4 統一管理版本。POC 驗證 H2 datasource + schema init + ChatMemory.add/get 端對端。
+
+**估算。** 技術 1 · 不確定性 1 · 依賴 1 · 範疇 2 · 測試 2 · 可逆性 2 = **9 / S**
+
+---
+
 ## 里程碑 6：容器化 CLI 對話（優先級「在 Docker 中跑各 CLI」）
 
 **目標。** 逐一驗證 Claude Code / Gemini / Codex 在 `grimo-runtime` 容器中透過 agent-client SDK 對話。建立 CredentialResolver（macOS Keychain 提取）、WrapperScriptGenerator env var 注入、容器化 `AgentSession` 整合。S011 的 decorator 自動套用於容器化 session — 無需額外接線。
@@ -255,7 +285,8 @@
 | M6 容器化 CLI 對話 | S008、S009、S010 | 29 |
 | M7 Skill 注入 + 壓縮 + 評估 | S013、S014、S015 | 28 |
 | 驗證閘門 | S016 | 7 |
-| **合計** | **17 個規格** | **160 點** |
+| Session 記錄層 | S017 | 9 |
+| **合計** | **18 個規格** | **169 點** |
 
 v6 藍圖相較 v5（16 規格 / 153 點）新增 1 個規格（S016 MVP 人工驗證閘門，+7 點）。S016 在 M5 → M6 之間插入人工驗證環節：Skill CLI 子命令 + Skill 投影至工作目錄。
 
