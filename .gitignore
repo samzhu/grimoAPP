@@ -39,6 +39,9 @@ out/
 ### macOS ###
 .DS_Store
 
+### Claude Code ephemeral state ###
+.claude/handovers/
+
 ### Grimo local state (safety net; real state lives in ~/.grimo) ###
 .grimo/
 grimo-home/
