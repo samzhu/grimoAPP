@@ -24,14 +24,13 @@ public class JdbcSessionProjectionAdapter implements SessionProjectionPort {
 
     @Override
     public void upsert(SessionProjection p) {
-        // MERGE INTO is H2 + PostgreSQL compatible upsert
         jdbc.update("""
-                MERGE INTO grimo_session (id, parent_id, fork_turn, provider, status,
+                MERGE INTO grimo_session (id, session_type, project_id, status,
                     turn_count, total_tokens_in, total_tokens_out, total_duration_ms,
                     event_version, work_dir, created_at, last_active_at)
                 KEY (id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                p.id(), p.parentId(), p.forkTurn(), p.provider(), p.status().name(),
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                p.id(), p.sessionType(), p.projectId(), p.status().name(),
                 p.turnCount(), p.totalTokensIn(), p.totalTokensOut(), p.totalDurationMs(),
                 p.eventVersion(), p.workDir(),
                 Timestamp.from(p.createdAt()), Timestamp.from(p.lastActiveAt()));
@@ -42,15 +41,35 @@ public class JdbcSessionProjectionAdapter implements SessionProjectionPort {
         List<SessionProjection> results = jdbc.query(
                 "SELECT * FROM grimo_session WHERE id = ?",
                 this::mapRow, sessionId);
-        return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
+        return results.isEmpty() ? Optional.empty() : Optional.of(results.getFirst());
+    }
+
+    @Override
+    public List<SessionProjection> findAll() {
+        return jdbc.query(
+                "SELECT * FROM grimo_session ORDER BY last_active_at DESC",
+                this::mapRow);
+    }
+
+    @Override
+    public List<SessionProjection> findByProjectId(String projectId) {
+        return jdbc.query(
+                "SELECT * FROM grimo_session WHERE project_id = ? ORDER BY last_active_at DESC",
+                this::mapRow, projectId);
+    }
+
+    @Override
+    public List<SessionProjection> findBySessionType(String sessionType) {
+        return jdbc.query(
+                "SELECT * FROM grimo_session WHERE session_type = ? ORDER BY last_active_at DESC",
+                this::mapRow, sessionType);
     }
 
     private SessionProjection mapRow(ResultSet rs, int rowNum) throws SQLException {
         return new SessionProjection(
                 rs.getString("id"),
-                rs.getString("parent_id"),
-                rs.getObject("fork_turn") != null ? rs.getInt("fork_turn") : null,
-                rs.getString("provider"),
+                rs.getString("session_type"),
+                rs.getString("project_id"),
                 SessionStatus.valueOf(rs.getString("status")),
                 rs.getInt("turn_count"),
                 rs.getLong("total_tokens_in"),

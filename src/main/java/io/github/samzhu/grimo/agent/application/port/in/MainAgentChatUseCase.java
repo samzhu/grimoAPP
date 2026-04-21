@@ -2,26 +2,33 @@ package io.github.samzhu.grimo.agent.application.port.in;
 
 import java.nio.file.Path;
 
+import org.jspecify.annotations.Nullable;
+import org.springaicommunity.agents.model.AgentSession;
+
 /**
- * Starts a main-agent interactive chat session.
- * Blocks until the user exits (/exit or Ctrl+D).
+ * Creates or resumes main-agent chat sessions (S018 redesign).
+ * Returns an {@link AgentSession} for the caller to prompt — no
+ * longer drives a blocking REPL internally.
  */
 public interface MainAgentChatUseCase {
 
     /**
-     * @param workingDirectory the user's working directory (claude's project root)
-     * @throws io.github.samzhu.grimo.agent.domain.ChatSessionException
-     *         if claude CLI is not installed or session fails to start
+     * Create a new chat session.
+     *
+     * @param workDir     working directory (claude's project root)
+     * @param sessionType "GRIMO" or "PROJECT"
+     * @param projectId   bound project ID (null for GRIMO)
+     * @return a recording-decorated AgentSession ready for prompting
      */
-    void startChat(Path workingDirectory);
+    AgentSession createSession(Path workDir, String sessionType,
+                               @Nullable String projectId);
 
     /**
-     * Resumes the most recent session in the working directory.
-     * Falls back to a new session if no previous session exists.
+     * Resume the most recent session in the working directory.
+     * Falls back to a new GRIMO session if no previous session exists.
      *
-     * @param workingDirectory the user's working directory (claude's project root)
-     * @throws io.github.samzhu.grimo.agent.domain.ChatSessionException
-     *         if claude CLI is not installed
+     * @param workDir working directory (claude's project root)
+     * @return a recording-decorated AgentSession ready for prompting
      */
-    void resumeChat(Path workingDirectory);
+    AgentSession resumeSession(Path workDir);
 }

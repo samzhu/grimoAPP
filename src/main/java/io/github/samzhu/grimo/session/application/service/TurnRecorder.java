@@ -2,7 +2,6 @@ package io.github.samzhu.grimo.session.application.service;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.UUID;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -13,7 +12,7 @@ import org.springframework.stereotype.Service;
 
 import io.github.samzhu.grimo.session.application.port.out.SessionEventPort;
 import io.github.samzhu.grimo.session.application.port.out.SessionProjectionPort;
-import io.github.samzhu.grimo.session.domain.EventType;
+import io.github.samzhu.grimo.session.domain.MessageType;
 import io.github.samzhu.grimo.session.domain.SessionEvent;
 import io.github.samzhu.grimo.session.domain.SessionProjection;
 import io.github.samzhu.grimo.session.domain.SessionStatus;
@@ -21,8 +20,7 @@ import io.github.samzhu.grimo.session.events.TurnRecorded;
 
 /**
  * Event listener that persists conversation turns to the event store
- * and updates the session projection. Each turn produces two events
- * (USER + ASSISTANT) and an incremental projection update.
+ * and updates the session projection (S018 redesign).
  */
 @Service
 public class TurnRecorder {
@@ -43,56 +41,55 @@ public class TurnRecorder {
     public void on(TurnRecorded event) {
         var now = Instant.now();
 
-        // 1. USER event
-        eventStore.append(new SessionEvent(
-                null, UUID.randomUUID().toString(), event.sessionId(),
-                event.turnNumber(), EventType.USER,
-                toJson(Map.of("text", event.userMessage())),
-                null, false, null, now));
+        // 1. Upsert projection FIRST (FK: events reference session)
+        updateProjection(event, now);
 
-        // 2. ASSISTANT event
+        // 2. USER event
+        eventStore.append(new SessionEvent(
+                UUID.randomUUID().toString(), event.sessionId(),
+                MessageType.USER,
+                event.userMessage(), null,
+                null, null, null,
+                false, null, now));
+
+        // 3. ASSISTANT event
         var metaMap = new LinkedHashMap<String, Object>();
-        metaMap.put("model", event.model());
         metaMap.put("durationMs", event.durationMs());
-        metaMap.put("finishReason", event.finishReason());
-        metaMap.put("provider", event.provider());
+        if (event.finishReason() != null) metaMap.put("finishReason", event.finishReason());
         if (event.tokensIn() > 0) metaMap.put("tokensIn", event.tokensIn());
         if (event.tokensOut() > 0) metaMap.put("tokensOut", event.tokensOut());
 
         eventStore.append(new SessionEvent(
-                null, UUID.randomUUID().toString(), event.sessionId(),
-                event.turnNumber(), EventType.ASSISTANT,
-                toJson(Map.of("text", event.assistantMessage())),
-                toJson(metaMap),
+                UUID.randomUUID().toString(), event.sessionId(),
+                MessageType.ASSISTANT,
+                event.assistantMessage(), null,
+                event.provider(), event.model(), toJson(metaMap),
                 false, null, now));
-
-        // 3. Update projection
-        updateProjection(event.sessionId(), event.provider(),
-                event.tokensIn(), event.tokensOut(), event.durationMs(), now);
     }
 
-    private void updateProjection(String sessionId, String provider,
-                                  long tokensIn, long tokensOut, long durationMs, Instant now) {
-        var existing = projectionStore.findById(sessionId);
+    private void updateProjection(TurnRecorded event, Instant now) {
+        var existing = projectionStore.findById(event.sessionId());
 
         if (existing.isPresent()) {
             var prev = existing.get();
             projectionStore.upsert(new SessionProjection(
-                    sessionId, prev.parentId(), prev.forkTurn(), provider,
+                    event.sessionId(),
+                    prev.sessionType(), prev.projectId(),
                     SessionStatus.ACTIVE,
                     prev.turnCount() + 1,
-                    prev.totalTokensIn() + tokensIn,
-                    prev.totalTokensOut() + tokensOut,
-                    prev.totalDurationMs() + durationMs,
+                    prev.totalTokensIn() + event.tokensIn(),
+                    prev.totalTokensOut() + event.tokensOut(),
+                    prev.totalDurationMs() + event.durationMs(),
                     prev.eventVersion() + 2,
                     prev.workDir(),
                     prev.createdAt(),
                     now));
         } else {
             projectionStore.upsert(new SessionProjection(
-                    sessionId, null, null, provider,
+                    event.sessionId(),
+                    event.sessionType(), event.projectId(),
                     SessionStatus.ACTIVE,
-                    1, tokensIn, tokensOut, durationMs,
+                    1, event.tokensIn(), event.tokensOut(), event.durationMs(),
                     2,
                     null,
                     now, now));

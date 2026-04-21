@@ -5,6 +5,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 
+import org.jspecify.annotations.Nullable;
 import org.springaicommunity.agents.model.AgentSession;
 import org.springaicommunity.agents.model.AgentSessionRegistry;
 import org.springframework.context.ApplicationEventPublisher;
@@ -19,10 +20,8 @@ import io.github.samzhu.grimo.session.application.port.out.ProviderMetadataExtra
  * Every session created or found is transparently wrapped in a
  * {@link RecordingAgentSession} that publishes turn events.
  *
- * <p>Also implements {@link SessionRecordingPort} so that code paths
- * that obtain sessions outside the registry (e.g.
- * {@code ClaudeSessionConnector.continueLastSession()}) can explicitly
- * request wrapping via {@link #wrapForRecording(AgentSession)}.
+ * <p>S018: Added {@link #createRecordedSession} for explicit session
+ * type and project binding via {@link SessionRecordingPort}.
  */
 @Primary
 @Component
@@ -43,13 +42,13 @@ public class RecordingAgentSessionRegistry implements AgentSessionRegistry, Sess
     @Override
     public AgentSession create(Path workingDirectory) {
         AgentSession raw = delegate.create(workingDirectory);
-        return new RecordingAgentSession(raw, eventPublisher, extractors);
+        return new RecordingAgentSession(raw, eventPublisher, extractors, "GRIMO", null);
     }
 
     @Override
     public Optional<AgentSession> find(String sessionId) {
         return delegate.find(sessionId)
-                .map(s -> new RecordingAgentSession(s, eventPublisher, extractors));
+                .map(s -> new RecordingAgentSession(s, eventPublisher, extractors, "GRIMO", null));
     }
 
     @Override
@@ -67,6 +66,13 @@ public class RecordingAgentSessionRegistry implements AgentSessionRegistry, Sess
         if (raw instanceof RecordingAgentSession) {
             return raw;
         }
-        return new RecordingAgentSession(raw, eventPublisher, extractors);
+        return new RecordingAgentSession(raw, eventPublisher, extractors, "GRIMO", null);
+    }
+
+    @Override
+    public AgentSession createRecordedSession(Path workDir, String sessionType,
+                                               @Nullable String projectId) {
+        AgentSession raw = delegate.create(workDir);
+        return new RecordingAgentSession(raw, eventPublisher, extractors, sessionType, projectId);
     }
 }

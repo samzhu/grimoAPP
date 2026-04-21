@@ -37,4 +37,19 @@ class SessionHistoryService implements SessionHistoryUseCase {
     public Optional<SessionProjection> findById(String sessionId) {
         return projectionStore.findById(sessionId);
     }
+
+    @Override
+    public List<SessionProjection> listAll() {
+        return projectionStore.findAll();
+    }
+
+    @Override
+    public List<SessionProjection> findByProjectId(String projectId) {
+        return projectionStore.findByProjectId(projectId);
+    }
+
+    @Override
+    public List<SessionProjection> findBySessionType(String sessionType) {
+        return projectionStore.findBySessionType(sessionType);
+    }
 }

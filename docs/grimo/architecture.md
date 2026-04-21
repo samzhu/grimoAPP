@@ -25,21 +25,22 @@
 
 ## 2. 模組地圖（MVP）
 
-> **2026-04-21 更新（S017 出貨）：** 新增 `session` 模組（從 §2.x Backlog 晉升）。Event-sourced session memory — `RecordingAgentSession` decorator 攔截 `AgentSession.prompt()`，以 `TurnRecorded` 事件非同步持久化至 H2 event store。Provider-agnostic `ProviderMetadataExtractor` SPI 動態辨識 provider 並萃取 metadata。原 v1 模組（`router`、`memory`、`jury`、`cost`、`web`、`nativeimage`）仍在下方 §2.x Backlog。
+> **2026-04-22 更新（S018 出貨）：** 新增 `project`、`task` 模組。`agent` 模組從 CLI REPL 改為 REST API（`ChatController`）。`session` 模組 schema 重設計（對齊 Spring AI 命名）+ REST 查詢端點。`skills` 模組新增 REST 端點。CLI adapter（`ChatCommandRunner`、`SkillCommandRunner`）已移除。Tomcat :8080 常駐。原 v1 模組（`router`、`memory`、`jury`、`cost`、`web`、`nativeimage`）仍在下方 §2.x Backlog。
 
 ```
 io.github.samzhu.grimo                                   # 根（GrimoApplication）
 ├── core                                    # @ApplicationModule(type = Type.OPEN)
 │   └── domain/ { SessionId, TurnId, TaskId, CorrelationId,
 │                 AgentRole, ProviderId, GrimoHomePaths, NanoIds }
-│                                           # 共用領域原語（S001）
-│                                           # Cost 由未來的成本遙測規格擁有，不在此處
+│                                           # 共用領域原語（S001）+ NanoIds.compact()（S018）
 ├── sandbox                                 # Sandbox SPI (agent-sandbox-core) + bind-mount 適配器（S003）
 ├── cli                                     # ContainerizedAgentModelFactory（docker exec wrapper → AgentModel）（S005 ✅）
-├── agent                                   # 主代理對話（S007 主機 → S008 容器化 Claude → S009/S010 Gemini/Codex）
-├── session                                 # Event-sourced session memory（S017 ✅）— RecordingAgentSession decorator
+├── agent                                   # Chat REST API（S018 ✅）— ChatController + MainAgentChatUseCase
+├── project                                 # Project CRUD REST API（S018 ✅）— ProjectRestController + ProjectUseCase
+├── task                                    # Task CRUD + lifecycle REST API（S018 ✅）— TaskRestController + TaskUseCase
+├── session                                 # Event-sourced session memory（S017 ✅ → S018 Spring AI 命名重設計）+ SessionRestController
 ├── subagent                                # 委派 + 工作樹 + 子代理生命週期（Backlog，待晉升）
-└── skills                                  # SKILL.md 登錄檔 + 預裝至 Agent 容器（S012、S013）
+└── skills                                  # SKILL.md 登錄檔（S012）+ SkillRestController（S018 ✅）
 ```
 
 `core` 標記為 `@ApplicationModule(type = Type.OPEN)`。**Modulith 2.0.5 行為：** 即使目標模組為 `OPEN`，消費者若設定了 `allowedDependencies`，仍須顯式列出 `"core"`（S005 §7 發現）。因此需要引用 `core` 型別的模組以 `allowedDependencies = { "core" }` 起步，由各自的 owning spec 在第一次跨模組引用時擴充（同步埠透過 `<publisher>::api`，事件透過 `<publisher>::events`，見 §1 與 `development-standards.md` §13）。
@@ -53,10 +54,12 @@ io.github.samzhu.grimo                                   # 根（GrimoApplicatio
 | `core` | — | — | — | S001 ✅ |
 | `sandbox` | — | `Sandbox` SPI（`agent-sandbox-core`）+ bind-mount 適配器 | — | S003 |
 | `cli` | `ContainerizedAgentModelFactory`（`@NamedInterface("api")`） | —（WrapperScriptGenerator 內部直接呼叫 docker exec） | `CliUnavailable`、`CliInvocationFailed`（S006 規劃） | S005 ✅ / S006 |
-| `agent` | `MainAgentChatUseCase`（`grimo chat` 入口） | S007: 無（主機 claude）；S016: `skills :: api`（投影）；S008+: `cli :: api`（容器化）、`sandbox :: api` | — | S007 → S016 → S008–S010 |
+| `agent` | `MainAgentChatUseCase`（`@NamedInterface("api")`）、`ChatController`（REST） | `session::api`（`SessionRecordingPort`）、`skills::api`（投影）、`project::api`（workDir 解析） | — | S007 → S016 → S018 ✅ |
+| `project` | `ProjectUseCase`（`@NamedInterface("api")`）、`ProjectRestController`（REST） | `ProjectPort`（JDBC） | — | S018 ✅ |
+| `task` | `TaskUseCase`（`@NamedInterface("api")`）、`TaskRestController`（REST） | `TaskPort`（JDBC）、`project::api`（FK 驗證） | — | S018 ✅ |
 | `subagent` | `DelegateTaskUseCase` | `Sandbox`（SPI）、`WorktreePort`、`AgentCliPort` | `SubagentStarted`、`SubagentCompleted`、`SubagentFailed` | Backlog（v2 S008–S010） |
-| `session` | `SessionHistoryUseCase`（`@NamedInterface("api")`） | `SessionEventPort`、`SessionProjectionPort`、`ProviderMetadataExtractor` | `TurnRecorded`（`@NamedInterface("events")`） | S017 ✅ |
-| `skills` | `SkillRegistryUseCase`、`SkillProjectionUseCase`（`@NamedInterface("api")`） | `SkillStorePort`（檔案系統） | `SkillEnabled`、`SkillDisabled` | S012 / S013 / S016 |
+| `session` | `SessionHistoryUseCase`、`SessionRecordingPort`（`@NamedInterface("api")`）、`SessionRestController`（REST） | `SessionEventPort`、`SessionProjectionPort`、`ProviderMetadataExtractor` | `TurnRecorded`（`@NamedInterface("events")`） | S017 ✅ → S018 ✅ |
+| `skills` | `SkillRegistryUseCase`、`SkillProjectionUseCase`（`@NamedInterface("api")`）、`SkillRestController`（REST） | `SkillStorePort`（檔案系統） | `SkillEnabled`、`SkillDisabled` | S012 / S016 → S018 ✅ |
 
 ### 2.x Backlog 模組（晉升時恢復）
 
@@ -159,9 +162,11 @@ io.github.samzhu.grimo                                   # 根（GrimoApplicatio
 
 - **預設：** H2 檔案模式 — `jdbc:h2:file:~/.grimo/db/grimo;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE`
 - **可選：** 透過設定 `grimo.datasource.url`（以及 `username` / `password`）切換至 PostgreSQL。
-- **Session event store（S017 ✅）**（由 `src/main/resources/schema.sql` 管理）：
-  - `grimo_session_event` — Append-only event log（`sequence`、`event_id`、`session_id`、`turn_number`、`event_type`、`payload_json`、`metadata_json`、`synthetic`、`branch`、`created_at`）。
-  - `grimo_session` — Materialized projection（`id`、`parent_id`、`fork_turn`、`provider`、`status`、`turn_count`、`total_tokens_in/out`、`total_duration_ms`、`event_version`、`work_dir`、`created_at`、`last_active_at`）。
+- **S018 Schema（DROP+CREATE，由 `src/main/resources/schema.sql` 管理）：**
+  - `grimo_project` — Project 管理（`id` VARCHAR(12)、`name`、`work_dir`、`description`、timestamps）。
+  - `grimo_task` — 通用工作項目（`id` VARCHAR(12)、`task_number` SEQUENCE、`project_id` FK nullable、`title`、`status` 狀態機、`priority`、`labels_json`、`source_type/ref`、timestamps + `closed_at`）。
+  - `grimo_session` — Session projection（`id`、`session_type` GRIMO/PROJECT、`project_id` FK nullable、`status`、`turn_count`、`total_tokens_in/out`、`total_duration_ms`、`event_version`、`work_dir`、timestamps）。
+  - `grimo_session_event` — Append-only event log, aligned with Spring AI naming（`id` PK、`session_id` FK CASCADE、`message_type` USER/ASSISTANT/SYSTEM/TOOL、`message_content`、`message_data`、`provider`、`model`、`metadata`、`synthetic`、`branch`（reserved）、`created_at`）。
 - **Modulith 事件發佈資料表**，由 `spring-modulith-events-jdbc` 自動管理（`spring.modulith.events.jdbc.schema-initialization.enabled=true`）：`EVENT_PUBLICATION`。
 - **Grimo 未來自有資料表**（Backlog — 未實作）：
   - `grimo_cost` — 每輪 token + 美元遙測。

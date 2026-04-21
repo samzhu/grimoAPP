@@ -3,8 +3,8 @@ package io.github.samzhu.grimo.session.internal;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 
+import org.jspecify.annotations.Nullable;
 import org.springaicommunity.agents.model.AgentResponse;
 import org.springaicommunity.agents.model.AgentSession;
 import org.springaicommunity.agents.model.AgentSessionStatus;
@@ -16,33 +16,36 @@ import io.github.samzhu.grimo.session.events.TurnRecorded;
 /**
  * Decorator around {@link AgentSession} that publishes
  * {@link TurnRecorded} events after each {@code prompt()} call.
- * Extracts serializable data from {@code AgentResponse} before
- * publishing — safe for Spring Modulith event persistence.
+ * Carries session metadata (sessionType, projectId) for S018.
  */
 public class RecordingAgentSession implements AgentSession {
 
     private final AgentSession delegate;
     private final ApplicationEventPublisher eventPublisher;
     private final List<ProviderMetadataExtractor> extractors;
-    private final AtomicInteger turnCounter = new AtomicInteger(0);
+    private final String sessionType;
+    private final @Nullable String projectId;
 
     RecordingAgentSession(AgentSession delegate,
                           ApplicationEventPublisher eventPublisher,
-                          List<ProviderMetadataExtractor> extractors) {
+                          List<ProviderMetadataExtractor> extractors,
+                          String sessionType,
+                          @Nullable String projectId) {
         this.delegate = delegate;
         this.eventPublisher = eventPublisher;
         this.extractors = extractors;
+        this.sessionType = sessionType;
+        this.projectId = projectId;
     }
 
     @Override
     public AgentResponse prompt(String message) {
         AgentResponse response = delegate.prompt(message);
-        int turn = turnCounter.incrementAndGet();
-        eventPublisher.publishEvent(buildEvent(turn, message, response));
+        eventPublisher.publishEvent(buildEvent(message, response));
         return response;
     }
 
-    private TurnRecorded buildEvent(int turn, String userMessage, AgentResponse response) {
+    private TurnRecorded buildEvent(String userMessage, AgentResponse response) {
         var meta = response.getMetadata();
         var genMeta = response.getResult() != null ? response.getResult().getMetadata() : null;
 
@@ -66,13 +69,14 @@ public class RecordingAgentSession implements AgentSession {
 
         return new TurnRecorded(
                 getSessionId(),
-                turn,
+                sessionType,
+                projectId,
                 userMessage,
                 response.getText(),
+                provider,
                 meta.getModel(),
                 meta.getDuration().toMillis(),
                 genMeta != null ? genMeta.getFinishReason() : null,
-                provider,
                 tokensIn,
                 tokensOut);
     }
@@ -80,13 +84,13 @@ public class RecordingAgentSession implements AgentSession {
     @Override
     public AgentSession fork() {
         AgentSession forked = delegate.fork();
-        return new RecordingAgentSession(forked, eventPublisher, extractors);
+        return new RecordingAgentSession(forked, eventPublisher, extractors, sessionType, projectId);
     }
 
     @Override
     public AgentSession resume() {
         AgentSession resumed = delegate.resume();
-        return new RecordingAgentSession(resumed, eventPublisher, extractors);
+        return new RecordingAgentSession(resumed, eventPublisher, extractors, sessionType, projectId);
     }
 
     @Override

@@ -15,10 +15,8 @@ import org.springframework.jdbc.datasource.init.ScriptUtils;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Verifies the H2 schema for S017 event-sourced session tables.
- * Pure JUnit — no Spring context required. Uses the same H2
- * connection parameters as production (MODE=PostgreSQL,
- * DATABASE_TO_LOWER=TRUE).
+ * Verifies the H2 schema for S018 tables.
+ * Pure JUnit — no Spring context required.
  */
 class SchemaTest {
 
@@ -26,7 +24,6 @@ class SchemaTest {
 
     @BeforeAll
     static void initSchema() throws Exception {
-        // Match production H2 config from application.yaml
         connection = DriverManager.getConnection(
                 "jdbc:h2:mem:schema_test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE");
         ScriptUtils.executeSqlScript(connection, new ClassPathResource("schema.sql"));
@@ -38,57 +35,88 @@ class SchemaTest {
     }
 
     @Test
-    @DisplayName("[S017] AC-5: grimo_session has parent_id VARCHAR(36) nullable column")
-    void ac5_parentIdColumnExists() throws Exception {
+    @DisplayName("[S018] AC-12: grimo_project table exists with expected columns")
+    void projectTableExists() throws Exception {
         // Given — schema.sql has been executed
         DatabaseMetaData meta = connection.getMetaData();
 
-        // When — query column metadata (lowercase due to DATABASE_TO_LOWER=TRUE)
-        try (ResultSet rs = meta.getColumns(null, null, "grimo_session", "parent_id")) {
-            // Then — column exists and is nullable VARCHAR(36)
-            assertThat(rs.next()).as("parent_id column exists").isTrue();
-            assertThat(rs.getString("TYPE_NAME")).satisfiesAnyOf(
-                    t -> assertThat(t).containsIgnoringCase("VARCHAR"),
-                    t -> assertThat(t).containsIgnoringCase("VARYING"));
-            assertThat(rs.getInt("COLUMN_SIZE")).isEqualTo(36);
-            assertThat(rs.getInt("NULLABLE")).isEqualTo(DatabaseMetaData.columnNullable);
+        // When / Then — grimo_project has id, name, work_dir
+        try (ResultSet rs = meta.getColumns(null, null, "grimo_project", "id")) {
+            assertThat(rs.next()).as("grimo_project.id exists").isTrue();
+        }
+        try (ResultSet rs = meta.getColumns(null, null, "grimo_project", "name")) {
+            assertThat(rs.next()).as("grimo_project.name exists").isTrue();
+        }
+        try (ResultSet rs = meta.getColumns(null, null, "grimo_project", "work_dir")) {
+            assertThat(rs.next()).as("grimo_project.work_dir exists").isTrue();
         }
     }
 
     @Test
-    @DisplayName("[S017] AC-5: grimo_session has fork_turn INT nullable column")
-    void ac5_forkTurnColumnExists() throws Exception {
+    @DisplayName("[S018] AC-12: grimo_task table exists with FK to grimo_project")
+    void taskTableExistsWithFk() throws Exception {
         // Given — schema.sql has been executed
         DatabaseMetaData meta = connection.getMetaData();
 
-        // When — query column metadata
-        try (ResultSet rs = meta.getColumns(null, null, "grimo_session", "fork_turn")) {
-            // Then — column exists and is nullable INT
-            assertThat(rs.next()).as("fork_turn column exists").isTrue();
-            assertThat(rs.getString("TYPE_NAME")).containsIgnoringCase("INT");
-            assertThat(rs.getInt("NULLABLE")).isEqualTo(DatabaseMetaData.columnNullable);
+        // When / Then — grimo_task exists
+        try (ResultSet rs = meta.getColumns(null, null, "grimo_task", "id")) {
+            assertThat(rs.next()).as("grimo_task.id exists").isTrue();
         }
-    }
 
-    @Test
-    @DisplayName("[S017] AC-5: parent_id has FOREIGN KEY referencing grimo_session(id)")
-    void ac5_parentIdForeignKey() throws Exception {
-        // Given — schema.sql has been executed
-        DatabaseMetaData meta = connection.getMetaData();
-
-        // When — query imported keys for grimo_session
-        try (ResultSet rs = meta.getImportedKeys(null, null, "grimo_session")) {
-            // Then — FK exists: parent_id → grimo_session.id
+        // And — FK project_id → grimo_project.id
+        try (ResultSet rs = meta.getImportedKeys(null, null, "grimo_task")) {
             boolean found = false;
             while (rs.next()) {
-                if ("parent_id".equalsIgnoreCase(rs.getString("FKCOLUMN_NAME"))
-                        && "id".equalsIgnoreCase(rs.getString("PKCOLUMN_NAME"))
-                        && "grimo_session".equalsIgnoreCase(rs.getString("PKTABLE_NAME"))) {
+                if ("project_id".equalsIgnoreCase(rs.getString("FKCOLUMN_NAME"))
+                        && "grimo_project".equalsIgnoreCase(rs.getString("PKTABLE_NAME"))) {
                     found = true;
                     break;
                 }
             }
-            assertThat(found).as("FK parent_id → grimo_session(id)").isTrue();
+            assertThat(found).as("FK grimo_task.project_id → grimo_project(id)").isTrue();
+        }
+    }
+
+    @Test
+    @DisplayName("[S018] AC-12: grimo_session has session_type and project_id columns")
+    void sessionTableHasNewColumns() throws Exception {
+        // Given — schema.sql has been executed
+        DatabaseMetaData meta = connection.getMetaData();
+
+        // When / Then — session_type exists and is NOT NULL
+        try (ResultSet rs = meta.getColumns(null, null, "grimo_session", "session_type")) {
+            assertThat(rs.next()).as("session_type column exists").isTrue();
+            assertThat(rs.getInt("NULLABLE")).isEqualTo(DatabaseMetaData.columnNoNulls);
+        }
+
+        // And — project_id exists and IS nullable
+        try (ResultSet rs = meta.getColumns(null, null, "grimo_session", "project_id")) {
+            assertThat(rs.next()).as("project_id column exists").isTrue();
+            assertThat(rs.getInt("NULLABLE")).isEqualTo(DatabaseMetaData.columnNullable);
+        }
+    }
+
+    @Test
+    @DisplayName("[S018] AC-12: grimo_session_event uses Spring AI naming (message_type, message_content)")
+    void sessionEventUsesSpringAiNaming() throws Exception {
+        // Given — schema.sql has been executed
+        DatabaseMetaData meta = connection.getMetaData();
+
+        // When / Then — message_type exists (not event_type)
+        try (ResultSet rs = meta.getColumns(null, null, "grimo_session_event", "message_type")) {
+            assertThat(rs.next()).as("message_type column exists").isTrue();
+        }
+        // And — message_content exists (not payload_json)
+        try (ResultSet rs = meta.getColumns(null, null, "grimo_session_event", "message_content")) {
+            assertThat(rs.next()).as("message_content column exists").isTrue();
+        }
+        // And — provider per-event
+        try (ResultSet rs = meta.getColumns(null, null, "grimo_session_event", "provider")) {
+            assertThat(rs.next()).as("provider column exists").isTrue();
+        }
+        // And — model per-event
+        try (ResultSet rs = meta.getColumns(null, null, "grimo_session_event", "model")) {
+            assertThat(rs.next()).as("model column exists").isTrue();
         }
     }
 }

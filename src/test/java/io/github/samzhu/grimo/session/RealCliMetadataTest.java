@@ -4,7 +4,6 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -21,7 +20,6 @@ import org.springaicommunity.agents.model.AgentResponse;
 import org.springaicommunity.agents.model.AgentResponseMetadata;
 import org.springaicommunity.agents.model.AgentSession;
 import org.springaicommunity.agents.model.AgentSessionStatus;
-import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -40,8 +38,8 @@ import io.github.samzhu.grimo.session.internal.RecordingAgentSessionRegistry;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * End-to-end test: RecordingAgentSession → TurnRecorded → TurnRecorder → H2.
- * Uses metadata that mimics real Claude CLI (empty model, phaseCapture key).
+ * E2E: RecordingAgentSession -> TurnRecorded -> TurnRecorder -> H2.
+ * Uses metadata that mimics real Claude CLI (S018 redesign).
  */
 class RealCliMetadataTest {
 
@@ -69,18 +67,15 @@ class RealCliMetadataTest {
     }
 
     @Test
-    @DisplayName("[S017] E2E-BUG-2+3: real Claude CLI metadata (empty model, phaseCapture) detected correctly")
+    @DisplayName("[S018] E2E: real Claude CLI metadata detected, projection has sessionType")
     void realCliMetadata_providerDetectedAndTokensExtracted() {
-        // Given — stub session returning response that mimics REAL Claude CLI:
-        //   getModel() = "" (empty), meta contains "phaseCapture" key,
-        //   "inputTokens"=3 (Integer), "outputTokens"=5 (Integer)
+        // Given
         var extractors = List.<ProviderMetadataExtractor>of(new ClaudeMetadataExtractor());
         var turnRecorder = new TurnRecorder(
                 new JdbcSessionEventAdapter(jdbc),
                 new JdbcSessionProjectionAdapter(jdbc),
                 new ObjectMapper());
 
-        // Wire: publish event → TurnRecorder.on() synchronously
         ApplicationEventPublisher syncPublisher = event -> {
             if (event instanceof TurnRecorded tr) {
                 turnRecorder.on(tr);
@@ -91,43 +86,36 @@ class RealCliMetadataTest {
         var registry = new RecordingAgentSessionRegistry(
                 new StubRegistry(stubSession), syncPublisher, extractors);
 
-        // When — create session and prompt
+        // When
         AgentSession session = registry.create(Path.of("/tmp/test"));
         session.prompt("reply with one word: HELLO");
 
-        // Then — ASSISTANT event has provider:"claude" and correct tokens
-        var metaJson = jdbc.queryForObject(
-                "SELECT metadata_json FROM grimo_session_event WHERE event_type = 'ASSISTANT'",
-                String.class);
-        assertThat(metaJson).contains("\"provider\":\"claude\"");
+        // Then — ASSISTANT event has provider and metadata
+        var events = jdbc.queryForList(
+                "SELECT * FROM grimo_session_event WHERE message_type = 'ASSISTANT'");
+        assertThat(events).hasSize(1);
+        assertThat(events.getFirst().get("provider")).isEqualTo("claude");
+        var metaJson = (String) events.getFirst().get("metadata");
+        assertThat(metaJson).contains("\"durationMs\"");
         assertThat(metaJson).contains("\"tokensIn\"");
         assertThat(metaJson).contains("\"tokensOut\"");
 
-        // And — projection has provider=claude, tokens > 0
+        // And — projection has sessionType=GRIMO, tokens > 0
         var proj = jdbc.queryForMap("SELECT * FROM grimo_session WHERE id = ?", SESSION_ID);
-        assertThat(proj.get("provider")).isEqualTo("claude");
+        assertThat(proj.get("session_type")).isEqualTo("GRIMO");
+        assertThat(proj.get("project_id")).isNull();
         assertThat(((Number) proj.get("total_tokens_in")).longValue()).isEqualTo(3L);
         assertThat(((Number) proj.get("total_tokens_out")).longValue()).isEqualTo(5L);
     }
 
-    /**
-     * Build AgentResponse mimicking REAL Claude CLI output:
-     * - getModel() returns "" (empty)
-     * - HashMap contains "inputTokens", "outputTokens", "phaseCapture"
-     */
     private AgentResponse buildRealCliResponse(String text) {
-        // Real CLI puts tokens + phaseCapture directly in the HashMap
         var providerFields = Map.<String, Object>of(
-                "inputTokens", 3,           // Integer, not Long!
-                "outputTokens", 5,          // Integer, not Long!
+                "inputTokens", 3,
+                "outputTokens", 5,
                 "phaseCapture", "stub-phase-capture-object");
 
-        // Real CLI: getModel() returns "" (empty string)
         var metadata = new AgentResponseMetadata(
-                "",                          // ← empty model!
-                Duration.ofMillis(3471),
-                SESSION_ID,
-                providerFields);
+                "", Duration.ofMillis(3471), SESSION_ID, providerFields);
 
         var genMeta = new AgentGenerationMetadata("SUCCESS", Map.of());
         var generation = new AgentGeneration(text, genMeta);
@@ -136,8 +124,6 @@ class RealCliMetadataTest {
                 .results(List.of(generation))
                 .build();
     }
-
-    // --- stubs ---
 
     private static class StubAgentSession implements AgentSession {
         private final AgentResponse response;

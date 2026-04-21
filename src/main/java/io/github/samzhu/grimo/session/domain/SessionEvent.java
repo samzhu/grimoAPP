@@ -5,31 +5,33 @@ import java.time.Instant;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Immutable event record in the session event store.
+ * Immutable event record in the session event store (S018 redesign).
  *
- * <p>Each conversation turn produces two events: {@code USER} (the
- * user's message) and {@code ASSISTANT} (the AI's response). Events
- * are append-only — never updated or deleted.
+ * <p>Aligned with Spring AI Session naming: {@code messageType},
+ * {@code messageContent}, {@code messageData}. Each conversation
+ * message produces one event. Events are append-only.
  *
- * @param sequence     auto-increment PK (null when not yet persisted)
- * @param eventId      UUID, unique per event
- * @param sessionId    CLI-assigned session ID
- * @param turnNumber   increments per turn (USER and ASSISTANT share the same turn)
- * @param eventType    USER, ASSISTANT, or SUMMARY
- * @param payloadJson  message content as JSON
- * @param metadataJson model/duration/tokens (nullable — USER events have no metadata)
- * @param synthetic    true for compaction-generated events (S014)
- * @param branch       dot-separated agent path (null = root conversation)
- * @param createdAt    wall-clock timestamp
+ * @param id             unique event ID (NanoID)
+ * @param sessionId      owning session ID
+ * @param messageType    USER, ASSISTANT, SYSTEM, or TOOL
+ * @param messageContent text content of the message
+ * @param messageData    structured data (JSON) — tool calls, etc.
+ * @param provider       CLI provider name (null for USER events)
+ * @param model          model name (null for USER events)
+ * @param metadata       JSON metadata (duration, tokens, etc.)
+ * @param synthetic      true for compaction-generated events
+ * @param branch         reserved for future branching (null)
+ * @param createdAt      wall-clock timestamp
  */
 public record SessionEvent(
-    @Nullable Long sequence,
-    String eventId,
+    String id,
     String sessionId,
-    int turnNumber,
-    EventType eventType,
-    String payloadJson,
-    @Nullable String metadataJson,
+    MessageType messageType,
+    @Nullable String messageContent,
+    @Nullable String messageData,
+    @Nullable String provider,
+    @Nullable String model,
+    @Nullable String metadata,
     boolean synthetic,
     @Nullable String branch,
     Instant createdAt

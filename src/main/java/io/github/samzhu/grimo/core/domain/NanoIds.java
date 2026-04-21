@@ -43,6 +43,13 @@ public final class NanoIds {
     /** ID length in characters. Matches the reference NanoID default. */
     private static final int SIZE = 21;
 
+    /** Base-36 alphabet for compact IDs (S018). */
+    private static final char[] ALPHANUM =
+        "0123456789abcdefghijklmnopqrstuvwxyz".toCharArray();
+
+    /** Compact ID length (S018: Project, Task). */
+    private static final int COMPACT_SIZE = 12;
+
     private NanoIds() {
         // Utility class — not instantiable.
     }
@@ -56,6 +63,22 @@ public final class NanoIds {
         char[] out = new char[SIZE];
         for (int i = 0; i < SIZE; i++) {
             out[i] = ALPHABET[bytes[i] & 63];
+        }
+        return new String(out);
+    }
+
+    /**
+     * Generates a 12-character base-36 compact ID for Project and Task
+     * entities (S018). Filesystem-friendly: no {@code _} or {@code -}.
+     *
+     * @return a 12-character string matching {@code [0-9a-z]{12}}
+     */
+    public static String compact() {
+        byte[] bytes = new byte[COMPACT_SIZE];
+        RNG.nextBytes(bytes);
+        char[] out = new char[COMPACT_SIZE];
+        for (int i = 0; i < COMPACT_SIZE; i++) {
+            out[i] = ALPHANUM[(bytes[i] & 0xFF) % 36];
         }
         return new String(out);
     }

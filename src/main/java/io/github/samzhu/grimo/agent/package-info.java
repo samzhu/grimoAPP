@@ -1,30 +1,17 @@
 /**
- * Grimo :: Agent — hosts the main-agent interactive chat use case
- * ({@code grimo chat}, S007) and session resume ({@code grimo chat --resume},
- * S011). Uses {@code AgentSessionRegistry} to maintain a persistent host
- * {@code claude} CLI process, with {@code AgentSession.prompt()} driving
- * multi-turn conversation via a terminal REPL.
+ * Grimo :: Agent — hosts the main-agent chat use case (S018 REST API).
  *
- * <p>Session resume uses {@code ClaudeSessionConnector.continueLastSession()}
- * (same-package helper) to pass {@code --continue} to the Claude CLI,
- * automatically restoring the most recent session in the working directory.
- * Falls back to a new session if no prior session exists.
+ * <p>S018: {@code MainAgentChatUseCase} creates/resumes sessions via
+ * {@code SessionRecordingPort} (session::api). No longer drives a
+ * terminal REPL — returns {@code AgentSession} for REST controllers
+ * to prompt.
  *
- * <p>S016: Before starting chat, projects enabled skills from
- * {@code ~/.grimo/skills/} to {@code <workdir>/.claude/skills/} via
- * {@code SkillProjectionUseCase} (skills::api).
- *
- * <p>S017: Injects {@code SessionRecordingPort} (session::api) to wrap
- * resumed sessions in the recording decorator. New sessions via
- * {@code AgentSessionRegistry.create()} are auto-wrapped by
- * {@code @Primary RecordingAgentSessionRegistry}.
- *
- * <p>S008+ will switch to containerised claude-code inside
- * {@code grimo-runtime}.
+ * <p>S016: Skill projection via {@code SkillProjectionUseCase}
+ * (skills::api).
  */
 @ApplicationModule(
     displayName = "Grimo :: Agent",
-    allowedDependencies = { "skills::api", "session::api" }
+    allowedDependencies = { "skills::api", "session::api", "project::api" }
 )
 package io.github.samzhu.grimo.agent;
 

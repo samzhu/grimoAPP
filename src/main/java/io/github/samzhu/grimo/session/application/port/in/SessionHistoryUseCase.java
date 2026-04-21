@@ -8,8 +8,7 @@ import io.github.samzhu.grimo.session.domain.SessionEvent;
 import io.github.samzhu.grimo.session.domain.SessionProjection;
 
 /**
- * Inbound port for querying session history. Method names align with
- * spring-ai-session {@code SessionService}.
+ * Inbound port for querying session history (S018 expanded).
  */
 public interface SessionHistoryUseCase {
 
@@ -18,4 +17,10 @@ public interface SessionHistoryUseCase {
     List<SessionEvent> getEvents(String sessionId, EventFilter filter);
 
     Optional<SessionProjection> findById(String sessionId);
+
+    List<SessionProjection> listAll();
+
+    List<SessionProjection> findByProjectId(String projectId);
+
+    List<SessionProjection> findBySessionType(String sessionType);
 }

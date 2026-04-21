@@ -10,7 +10,7 @@ import org.springframework.stereotype.Repository;
 
 import io.github.samzhu.grimo.session.application.port.out.SessionEventPort;
 import io.github.samzhu.grimo.session.domain.EventFilter;
-import io.github.samzhu.grimo.session.domain.EventType;
+import io.github.samzhu.grimo.session.domain.MessageType;
 import io.github.samzhu.grimo.session.domain.SessionEvent;
 
 @Repository
@@ -26,11 +26,12 @@ public class JdbcSessionEventAdapter implements SessionEventPort {
     public void append(SessionEvent e) {
         jdbc.update("""
                 INSERT INTO grimo_session_event
-                (event_id, session_id, turn_number, event_type,
-                 payload_json, metadata_json, synthetic, branch, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                e.eventId(), e.sessionId(), e.turnNumber(),
-                e.eventType().name(), e.payloadJson(), e.metadataJson(),
+                (id, session_id, message_type, message_content, message_data,
+                 provider, model, metadata, synthetic, branch, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                e.id(), e.sessionId(), e.messageType().name(),
+                e.messageContent(), e.messageData(),
+                e.provider(), e.model(), e.metadata(),
                 e.synthetic(), e.branch(), Timestamp.from(e.createdAt()));
     }
 
@@ -38,25 +39,26 @@ public class JdbcSessionEventAdapter implements SessionEventPort {
     public List<SessionEvent> findBySessionId(String sessionId) {
         return jdbc.query("""
                 SELECT * FROM grimo_session_event
-                WHERE session_id = ? ORDER BY sequence ASC""",
+                WHERE session_id = ? ORDER BY created_at ASC""",
                 this::mapRow, sessionId);
     }
 
     @Override
     public List<SessionEvent> findBySessionId(String sessionId, EventFilter filter) {
-        // Basic implementation — full filter support deferred to when needed
+        // Basic implementation — full filter support deferred
         return findBySessionId(sessionId);
     }
 
     private SessionEvent mapRow(ResultSet rs, int rowNum) throws SQLException {
         return new SessionEvent(
-                rs.getLong("sequence"),
-                rs.getString("event_id"),
+                rs.getString("id"),
                 rs.getString("session_id"),
-                rs.getInt("turn_number"),
-                EventType.valueOf(rs.getString("event_type")),
-                rs.getString("payload_json"),
-                rs.getString("metadata_json"),
+                MessageType.valueOf(rs.getString("message_type")),
+                rs.getString("message_content"),
+                rs.getString("message_data"),
+                rs.getString("provider"),
+                rs.getString("model"),
+                rs.getString("metadata"),
                 rs.getBoolean("synthetic"),
                 rs.getString("branch"),
                 rs.getTimestamp("created_at").toInstant());
