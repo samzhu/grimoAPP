@@ -20,6 +20,7 @@ import org.springaicommunity.agents.model.AgentSession;
 import org.springaicommunity.agents.model.AgentSessionRegistry;
 
 import io.github.samzhu.grimo.agent.domain.ChatSessionException;
+import io.github.samzhu.grimo.session.application.port.in.SessionRecordingPort;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -35,7 +36,8 @@ import static org.mockito.Mockito.when;
 class MainAgentChatServiceTest {
 
     private final AgentSessionRegistry registry = mock(AgentSessionRegistry.class);
-    private final MainAgentChatService service = new MainAgentChatService(registry);
+    private final SessionRecordingPort recordingPort = mock(SessionRecordingPort.class);
+    private final MainAgentChatService service = new MainAgentChatService(registry, recordingPort);
 
     private final InputStream originalIn = System.in;
     private final PrintStream originalOut = System.out;
@@ -147,6 +149,38 @@ class MainAgentChatServiceTest {
         // Then
         verify(session, never()).prompt(anyString());
         verify(session).close();
+    }
+
+    @Test
+    @DisplayName("[S017] E2E-BUG-1: resumeChat wraps session via SessionRecordingPort")
+    void resumeChatWrapsSessionForRecording() {
+        // Given: set up stdin/stdout
+        System.setIn(new ByteArrayInputStream("/exit\n".getBytes(StandardCharsets.UTF_8)));
+        System.setOut(new PrintStream(new ByteArrayOutputStream()));
+
+        // wrappedSession is what wrapForRecording() returns
+        var wrappedSession = mock(AgentSession.class);
+        when(wrappedSession.getSessionId()).thenReturn("resumed-session");
+        // wrapForRecording accepts ANY AgentSession and returns wrapped
+        when(recordingPort.wrapForRecording(any(AgentSession.class))).thenReturn(wrappedSession);
+
+        try (MockedStatic<ClaudeSessionConnector> connector = mockStatic(ClaudeSessionConnector.class)) {
+            // ClaudeSessionConnector returns a ClaudeAgentSession (package-private)
+            // We can't mock it directly — use thenAnswer to return a mock that satisfies the type
+            var claudeSession = mock(org.springaicommunity.agents.claude.ClaudeAgentSession.class);
+            when(claudeSession.getSessionId()).thenReturn("resumed-session");
+            connector.when(() -> ClaudeSessionConnector.continueLastSession(
+                    any(Path.class), any(Duration.class), isNull(), isNull()))
+                    .thenReturn(claudeSession);
+
+            // When
+            service.resumeChat(Path.of("/tmp"));
+
+            // Then: SessionRecordingPort.wrapForRecording() was called with the raw session
+            verify(recordingPort).wrapForRecording(claudeSession);
+        }
+        // And: the wrapped session is used (close is called on it)
+        verify(wrappedSession).close();
     }
 
     @Test

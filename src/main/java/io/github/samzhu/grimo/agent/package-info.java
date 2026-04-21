@@ -14,12 +14,17 @@
  * {@code ~/.grimo/skills/} to {@code <workdir>/.claude/skills/} via
  * {@code SkillProjectionUseCase} (skills::api).
  *
+ * <p>S017: Injects {@code SessionRecordingPort} (session::api) to wrap
+ * resumed sessions in the recording decorator. New sessions via
+ * {@code AgentSessionRegistry.create()} are auto-wrapped by
+ * {@code @Primary RecordingAgentSessionRegistry}.
+ *
  * <p>S008+ will switch to containerised claude-code inside
  * {@code grimo-runtime}.
  */
 @ApplicationModule(
     displayName = "Grimo :: Agent",
-    allowedDependencies = { "skills::api" }
+    allowedDependencies = { "skills::api", "session::api" }
 )
 package io.github.samzhu.grimo.agent;
 

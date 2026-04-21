@@ -173,6 +173,35 @@ When to use: any spec that produces an artifact with user-visible
 behavior. Skip for pure library/internal API specs where unit tests
 in the source tree are sufficient.
 
+#### Mandatory E2E gate — integration seam principle
+
+Unit tests with stubs prove components in isolation. They do NOT
+prove the assembled system works. When a spec's implementation
+relies on framework wiring, runtime initialization, or cross-process
+communication that only activates in the real artifact, **hermetic
+artifact testing is REQUIRED before shipping**.
+
+**Principle: if the behavior depends on something the test harness
+replaces with a stub, a fake, or a manual call, then the real
+assembly path is unverified.**
+
+Examples of integration seams that stubs hide:
+- DI container bean resolution order and overrides
+- Database schema auto-initialization at startup
+- Event/message serialization through framework infrastructure
+- Credential or environment variable injection from OS-level stores
+- Subprocess metadata shape differences between stubs and real output
+
+**Detection rule:** During Step 0, scan the spec's approach and file
+plan. Ask: "Is there any behavior that only activates when the real
+artifact starts, that unit tests bypass by calling methods directly
+or injecting stubs?" If yes → hermetic artifact testing is REQUIRED.
+Classify its absence as CRITICAL.
+
+**This gate cannot be waived.** A spec that ships without verifying
+its integration seams has an unverified assembly — the same risk
+category as an untested AC.
+
 #### Evidence standard
 
 Evidence means captured execution output — not "code review

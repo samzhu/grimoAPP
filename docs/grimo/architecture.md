@@ -25,7 +25,7 @@
 
 ## 2. 模組地圖（MVP）
 
-> **2026-04-18 更新（v3 藍圖）：** 隨 v3 重新規劃，本節改列 MVP 真正落地的 6 個模組。`agent` 模組在 S007 先用主機 claude，S008 起整合容器化。`subagent` 移至 Backlog（委派 + 工作樹 + 子代理生命週期待容器化 + session + skill 驗證後晉升）。原 v1 模組（`session`、`router`、`memory`、`jury`、`cost`、`web`、`nativeimage`）已移至下方 §2.x「Backlog 模組（晉升時恢復）」附錄。
+> **2026-04-21 更新（S017 出貨）：** 新增 `session` 模組（從 §2.x Backlog 晉升）。Event-sourced session memory — `RecordingAgentSession` decorator 攔截 `AgentSession.prompt()`，以 `TurnRecorded` 事件非同步持久化至 H2 event store。Provider-agnostic `ProviderMetadataExtractor` SPI 動態辨識 provider 並萃取 metadata。原 v1 模組（`router`、`memory`、`jury`、`cost`、`web`、`nativeimage`）仍在下方 §2.x Backlog。
 
 ```
 io.github.samzhu.grimo                                   # 根（GrimoApplication）
@@ -37,6 +37,7 @@ io.github.samzhu.grimo                                   # 根（GrimoApplicatio
 ├── sandbox                                 # Sandbox SPI (agent-sandbox-core) + bind-mount 適配器（S003）
 ├── cli                                     # ContainerizedAgentModelFactory（docker exec wrapper → AgentModel）（S005 ✅）
 ├── agent                                   # 主代理對話（S007 主機 → S008 容器化 Claude → S009/S010 Gemini/Codex）
+├── session                                 # Event-sourced session memory（S017 ✅）— RecordingAgentSession decorator
 ├── subagent                                # 委派 + 工作樹 + 子代理生命週期（Backlog，待晉升）
 └── skills                                  # SKILL.md 登錄檔 + 預裝至 Agent 容器（S012、S013）
 ```
@@ -54,6 +55,7 @@ io.github.samzhu.grimo                                   # 根（GrimoApplicatio
 | `cli` | `ContainerizedAgentModelFactory`（`@NamedInterface("api")`） | —（WrapperScriptGenerator 內部直接呼叫 docker exec） | `CliUnavailable`、`CliInvocationFailed`（S006 規劃） | S005 ✅ / S006 |
 | `agent` | `MainAgentChatUseCase`（`grimo chat` 入口） | S007: 無（主機 claude）；S016: `skills :: api`（投影）；S008+: `cli :: api`（容器化）、`sandbox :: api` | — | S007 → S016 → S008–S010 |
 | `subagent` | `DelegateTaskUseCase` | `Sandbox`（SPI）、`WorktreePort`、`AgentCliPort` | `SubagentStarted`、`SubagentCompleted`、`SubagentFailed` | Backlog（v2 S008–S010） |
+| `session` | `SessionHistoryUseCase`（`@NamedInterface("api")`） | `SessionEventPort`、`SessionProjectionPort`、`ProviderMetadataExtractor` | `TurnRecorded`（`@NamedInterface("events")`） | S017 ✅ |
 | `skills` | `SkillRegistryUseCase`、`SkillProjectionUseCase`（`@NamedInterface("api")`） | `SkillStorePort`（檔案系統） | `SkillEnabled`、`SkillDisabled` | S012 / S013 / S016 |
 
 ### 2.x Backlog 模組（晉升時恢復）
@@ -62,7 +64,7 @@ io.github.samzhu.grimo                                   # 根（GrimoApplicatio
 
 | Backlog 模組 | 用途 | 從何處晉升 |
 | --- | --- | --- |
-| `session` | `SessionMemoryAdvisor` 接線 + 持久化對話 session | Backlog「持久化 Session」 |
+| ~~`session`~~ | ~~`SessionMemoryAdvisor` 接線 + 持久化對話 session~~ | **已晉升 → S017 ✅**（Event-sourced session memory + provider-agnostic metadata） |
 | `router` | 成本/複雜度感知 CLI 路由 | Backlog「成本路由器」 |
 | `memory` | `AutoMemoryTools` 管理 `~/.grimo/memory` | Backlog「AutoMemoryTools 接線」 |
 | `jury` | N 路並行審查 | Backlog「評審團」 |
@@ -155,14 +157,16 @@ io.github.samzhu.grimo                                   # 根（GrimoApplicatio
 
 ### 5.2 關聯式儲存
 
-- **預設：** H2 檔案模式 — `jdbc:h2:file:~/.grimo/db/grimo;MODE=PostgreSQL;AUTO_SERVER=TRUE`
-- **可選：** 透過設定 `grimo.datasource.url`（以及 `username` / `password`）切換至 PostgreSQL — session-jdbc 有對應的 `PostgresJdbcSessionRepositoryDialect`。
-- **資料表**（由 `spring-ai-session-jdbc` 的 schema.sql 管理）：`AI_SESSION`、`AI_SESSION_EVENT`（含主鍵/索引定義）。
-- **Modulith 事件發佈資料表**，由 `spring-modulith-events-jdbc` 管理：`event_publication` + `event_publication_archive`。
-- **Grimo 自有資料表**（由 Flyway 管理，位於 `src/main/resources/db/migration/`）：
-  - `grimo_cost` — 每輪 token + 美元遙測（欄位：`turn_id`、`session_id`、`provider`、`tokens_in`、`tokens_out`、`usd_cents`、`created_at`）。
-  - `grimo_subagent_task` — 任務生命週期（`id`、`session_id`、`worktree_path`、`status`、`started_at`、`finished_at`、`exit_code`）。
-  - `grimo_skill_proposal` — 待審蒸餾提案（`id`、`name`、`source_session_ids`、`draft_md`、`status`、`created_at`）。
+- **預設：** H2 檔案模式 — `jdbc:h2:file:~/.grimo/db/grimo;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE`
+- **可選：** 透過設定 `grimo.datasource.url`（以及 `username` / `password`）切換至 PostgreSQL。
+- **Session event store（S017 ✅）**（由 `src/main/resources/schema.sql` 管理）：
+  - `grimo_session_event` — Append-only event log（`sequence`、`event_id`、`session_id`、`turn_number`、`event_type`、`payload_json`、`metadata_json`、`synthetic`、`branch`、`created_at`）。
+  - `grimo_session` — Materialized projection（`id`、`parent_id`、`fork_turn`、`provider`、`status`、`turn_count`、`total_tokens_in/out`、`total_duration_ms`、`event_version`、`work_dir`、`created_at`、`last_active_at`）。
+- **Modulith 事件發佈資料表**，由 `spring-modulith-events-jdbc` 自動管理（`spring.modulith.events.jdbc.schema-initialization.enabled=true`）：`EVENT_PUBLICATION`。
+- **Grimo 未來自有資料表**（Backlog — 未實作）：
+  - `grimo_cost` — 每輪 token + 美元遙測。
+  - `grimo_subagent_task` — 任務生命週期。
+  - `grimo_skill_proposal` — 待審蒸餾提案。
 
 ## 6. 關鍵資料流
 

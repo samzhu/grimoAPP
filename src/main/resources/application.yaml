@@ -9,4 +9,9 @@ spring:
     driver-class-name: org.h2.Driver
   sql:
     init:
-      mode: embedded           # H2 embedded → auto-init schema
+      mode: always             # Always run schema.sql (H2 uses IF NOT EXISTS)
+  modulith:
+    events:
+      jdbc:
+        schema-initialization:
+          enabled: true        # Auto-create EVENT_PUBLICATION table (modulith-events-jdbc)

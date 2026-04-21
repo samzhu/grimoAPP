@@ -79,13 +79,55 @@ Present Steps 1-5 output to the user, then **ask explicitly**:
 
 ## Step 6 — Persist the Artifact
 
-After incorporating human feedback, tell the user exactly where to save the checklist so it auto-triggers next time:
+After incorporating human feedback, determine where to save the
+checklist so it auto-triggers next time:
 
 - Reusable skill: `.claude/skills/{name}/SKILL.md` or `~/.claude/skills/{name}/SKILL.md`
 - Slash command: `~/.claude/commands/{name}.md`
 - Project memory: `CLAUDE.md` (only if fewer than 5 items)
 
 Include the exact path and the phrase or command that will invoke it.
+
+### Skill Portability Gate
+
+When Step 5 items require creating or modifying a skill file, apply
+every rule below before writing. A skill that violates these rules
+is not shippable.
+
+**1. Write principles, not project specifics.** A skill must be
+understandable and useful when copied to a different project with a
+different tech stack. Do not embed project-specific file paths,
+class names, framework versions, or tool commands. Instead, write
+the general principle and let the executor adapt to the local
+project context.
+
+- Bad: "check `docs/grimo/architecture.md` for Spring Modulith version"
+- Good: "check the project's architecture doc for framework versions"
+
+**2. No hardcoded paths.** Use `${CLAUDE_SKILL_DIR}` to reference
+files bundled with the skill. Use `$ARGUMENTS` for values that vary
+per invocation. Never write absolute paths (`/Users/...`).
+
+**3. Scope determines location.**
+
+| Question | Location |
+|----------|----------|
+| Useful in any project by this user? | `~/.claude/skills/` (personal) |
+| Useful only in this project? | `.claude/skills/` (project) |
+
+**4. Size ≤ 500 lines.** SKILL.md is the overview + navigation.
+Move detailed references, templates, and examples to supporting
+files in the same skill directory. Reference them with relative
+paths.
+
+**5. Side-effect skills need `disable-model-invocation: true`.**
+If the skill deploys, commits, writes files, sends messages, or
+modifies shared state, it must not be auto-invoked by the model.
+
+**6. Description front-loads trigger keywords.** The `description`
+field (max 1,536 chars with `when_to_use`) determines when the
+skill is matched. Put the most important use cases and trigger
+phrases first.
 
 ## Step 7 — One-Line Verdict
 

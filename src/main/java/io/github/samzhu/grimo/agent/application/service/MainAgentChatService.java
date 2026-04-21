@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 import io.github.samzhu.grimo.agent.application.port.in.MainAgentChatUseCase;
 import io.github.samzhu.grimo.agent.domain.ChatSessionException;
+import io.github.samzhu.grimo.session.application.port.in.SessionRecordingPort;
 
 @Service
 class MainAgentChatService implements MainAgentChatUseCase {
@@ -24,9 +25,12 @@ class MainAgentChatService implements MainAgentChatUseCase {
     private static final Duration SESSION_TIMEOUT = Duration.ofMinutes(30);
 
     private final AgentSessionRegistry sessionRegistry;
+    private final SessionRecordingPort sessionRecordingPort;
 
-    MainAgentChatService(AgentSessionRegistry sessionRegistry) {
+    MainAgentChatService(AgentSessionRegistry sessionRegistry,
+                         SessionRecordingPort sessionRecordingPort) {
         this.sessionRegistry = sessionRegistry;
+        this.sessionRecordingPort = sessionRecordingPort;
     }
 
     @Override
@@ -47,8 +51,9 @@ class MainAgentChatService implements MainAgentChatUseCase {
     public void resumeChat(Path workingDirectory) {
         AgentSession session;
         try {
-            session = ClaudeSessionConnector.continueLastSession(
+            AgentSession raw = ClaudeSessionConnector.continueLastSession(
                     workingDirectory, SESSION_TIMEOUT, null, null);
+            session = sessionRecordingPort.wrapForRecording(raw);
             log.info("Chat session resumed (sessionId={})", session.getSessionId());
         } catch (Exception e) {
             log.debug("Resume failed, falling back to new session", e);

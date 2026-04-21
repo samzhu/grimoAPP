@@ -347,6 +347,22 @@ Run the project's standard pipeline commands. Each must exit 0.
 
 If any fails, identify the failing task and re-enter Phase 3.
 
+**Step 1.5: E2E artifact verification (integration seam gate)**
+
+Ask: "Does this spec's implementation rely on behavior that only
+activates in the real artifact — framework wiring, schema
+initialization, event serialization, subprocess communication, or
+credential injection that unit tests bypass with stubs?"
+
+If **yes** → build the artifact, run it, and verify the feature
+end-to-end. Record evidence (command + output) in the spec §7.
+If E2E reveals failures → record findings in spec §7, revert
+status to `⏳ Dev`, create new task files for fixes, re-enter
+Phase 3. **Do not hotfix without task files.**
+
+If **no** → skip, proceed to Step 2. Record the rationale in §7:
+"E2E not required — no integration seams identified."
+
 **Step 2: Consolidate results into spec file**
 
 Add section 7 (Implementation Results) to the spec file:
@@ -434,6 +450,37 @@ After Phase 4 Step 5 (subagent QA) passes:
 This skill cannot auto-invoke shipping — shipping is intentionally
 gated because its actions (commit, tag, archive) require explicit
 user authorization.
+
+## Post-Verification Bug Re-Entry Protocol
+
+When E2E artifact testing, QA subagent, or user manual testing
+reveals bugs **after tasks have been consolidated**, the fix MUST
+go through the spec — not be applied as an ad-hoc hotfix.
+
+**Principle: the spec file is the single source of truth. Every
+change to shipped code must be traceable to a task in the spec.**
+
+Procedure:
+
+1. **Record findings in spec §7.** Add an "E2E Verification" or
+   "Post-Ship Bug" subsection documenting: what was tested, what
+   failed, the root cause analysis.
+2. **Revert spec status.** Change status from `✅ Done` back to
+   `⏳ Dev (bug fix)`. Update the roadmap entry to match.
+3. **Assess design impact.** For each bug, ask: "Does this
+   invalidate a design assumption in §2 Approach?" If yes →
+   run a targeted POC to discover the correct assumption before
+   planning fixes. Record POC findings in §6.
+4. **Create new task files.** One task per bug (or group tightly
+   related bugs). Each task has BDD, root cause, target files.
+   Add these to the spec §6 task plan as a "Round N" section.
+5. **Re-enter Phase 3.** Execute the task loop normally.
+6. **Re-run Phase 4.** Including E2E verification. The same bug
+   category that was found must be re-tested with evidence.
+
+**Banned shortcut:** Directly editing production code to fix a
+post-verification bug without a task file. This leaves no audit
+trail and risks introducing untracked regressions.
 
 ## Semi-Auto Mode (`auto`)
 

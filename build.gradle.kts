@@ -23,6 +23,8 @@ extra["springAiVersion"] = "2.0.0-M4"
 
 dependencies {
 	implementation("org.springframework.modulith:spring-modulith-starter-core")
+	implementation("org.springframework.modulith:spring-modulith-events-jdbc")
+	implementation("org.springframework.modulith:spring-modulith-events-jackson")
 	implementation("org.springaicommunity:agent-sandbox-core:0.9.1")
 	implementation("org.springaicommunity.agents:agent-client-core:0.12.2")
 	implementation("org.springaicommunity.agents:agent-model:0.12.2")
