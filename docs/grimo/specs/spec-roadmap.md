@@ -137,9 +137,9 @@
 
 ### S017 — Grimo Session Memory · S (11)
 
-**描述。** 新建 `session` Modulith 模組（Backlog 晉升）。`RecordingAgentSession` decorator 攔截每輪 `AgentSession.prompt()`，透過 Modulith event 非同步持久化至 H2 event store `grimo_session_event`（append-only，`payload_json` + `metadata_json`）。每輪產生 USER + ASSISTANT 兩筆 events。`grimo_session` projection 表物化 session 摘要，含 `parent_id` + `fork_turn` 預留 Claude Code 對話 fork。Schema 預留 `synthetic` flag + `SUMMARY` event type 供 S014 compaction 使用。
+**描述。** 新建 `session` Modulith 模組（Backlog 晉升）。`RecordingAgentSession` decorator 攔截每輪 `AgentSession.prompt()`，透過 Modulith event 非同步持久化至 H2 event store `grimo_session_event`（append-only，`payload_json` + `metadata_json`）。每輪產生 USER + ASSISTANT 兩筆 events。`grimo_session` projection 表物化 session 摘要，含 `parent_id` + `fork_turn` 預留對話 fork 及跨 Provider 切換追蹤。Schema 預留 `synthetic` flag + `SUMMARY` event type 供 S014 compaction 使用。**Provider-agnostic 設計：** `ProviderMetadataExtractor` SPI 動態辨識 provider 並萃取 metadata，新增 provider 只需一個 class。
 
-**v3 重設計（2026-04-20）。** v1 使用 `ChatMemory`（POC 否決）。v2 使用 flat table（schema 不夠靈活）。v3 受 T3 Code event sourcing 啟發，借鑑 Spring AI Session API（Part 7 blog）的 turn 概念，改用 event store + projection。Compaction SPI 由 S014 負責。
+**v3.1 更新（2026-04-21）。** v3 硬編碼 Claude provider。v3.1 引入 `ProviderMetadataExtractor` SPI、移除 schema DEFAULT 'claude'、擴展 `parent_id` 語意涵蓋跨 Provider 切換（PRD AC3）、明確記載三層程式模型（`AgentModel` vs `AgentClient` vs `AgentSession`）選擇理由。
 
 **參考。** [Spring AI Session API (Part 7)](https://spring.io/blog/2026/04/15/spring-ai-session-management) — turn-safe compaction、four strategies。[Spring AI Agentic Patterns Part 6](https://spring.io/blog/2026/04/07/spring-ai-agentic-patterns-6-memory-tools) — Session Memory vs Long-term Memory 兩層互補。[competitive-analysis.md §3.1](docs/local/competitive-analysis.md) — T3 Code event sourcing schema。
 

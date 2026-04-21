@@ -45,6 +45,21 @@ Check:
 
 If a viable upstream solution exists, evaluate reuse vs build-own as the **first grill question**, before diving into implementation details.
 
+### Org-Level Repo Inventory (sub-rule of Step 0)
+
+**When the spec depends on libraries from a GitHub org, list ALL repos in that org before designing any interface.**
+
+A single org often contains multiple related repos — SDK, provider adapters, session management, starters — each with distinct API surfaces. Researching only the repo mentioned in `architecture.md` misses sibling repos that may already solve the spec's problem or provide design patterns to align with.
+
+**Action:**
+1. `WebFetch` the org's repo list: `https://api.github.com/orgs/{org}/repos?per_page=100`
+2. For each repo whose name relates to this spec's domain, fetch `git/trees/main?recursive=1` to list its top-level packages
+3. Record the full repo list and relevant packages in §2.3 Research Citations
+
+**Exit criterion:** You can name every repo in the org and have read the README of each domain-relevant repo.
+
+**Example:** An org ships a high-level client (`org/agent-client`), a low-level SDK (`org/agent-sdk`), and a session management library (`org/session`). Researching only the client misses the SDK's runtime APIs (mid-session model switching, hooks) and the session library's query/compaction patterns — both of which directly inform the spec's design.
+
 ## Step 0.25: Identify Applicable Industry Standards (MANDATORY)
 
 **Before evaluating any framework/library, identify whether an industry standard governs this spec's domain.**
@@ -255,12 +270,46 @@ schema migration and data backfill.
 
 **Skip ONLY when:** The dependency's behavior has been fully validated by a prior shipped spec's §7 Findings (with runtime-verified findings, not just API mapping).
 
+### PRD Acceptance Criteria Scan Before Schema Defaults (sub-rule of Step 0.75)
+
+**When a schema column uses an enum/classification value (e.g., `provider`, `status`, `type`), grep the PRD for ALL acceptance criteria that reference that concept before writing any DEFAULT value.**
+
+Hardcoding a DEFAULT assumes a single-value world. The PRD may define multi-value scenarios that the schema must accommodate from day one.
+
+**Action:**
+1. For each enum/classification column in the schema, search the PRD:
+   `grep -i "{column concept}" {PRD path}`
+2. List every AC that references or constrains the column's value domain
+3. If ANY AC implies multiple values → remove DEFAULT, make the column dynamic
+4. Record the AC references in §2 Approach as design rationale
+
+**Exit criterion:** Every enum/classification column's DEFAULT (or lack thereof) is justified by a specific PRD AC reference.
+
+**Example:** A schema has `provider VARCHAR(20) DEFAULT 'providerA'`. PRD AC says "user can switch from providerA to providerB mid-session." The DEFAULT hardcodes a single-provider assumption — remove it, make the value dynamic via a strategy/extractor pattern.
+
+### Ecosystem Query Pattern Alignment (sub-rule of Step 0.75)
+
+**When the spec designs a query/filter API (e.g., `EventFilter`, `SearchCriteria`), search the same ecosystem for existing filter designs and align field names and conventions.**
+
+Designing a query API in isolation leads to naming drift. When the spec's filter later needs to interoperate with upstream or sibling libraries, misaligned field names create unnecessary mapping code.
+
+**Action:**
+1. Search related repos for existing filter/criteria records:
+   `grep -r "Filter\|Criteria\|Query" {related-repos}`
+2. For each match, read the record's fields and factory methods
+3. Align the spec's filter with the upstream convention (field names, types, factory method signatures)
+4. For each field in the spec's filter, annotate: "aligns with {upstream}.{field}" or "project-specific, no upstream equivalent"
+
+**Exit criterion:** Every field in the spec's filter API has either an upstream alignment citation or an explicit "project-specific" annotation.
+
+**Example:** You design `EventFilter(lastN, excludeSynthetic)` with 2 fields. A sibling library in the same ecosystem has `EventFilter` with 9 fields (from, to, messageTypes, keyword, lastN, page, pageSize, branch, excludeSynthetic). Aligning upfront avoids a redesign when downstream consumers need the richer query capabilities.
+
 ## Steps 1–5: Dispatch Sequence
 
 1. **List ALL load-bearing APIs this spec touches.** Read the roadmap deliverables, architecture doc, and any SBE drafts. Name each API by library + entrypoint (e.g., `<library>: <class/annotation/function>`). One entry per distinct surface. **Be exhaustive** — under-scoping the API list is the #1 cause of repeated research rounds. **Include interfaces discovered in Step 0.5** — these are often the most important APIs and the ones most likely to be missed if Step 0.5 was skipped.
-2. **Dispatch 3–5 sub-agents in parallel IMMEDIATELY** — one round, full coverage. Budget per sub-agent: 10 tool calls max. Cover the ENTIRE API surface relevant to this spec, not just the specific method in question. S-sized specs: 2–3 agents. M+ specs: 3–5 agents.
-3. **WAIT for all agents to return.** Do NOT begin the grill loop while agents are running. Integrate ALL findings before the first user question.
-4. **Integrate findings into working context.** Fold each finding into a research summary. If a finding contradicts the roadmap's SBE draft (e.g., roadmap assumes method X, docs show X is deprecated and Y is current), note it for the first grill question.
+2. **Round 1: Dispatch breadth agents in parallel.** Budget per sub-agent: 10 tool calls max. S-sized specs: 2–3 agents. M+ specs: 3–5 agents. Include at minimum: (a) org-level repo inventory if spec touches a GitHub org, (b) one agent per pinned library for API surface listing.
+3. **WAIT for all Round 1 agents to return.** Integrate findings. Triage: which discoveries need deep research? Dispatch Round 2 agents immediately for newly discovered surfaces (see Iterative Discovery Pattern above).
+4. **After the last round completes, integrate ALL findings into working context.** Fold each finding into a research summary. If a finding contradicts the roadmap's SBE draft (e.g., roadmap assumes method X, docs show X is deprecated and Y is current), note it for the first grill question.
 5. **Cite every source in §2.** No uncited version numbers, no uncited API signatures. The citation is the audit trail when `/implementing-task` later re-fetches the same doc.
 
 ## Sub-agent Prompt Template
@@ -319,16 +368,70 @@ Adapt to the specific API surface:
 
 When a sub-agent returns a finding that is the load-bearing decision of the spec, verify it against the raw source before presenting to the user.
 
-## One Round Rule
+## Iterative Discovery Pattern (replaces the former "One Round Rule")
 
-**Complete research in ONE parallel dispatch.** Multiple sequential rounds indicate the first round was under-scoped.
+Research follows a **breadth-first discovery chain**: each round may reveal new repos, libraries, or design patterns that require a follow-up round. This is normal and expected — not a sign of under-scoping.
 
-Common under-scoping patterns to avoid:
-- Researching only the specific method mentioned in the roadmap (research the entire class and its collaborators)
-- Researching only one library when the spec touches multiple (dispatch one agent per library)
-- Researching only the "happy path" API (also check extension points, factories, builders, configuration options)
+### Round structure
 
-If a sub-agent identifies a gap that requires a second fetch, that fetch should be a quick confirmation (1-2 tool calls), not a new research round.
+```
+Round 1: BREADTH — cast a wide net
+  Dispatch 3-5 sub-agents in parallel:
+    - Org-level repo inventory (Step 0 sub-rule)
+    - README scan of all domain-relevant repos
+    - Pinned library API surface listing (Step 0.5)
+  Exit: can name every repo in the org + every top-level package in relevant repos
+
+      ↓ Triage: which discoveries need deep research?
+
+Round 2: DEPTH — targeted deep dives
+  Dispatch sub-agents for newly discovered surfaces:
+    - Read source of key interfaces found in Round 1
+    - Compare design patterns across sibling repos (e.g., EventFilter in spring-ai-session vs our design)
+    - Validate behavior of load-bearing APIs (Step 0.75)
+  Exit: every load-bearing API classified as Validated / Hypothesis / Unknown
+
+      ↓ Triage: did Round 2 reveal anything new?
+
+Round 3 (if needed): ALIGNMENT — ecosystem pattern sync
+  Dispatch sub-agents for newly discovered patterns:
+    - e.g., Round 2 found spring-ai-session has CAS compaction → research its schema + strategy framework
+    - e.g., Round 2 found ClaudeSyncClient.setModel() → research implications for cost routing
+  Exit: no new domain-relevant discoveries
+```
+
+### Rules
+
+1. **Each round dispatches sub-agents in parallel** — never sequentially. If Round 2 needs 3 deep dives, dispatch all 3 at once.
+2. **Maximum 3 rounds.** If Round 3 still produces new discoveries, stop and document the remaining unknowns for the user to triage. Infinite research loops are worse than documented gaps.
+3. **Triage between rounds is fast.** Spend ≤ 2 minutes deciding what Round N+1 needs. List the discoveries, tag each as "needs deep research" or "noted, no action needed", dispatch immediately.
+4. **The grill loop starts ONLY after the last round completes.** No grilling between rounds.
+
+### What triggers a new round (legitimate discovery chain)
+
+| Round 1 discovers... | Round 2 action |
+|----------------------|----------------|
+| Sibling repo in the same org not mentioned in architecture.md | Read its README + list packages |
+| A library provides an interface that matches the spec's domain concept | Deep dive: read full source, check extensibility |
+| An upstream design pattern (EventFilter, CAS, branch isolation) | Compare with spec's current design, align or document divergence |
+| A related SDK at a different abstraction layer | Map its API surface and relationship to the already-known library |
+
+### What does NOT trigger a new round (scope creep)
+
+- "This library is interesting but not related to this spec" → note in §2.3, no follow-up
+- "The upstream has a feature we might use someday" → note in Appendix, no follow-up
+- "There are 20 more repos in this org" → only research repos whose README mentions this spec's domain concepts
+
+### Anti-pattern: Reactive single-target research
+
+Research is reactive — the user provides a URL, agent researches that one repo, designs, then the user provides another URL, triggering re-research and redesign. This repeats N times.
+
+```
+BAD:  user URL → research 1 repo → design → user URL → re-research → redesign (×N)
+GOOD: Round 1 → list all org repos → Round 2 → deep dive all in parallel → design once
+```
+
+**Root cause:** No org-level breadth scan in Round 1. The agent only researched what was explicitly pointed to, missing sibling repos that informed the design.
 
 ## Verify Before Writing
 
@@ -364,7 +467,7 @@ This pattern avoids building a parallel type system while fixing the implementat
 - The interface itself is wrong (wrong abstractions, missing fields) → design a new interface
 - The framework has proper SPI/extension points → implement the SPI instead of rewriting
 
-**Example (from S012):** `spring-ai-agent-utils` `MarkdownParser` uses a custom flat parser (cannot handle nested YAML). Interface is sound (`MarkdownParser(String)` → `getFrontMatter()` / `getContent()`). Grimo rewrites with SnakeYAML internally, keeps same method signatures, produces same `Map<String, Object>` output — but values are now correctly typed (nested maps, lists, not just strings). Downstream `new SkillsTool.Skill(basePath, frontMatter, content)` continues to work unchanged.
+**Example:** A library's `MarkdownParser` uses a custom flat line-splitter (cannot handle nested YAML). Interface is sound (`MarkdownParser(String)` → `getFrontMatter()` / `getContent()`). You rewrite with a proper YAML engine internally, keep same method signatures, produce same `Map<String, Object>` output — but values are now correctly typed (nested maps, lists, not just strings). Downstream consumers that accept `Map<String, Object>` continue to work unchanged.
 
 ### API Surface Mapping vs Behavior Validation
 
