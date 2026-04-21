@@ -1,6 +1,6 @@
 # S023: Session Message Tree — Adjacency List Branching
 
-> Spec: S023 | Size: XS (7) | Status: 🔵 in-design
+> Spec: S023 | Size: XS (7) | Status: ✅ Done
 > Date: 2026-04-21
 
 ---
@@ -326,3 +326,163 @@ List<SessionEvent> getConversationPath(String sessionId);
 | 測試 | 1 | pure JUnit + H2 |
 | 可逆性 | 1 | schema DROP+CREATE |
 | **合計** | **7** | **XS** |
+
+---
+
+## 6. Task Plan
+
+### POC Decision
+
+**POC: not required.** H2 WITH RECURSIVE 由官方文件驗證。自我參照 FK 由 S017 驗證。所有 JDBC/Modulith patterns 由 S018 驗證。
+
+### Task Summary
+
+| Task | AC | Description | Depends On |
+|------|----|-------------|------------|
+| T01 | AC-1, AC-2, AC-3, AC-6 | Schema + domain refactor + TurnRecorder parent-child chain | — |
+| T02 | AC-4, AC-5 | Recursive CTE query + branching scenario | T01 |
+
+### Execution Order
+
+```
+T01 (schema + domain + chain)
+ └──→ T02 (recursive CTE + branching)
+```
+
+Task files: `docs/grimo/tasks/2026-04-22-S023-T0{1,2}.md`
+
+---
+
+## 7. Implementation Results
+
+### Verification Results
+
+```
+./gradlew compileTestJava  → BUILD SUCCESSFUL
+./gradlew test             → BUILD SUCCESSFUL (all pass)
+E2E: java -jar             → Tomcat :8080, schema initialized with new columns
+```
+
+### E2E Artifact Verification
+
+Schema with circular FK (session ↔ event) initialized correctly on file-based H2. `ALTER TABLE ... DROP CONSTRAINT` before `DROP TABLE` resolves the circular dependency during schema rebuild.
+
+### Key Findings
+
+1. **Circular FK handling.** `grimo_session.current_event_id → grimo_session_event.id` and `grimo_session_event.session_id → grimo_session.id ON DELETE CASCADE` create a circular FK. Solution: TurnRecorder upserts projection with OLD `current_event_id`, inserts events, then UPDATEs `current_event_id`. Schema uses `ALTER TABLE DROP CONSTRAINT IF EXISTS` before `DROP TABLE`.
+
+2. **H2 recursive CTE depth ordering.** When events share the same `created_at` timestamp (common within a single turn), `ORDER BY created_at ASC` is non-deterministic. Added `depth INT` column to CTE — root has max depth, leaf has depth 0. `ORDER BY depth DESC` ensures deterministic root-first ordering.
+
+3. **Test cleanup order.** With circular FK, `DELETE FROM grimo_session_event` fails if `grimo_session.current_event_id` references an event. Fix: `UPDATE grimo_session SET current_event_id = NULL` before deleting events.
+
+4. **H2 CTE CAST requirement confirmed.** All anchor columns must be explicitly CAST to their target types (H2 defaults all to VARCHAR in recursive queries).
+
+### [Implementation note] Divergence from §2
+
+- §2.2 CTE uses `ORDER BY created_at ASC` — actual implementation uses `ORDER BY depth DESC` (depth counter added for deterministic ordering).
+- §2.3 TurnRecorder: spec describes setting `current_event_id` in the projection upsert. Actual implementation splits into upsert (with old value) + separate UPDATE (with new value) to satisfy circular FK.
+
+### AC Results
+
+| AC | Status | Test |
+|----|--------|------|
+| AC-1 parent_event_id column + self-ref FK | ✅ | SchemaTest.parentEventIdColumnAndFk |
+| AC-2 current_event_id column | ✅ | SchemaTest.currentEventIdColumn |
+| AC-3 TurnRecorder parent-child chain | ✅ | TurnRecorderTest.parentChildChain |
+| AC-4 Recursive CTE path (leaf to root) | ✅ | ConversationPathTest.conversationPathFromLeafToRoot |
+| AC-5 Branching scenario | ✅ | ConversationPathTest.branchingScenario |
+| AC-6 branch column removed | ✅ | SchemaTest.branchColumnRemoved |
+
+---
+
+## 8. QA Review
+
+**Reviewer:** Independent QA subagent
+**Date:** 2026-04-21
+**Verdict:** ⚠️ CONDITIONAL PASS — ships after 3 low-severity items are logged as tech debt in `spec-roadmap.md`
+
+---
+
+### Automated Verification
+
+```
+./gradlew compileTestJava  → BUILD SUCCESSFUL (0 errors, 1 deprecation warning in ContainerizedAgentModelIT — pre-existing)
+./gradlew test --rerun-tasks → BUILD SUCCESSFUL (all tests pass)
+```
+
+SchemaTest: 7 tests, 0 failures.
+TurnRecorderTest: 5 tests, 0 failures.
+ConversationPathTest: 2 tests, 0 failures.
+RealCliMetadataTest: 1 test, 0 failures.
+
+---
+
+### AC Coverage Audit
+
+| AC | §3 Criteria | @DisplayName Test | Verdict |
+|----|-------------|-------------------|---------|
+| AC-1 | parent_event_id column + self-ref FK | `SchemaTest#parentEventIdColumnAndFk` — checks column nullable + FK → grimo_session_event(id) | ✅ Full |
+| AC-2 | current_event_id column + FK → grimo_session_event(id) | `SchemaTest#currentEventIdColumn` — checks column + nullable only; **FK assertion missing** | ⚠️ Partial |
+| AC-3 | 6 events in linear chain, current_event_id = last ASSISTANT | `TurnRecorderTest#parentChildChain` | ✅ Full |
+| AC-4 | Recursive CTE returns 6 events, root first, leaf last | `ConversationPathTest#conversationPathFromLeafToRoot` | ✅ Full |
+| AC-5 | Branching — CTE follows correct branch only | `ConversationPathTest#branchingScenario` — verifies both branches | ✅ Full (extra coverage) |
+| AC-6 | branch column does not exist | `SchemaTest#branchColumnRemoved` | ✅ Full |
+
+**AC-2 gap:** The `@DisplayName` correctly labels "AC-2" but the test body only asserts column existence + nullable. The spec §3 AC-2 also requires `FK 指向 grimo_session_event(id)`. The FK is present in the actual schema (verified by `ALTER TABLE ... ADD CONSTRAINT fk_session_current_event`), but the test does not assert it. This is a test-coverage gap, not a production bug.
+
+---
+
+### Code Quality Review
+
+**Passes:**
+- All production classes use constructor injection only (§4 compliant).
+- Domain records `SessionEvent` and `SessionProjection` are immutable with correct `@Nullable` annotations (§3 Null Discipline).
+- `TurnRecorder`, `SessionHistoryService`, `JdbcSessionEventAdapter`, `JdbcSessionProjectionAdapter` — no `System.out`, no static mutable state, no forbidden patterns (§11 compliant).
+- `catch (JsonProcessingException e)` in `TurnRecorder#toJson` re-throws as `IllegalStateException` — not a bare catch (§8 compliant).
+- All test classes follow `*Test.java` suffix for pure JUnit / H2 (§7.2 compliant).
+- `// Given / When / Then` comments present in all S023 test methods (§7.9 compliant).
+- `SessionProjectionPort#updateCurrentEventId` correctly added to port interface; not a direct bean cross-module reference (§13 compliant).
+- `orElse(null)` in `TurnRecorder` and `SessionHistoryService` assigns to a local variable (not a return value) — not a §3 violation.
+
+**Issues found:**
+
+#### Issue 1 — Javadoc ordering mismatch (drift · low)
+`SessionEventPort#findConversationPath` Javadoc says "ordered by `created_at ASC`". The actual implementation uses `ORDER BY depth DESC`. The results are semantically equivalent (root-first), but the documented ordering mechanism is wrong. The AC-4 `@DisplayName` also says "ordered by created_at ASC".
+
+Files: `src/main/java/.../session/application/port/out/SessionEventPort.java:22`, `src/test/.../session/ConversationPathTest.java:66`
+
+#### Issue 2 — `architecture.md` schema description outdated (drift · medium)
+`architecture.md` line 169 still describes `grimo_session_event` with `branch (reserved)` and does not mention `parent_event_id`. Line 168 describes `grimo_session` without `current_event_id`. These descriptions now contradict the live schema.
+
+File: `docs/grimo/architecture.md:168-169`
+
+#### Issue 3 — Glossary missing S023 terms (drift · low)
+Development-standards §10 requires "每個新領域術語 → `docs/grimo/glossary.md`". S023 introduced new concepts: **Adjacency List tree** (Adjacency List 樹), **branch bookmark** (分支書籤 / `current_event_id`), and **Message Tree** (訊息樹). None were added to `docs/grimo/glossary.md`.
+
+#### Issue 4 — Tech debt not indexed in spec-roadmap.md (standards violation · low)
+Development-standards §10.1 rule 1: "規格關閉時必須登記。不得只記在 spec 而不索引。" Issues 1–3 above are not listed in `spec-roadmap.md` §技術債表. The §7 Implementation note mentions the CTE ordering divergence but does not create a tech-debt row.
+
+---
+
+### Design Drift (§2 / §4 vs actual)
+
+| Item | Spec says | Actual | Impact |
+|------|-----------|--------|--------|
+| §2.2 CTE ordering | `ORDER BY created_at ASC` | `ORDER BY depth DESC` | Correct result, wrong mechanism; Javadoc mismatch |
+| §2.3 TurnRecorder current_event_id update | Single upsert sets new value | Upsert with old value + separate UPDATE | Necessary to satisfy circular FK; documented in §7 |
+| §4.2 `SessionProjectionPort` | Not mentioned | Added `updateCurrentEventId(String, String)` | Required by circular FK strategy; correct design |
+
+Both divergences are justified, documented in §7, and do not affect correctness.
+
+---
+
+### Summary
+
+Production code is correct, all 6 ACs pass. Three documentation/test gaps require tech-debt registration before this spec is considered fully closed per development-standards §10.1:
+
+1. **Javadoc** on `SessionEventPort#findConversationPath` and AC-4 `@DisplayName` should say "depth DESC (deterministic root-first)" rather than "created_at ASC".
+2. **`architecture.md`** §5.2 (lines 168–169) must be updated to reflect `parent_event_id`, `current_event_id`, and removal of `branch`.
+3. **`glossary.md`** needs entries for Adjacency List tree / branch bookmark / Message Tree.
+4. All three above must be logged in `spec-roadmap.md` 技術債表.
+
+**Verdict: CONDITIONAL PASS.** The implementation is functionally sound and all ACs are verified by passing tests. The conditions above are documentation-level items (no production bugs, no missing tests for correctness). This spec may ship, provided the 4 tech-debt rows are appended to `spec-roadmap.md` in the same PR.

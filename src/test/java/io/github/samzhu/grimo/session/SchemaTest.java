@@ -119,4 +119,56 @@ class SchemaTest {
             assertThat(rs.next()).as("model column exists").isTrue();
         }
     }
+
+    @Test
+    @DisplayName("[S023] AC-1: grimo_session_event has parent_event_id with self-referencing FK")
+    void parentEventIdColumnAndFk() throws Exception {
+        // Given
+        DatabaseMetaData meta = connection.getMetaData();
+
+        // Then — column exists and is nullable
+        try (ResultSet rs = meta.getColumns(null, null, "grimo_session_event", "parent_event_id")) {
+            assertThat(rs.next()).as("parent_event_id column exists").isTrue();
+            assertThat(rs.getInt("NULLABLE")).isEqualTo(DatabaseMetaData.columnNullable);
+        }
+
+        // And — FK points to grimo_session_event(id)
+        try (ResultSet rs = meta.getImportedKeys(null, null, "grimo_session_event")) {
+            boolean found = false;
+            while (rs.next()) {
+                if ("parent_event_id".equalsIgnoreCase(rs.getString("FKCOLUMN_NAME"))
+                        && "grimo_session_event".equalsIgnoreCase(rs.getString("PKTABLE_NAME"))
+                        && "id".equalsIgnoreCase(rs.getString("PKCOLUMN_NAME"))) {
+                    found = true;
+                    break;
+                }
+            }
+            assertThat(found).as("FK parent_event_id → grimo_session_event(id)").isTrue();
+        }
+    }
+
+    @Test
+    @DisplayName("[S023] AC-2: grimo_session has current_event_id column")
+    void currentEventIdColumn() throws Exception {
+        // Given
+        DatabaseMetaData meta = connection.getMetaData();
+
+        // Then — column exists and is nullable
+        try (ResultSet rs = meta.getColumns(null, null, "grimo_session", "current_event_id")) {
+            assertThat(rs.next()).as("current_event_id column exists").isTrue();
+            assertThat(rs.getInt("NULLABLE")).isEqualTo(DatabaseMetaData.columnNullable);
+        }
+    }
+
+    @Test
+    @DisplayName("[S023] AC-6: branch column removed from grimo_session_event")
+    void branchColumnRemoved() throws Exception {
+        // Given
+        DatabaseMetaData meta = connection.getMetaData();
+
+        // Then — branch column does NOT exist
+        try (ResultSet rs = meta.getColumns(null, null, "grimo_session_event", "branch")) {
+            assertThat(rs.next()).as("branch column should not exist").isFalse();
+        }
+    }
 }

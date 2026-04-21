@@ -37,12 +37,12 @@ class SessionRestControllerTest {
 
     private SessionProjection grimoSession() {
         return new SessionProjection("sess-1", "GRIMO", null,
-                SessionStatus.ACTIVE, 5, 3200, 1800, 12500, 10, null, NOW, NOW);
+                SessionStatus.ACTIVE, 5, 3200, 1800, 12500, 10, null, null, NOW, NOW);
     }
 
     private SessionProjection projectSession() {
         return new SessionProjection("sess-2", "PROJECT", "P1",
-                SessionStatus.ACTIVE, 2, 1100, 600, 4200, 4, null, NOW, NOW);
+                SessionStatus.ACTIVE, 2, 1100, 600, 4200, 4, null, null, NOW, NOW);
     }
 
     @Test
@@ -103,8 +103,8 @@ class SessionRestControllerTest {
     void getEvents() throws Exception {
         // Given
         when(sessionHistory.findById("sess-1")).thenReturn(Optional.of(grimoSession()));
-        var event = new SessionEvent("evt-1", "sess-1", MessageType.USER,
-                "hello", null, null, null, null, false, null, NOW);
+        var event = new SessionEvent("evt-1", "sess-1", null, MessageType.USER,
+                "hello", null, null, null, null, false, NOW);
         when(sessionHistory.getEvents("sess-1")).thenReturn(List.of(event));
 
         // When / Then

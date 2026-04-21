@@ -27,12 +27,12 @@ public class JdbcSessionProjectionAdapter implements SessionProjectionPort {
         jdbc.update("""
                 MERGE INTO grimo_session (id, session_type, project_id, status,
                     turn_count, total_tokens_in, total_tokens_out, total_duration_ms,
-                    event_version, work_dir, created_at, last_active_at)
+                    event_version, current_event_id, work_dir, created_at, last_active_at)
                 KEY (id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 p.id(), p.sessionType(), p.projectId(), p.status().name(),
                 p.turnCount(), p.totalTokensIn(), p.totalTokensOut(), p.totalDurationMs(),
-                p.eventVersion(), p.workDir(),
+                p.eventVersion(), p.currentEventId(), p.workDir(),
                 Timestamp.from(p.createdAt()), Timestamp.from(p.lastActiveAt()));
     }
 
@@ -65,6 +65,12 @@ public class JdbcSessionProjectionAdapter implements SessionProjectionPort {
                 this::mapRow, sessionType);
     }
 
+    @Override
+    public void updateCurrentEventId(String sessionId, String currentEventId) {
+        jdbc.update("UPDATE grimo_session SET current_event_id = ? WHERE id = ?",
+                currentEventId, sessionId);
+    }
+
     private SessionProjection mapRow(ResultSet rs, int rowNum) throws SQLException {
         return new SessionProjection(
                 rs.getString("id"),
@@ -76,6 +82,7 @@ public class JdbcSessionProjectionAdapter implements SessionProjectionPort {
                 rs.getLong("total_tokens_out"),
                 rs.getLong("total_duration_ms"),
                 rs.getLong("event_version"),
+                rs.getString("current_event_id"),
                 rs.getString("work_dir"),
                 rs.getTimestamp("created_at").toInstant(),
                 rs.getTimestamp("last_active_at").toInstant());

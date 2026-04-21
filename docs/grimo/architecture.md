@@ -165,8 +165,8 @@ io.github.samzhu.grimo                                   # 根（GrimoApplicatio
 - **S018 Schema（DROP+CREATE，由 `src/main/resources/schema.sql` 管理）：**
   - `grimo_project` — Project 管理（`id` VARCHAR(12)、`name`、`work_dir`、`description`、timestamps）。
   - `grimo_task` — 通用工作項目（`id` VARCHAR(12)、`task_number` SEQUENCE、`project_id` FK nullable、`title`、`status` 狀態機、`priority`、`labels_json`、`source_type/ref`、timestamps + `closed_at`）。
-  - `grimo_session` — Session projection（`id`、`session_type` GRIMO/PROJECT、`project_id` FK nullable、`status`、`turn_count`、`total_tokens_in/out`、`total_duration_ms`、`event_version`、`work_dir`、timestamps）。
-  - `grimo_session_event` — Append-only event log, aligned with Spring AI naming（`id` PK、`session_id` FK CASCADE、`message_type` USER/ASSISTANT/SYSTEM/TOOL、`message_content`、`message_data`、`provider`、`model`、`metadata`、`synthetic`、`branch`（reserved）、`created_at`）。
+  - `grimo_session` — Session projection（`id`、`session_type` GRIMO/PROJECT、`project_id` FK nullable、`status`、`turn_count`、`total_tokens_in/out`、`total_duration_ms`、`event_version`、`current_event_id` FK → grimo_session_event（S023 branch bookmark）、`work_dir`、timestamps）。
+  - `grimo_session_event` — Append-only event log + Adjacency List tree（`id` PK、`session_id` FK CASCADE、`parent_event_id` FK self-ref（S023 tree）、`message_type` USER/ASSISTANT/SYSTEM/TOOL、`message_content`、`message_data`、`provider`、`model`、`metadata`、`synthetic`、`created_at`）。
 - **Modulith 事件發佈資料表**，由 `spring-modulith-events-jdbc` 自動管理（`spring.modulith.events.jdbc.schema-initialization.enabled=true`）：`EVENT_PUBLICATION`。
 - **Grimo 未來自有資料表**（Backlog — 未實作）：
   - `grimo_cost` — 每輪 token + 美元遙測。

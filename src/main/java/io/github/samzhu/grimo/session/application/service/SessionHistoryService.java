@@ -52,4 +52,15 @@ class SessionHistoryService implements SessionHistoryUseCase {
     public List<SessionProjection> findBySessionType(String sessionType) {
         return projectionStore.findBySessionType(sessionType);
     }
+
+    @Override
+    public List<SessionEvent> getConversationPath(String sessionId) {
+        var currentEventId = projectionStore.findById(sessionId)
+                .map(SessionProjection::currentEventId)
+                .orElse(null);
+        if (currentEventId == null) {
+            return List.of();
+        }
+        return eventStore.findConversationPath(currentEventId);
+    }
 }

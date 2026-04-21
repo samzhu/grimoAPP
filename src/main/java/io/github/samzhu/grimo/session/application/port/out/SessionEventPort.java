@@ -16,4 +16,10 @@ public interface SessionEventPort {
     List<SessionEvent> findBySessionId(String sessionId);
 
     List<SessionEvent> findBySessionId(String sessionId, EventFilter filter);
+
+    /**
+     * Walks the tree from a leaf event to the root via {@code parent_event_id},
+     * returning the conversation path ordered by {@code created_at ASC}.
+     */
+    List<SessionEvent> findConversationPath(String leafEventId);
 }

@@ -2,7 +2,10 @@
 -- S018 redesign: DROP old S017 tables, then CREATE new schema.
 -- Safe: ~/.grimo/db/ can be deleted to reset.
 
--- Drop old tables in reverse FK order (S017 → S018 migration)
+-- Drop circular FK before dropping tables (S023: session ↔ event circular ref)
+ALTER TABLE IF EXISTS grimo_session DROP CONSTRAINT IF EXISTS fk_session_current_event;
+
+-- Drop old tables in reverse FK order
 DROP TABLE IF EXISTS grimo_session_event;
 DROP TABLE IF EXISTS grimo_session;
 DROP TABLE IF EXISTS grimo_task;
@@ -43,6 +46,7 @@ CREATE INDEX IF NOT EXISTS idx_task_project_status
     ON grimo_task(project_id, status);
 
 -- 3. Session (projection — materialized summary)
+-- Note: current_event_id FK added via ALTER TABLE after grimo_session_event is created (circular dep)
 CREATE TABLE IF NOT EXISTS grimo_session (
     id                VARCHAR(36)  PRIMARY KEY,
     session_type      VARCHAR(20)  NOT NULL,
@@ -53,6 +57,7 @@ CREATE TABLE IF NOT EXISTS grimo_session (
     total_tokens_out  BIGINT       DEFAULT 0,
     total_duration_ms BIGINT       DEFAULT 0,
     event_version     BIGINT       DEFAULT 0,
+    current_event_id  VARCHAR(36),
     work_dir          VARCHAR(500),
     created_at        TIMESTAMP    NOT NULL,
     last_active_at    TIMESTAMP    NOT NULL,
@@ -62,10 +67,11 @@ CREATE TABLE IF NOT EXISTS grimo_session (
 CREATE INDEX IF NOT EXISTS idx_session_project
     ON grimo_session(project_id, session_type);
 
--- 4. Session Event (aligned with Spring AI Session naming)
+-- 4. Session Event (aligned with Spring AI Session naming + S023 Adjacency List tree)
 CREATE TABLE IF NOT EXISTS grimo_session_event (
     id              VARCHAR(36)  NOT NULL PRIMARY KEY,
     session_id      VARCHAR(36)  NOT NULL,
+    parent_event_id VARCHAR(36),
     message_type    VARCHAR(20)  NOT NULL,
     message_content TEXT,
     message_data    TEXT,
@@ -73,11 +79,16 @@ CREATE TABLE IF NOT EXISTS grimo_session_event (
     model           VARCHAR(100),
     metadata        TEXT,
     synthetic       BOOLEAN      NOT NULL DEFAULT FALSE,
-    branch          VARCHAR(500),
     created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_session_event_session
-        FOREIGN KEY (session_id) REFERENCES grimo_session(id) ON DELETE CASCADE
+        FOREIGN KEY (session_id) REFERENCES grimo_session(id) ON DELETE CASCADE,
+    CONSTRAINT fk_session_event_parent
+        FOREIGN KEY (parent_event_id) REFERENCES grimo_session_event(id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_session_event_session_ts
     ON grimo_session_event(session_id, created_at);
+
+-- Circular FK: grimo_session.current_event_id → grimo_session_event.id
+ALTER TABLE grimo_session ADD CONSTRAINT IF NOT EXISTS fk_session_current_event
+    FOREIGN KEY (current_event_id) REFERENCES grimo_session_event(id);

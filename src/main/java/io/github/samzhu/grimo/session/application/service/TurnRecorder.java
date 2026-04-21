@@ -20,7 +20,8 @@ import io.github.samzhu.grimo.session.events.TurnRecorded;
 
 /**
  * Event listener that persists conversation turns to the event store
- * and updates the session projection (S018 redesign).
+ * and updates the session projection. S023: builds parent-child chain
+ * via {@code parentEventId} and updates {@code currentEventId}.
  */
 @Service
 public class TurnRecorder {
@@ -41,33 +42,48 @@ public class TurnRecorder {
     public void on(TurnRecorded event) {
         var now = Instant.now();
 
-        // 1. Upsert projection FIRST (FK: events reference session)
-        updateProjection(event, now);
+        // 1. Read current leaf pointer from projection (null for first turn)
+        String currentLeaf = projectionStore.findById(event.sessionId())
+                .map(SessionProjection::currentEventId)
+                .orElse(null);
 
-        // 2. USER event
-        eventStore.append(new SessionEvent(
-                UUID.randomUUID().toString(), event.sessionId(),
-                MessageType.USER,
-                event.userMessage(), null,
-                null, null, null,
-                false, null, now));
+        // 2. USER event — parent = session's current leaf
+        String userEventId = UUID.randomUUID().toString();
 
-        // 3. ASSISTANT event
+        // 3. ASSISTANT event — parent = USER event just created
+        String assistantEventId = UUID.randomUUID().toString();
+
         var metaMap = new LinkedHashMap<String, Object>();
         metaMap.put("durationMs", event.durationMs());
         if (event.finishReason() != null) metaMap.put("finishReason", event.finishReason());
         if (event.tokensIn() > 0) metaMap.put("tokensIn", event.tokensIn());
         if (event.tokensOut() > 0) metaMap.put("tokensOut", event.tokensOut());
 
+        // 4. Upsert projection FIRST with OLD current_event_id (FK: events reference session)
+        updateProjection(event, currentLeaf, now);
+
+        // 5. Insert USER event
         eventStore.append(new SessionEvent(
-                UUID.randomUUID().toString(), event.sessionId(),
+                userEventId, event.sessionId(), currentLeaf,
+                MessageType.USER,
+                event.userMessage(), null,
+                null, null, null,
+                false, now));
+
+        // 6. Insert ASSISTANT event
+        eventStore.append(new SessionEvent(
+                assistantEventId, event.sessionId(), userEventId,
                 MessageType.ASSISTANT,
                 event.assistantMessage(), null,
                 event.provider(), event.model(), toJson(metaMap),
-                false, null, now));
+                false, now));
+
+        // 7. NOW update current_event_id to new leaf (events exist, FK satisfied)
+        projectionStore.updateCurrentEventId(event.sessionId(), assistantEventId);
     }
 
-    private void updateProjection(TurnRecorded event, Instant now) {
+    private void updateProjection(TurnRecorded event, String newCurrentEventId,
+                                  Instant now) {
         var existing = projectionStore.findById(event.sessionId());
 
         if (existing.isPresent()) {
@@ -81,6 +97,7 @@ public class TurnRecorder {
                     prev.totalTokensOut() + event.tokensOut(),
                     prev.totalDurationMs() + event.durationMs(),
                     prev.eventVersion() + 2,
+                    newCurrentEventId,
                     prev.workDir(),
                     prev.createdAt(),
                     now));
@@ -91,6 +108,7 @@ public class TurnRecorder {
                     SessionStatus.ACTIVE,
                     1, event.tokensIn(), event.tokensOut(), event.durationMs(),
                     2,
+                    newCurrentEventId,
                     null,
                     now, now));
         }

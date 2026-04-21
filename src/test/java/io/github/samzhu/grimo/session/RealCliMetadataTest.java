@@ -62,6 +62,7 @@ class RealCliMetadataTest {
 
     @BeforeEach
     void cleanTables() {
+        jdbc.execute("UPDATE grimo_session SET current_event_id = NULL");
         jdbc.execute("DELETE FROM grimo_session_event");
         jdbc.execute("DELETE FROM grimo_session");
     }

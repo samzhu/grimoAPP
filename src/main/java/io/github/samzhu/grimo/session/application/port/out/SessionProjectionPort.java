@@ -19,4 +19,6 @@ public interface SessionProjectionPort {
     List<SessionProjection> findByProjectId(String projectId);
 
     List<SessionProjection> findBySessionType(String sessionType);
+
+    void updateCurrentEventId(String sessionId, String currentEventId);
 }

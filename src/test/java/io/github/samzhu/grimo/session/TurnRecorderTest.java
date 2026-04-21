@@ -51,6 +51,7 @@ class TurnRecorderTest {
     @BeforeEach
     void setUp() {
         // Given — clean tables between tests
+        jdbc.execute("UPDATE grimo_session SET current_event_id = NULL");
         jdbc.execute("DELETE FROM grimo_session_event");
         jdbc.execute("DELETE FROM grimo_session");
 
@@ -134,6 +135,36 @@ class TurnRecorderTest {
         assertThat(((Number) proj.get("total_tokens_out")).longValue()).isEqualTo(150L);
         assertThat(((Number) proj.get("total_duration_ms")).longValue()).isEqualTo(6000L);
         assertThat(proj.get("status")).isEqualTo("ACTIVE");
+    }
+
+    @Test
+    @DisplayName("[S023] AC-3: 3 turns produce linear parent-child chain + current_event_id updated")
+    void parentChildChain() {
+        // Given / When — record 3 turns
+        for (int i = 0; i < 3; i++) {
+            turnRecorder.on(buildTurnEvent("msg-" + i, "resp-" + i, 100, 50, 2000));
+        }
+
+        // Then — 6 events with parent-child chain
+        var events = jdbc.queryForList(
+                "SELECT id, parent_event_id, message_type FROM grimo_session_event ORDER BY created_at ASC");
+        assertThat(events).hasSize(6);
+
+        // First USER has null parent (root)
+        assertThat(events.get(0).get("parent_event_id")).isNull();
+        assertThat(events.get(0).get("message_type")).isEqualTo("USER");
+
+        // Each subsequent event's parent = previous event's id
+        for (int i = 1; i < events.size(); i++) {
+            assertThat(events.get(i).get("parent_event_id"))
+                    .as("event[%d].parent = event[%d].id", i, i - 1)
+                    .isEqualTo(events.get(i - 1).get("id"));
+        }
+
+        // Session current_event_id = last ASSISTANT event id
+        var lastEventId = (String) events.getLast().get("id");
+        var proj = jdbc.queryForMap("SELECT * FROM grimo_session WHERE id = ?", SESSION_ID);
+        assertThat(proj.get("current_event_id")).isEqualTo(lastEventId);
     }
 
     @Test

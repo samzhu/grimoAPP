@@ -23,4 +23,11 @@ public interface SessionHistoryUseCase {
     List<SessionProjection> findByProjectId(String projectId);
 
     List<SessionProjection> findBySessionType(String sessionType);
+
+    /**
+     * Returns the conversation path for a session's current branch.
+     * Reads {@code current_event_id} from the projection, then walks
+     * the tree to root via recursive CTE.
+     */
+    List<SessionEvent> getConversationPath(String sessionId);
 }

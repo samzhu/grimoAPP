@@ -42,6 +42,7 @@ class JdbcTaskAdapterTest {
 
     @BeforeEach
     void setUp() {
+        jdbc.execute("UPDATE grimo_session SET current_event_id = NULL");
         jdbc.execute("DELETE FROM grimo_session_event");
         jdbc.execute("DELETE FROM grimo_session");
         jdbc.execute("DELETE FROM grimo_task");
