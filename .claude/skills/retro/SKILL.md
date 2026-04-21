@@ -63,9 +63,23 @@ Requirements:
 - Banned action verbs: "consider", "think about", "be careful", "pay attention to", "keep in mind"
 - Minimum 3 items, maximum 7
 
+## Step 5.5 — Human Feedback (BLOCKING — do not skip)
+
+Present Steps 1-5 output to the user, then **ask explicitly**:
+
+"What did you observe that I missed? What would you change about this checklist?"
+
+**Rules:**
+- STOP and WAIT for the user's response. Do not proceed to Step 6.
+- The user's feedback overrides the self-generated checklist. If the user says "point 3 is wrong, the real issue was X" — replace point 3 with X, do not argue.
+- The user may add items the assistant cannot self-diagnose (e.g., "your explanations were hard to follow" or "you should have researched more broadly"). These are first-class findings — convert them to trigger-action format and add to the checklist.
+- If the user says "looks good" with no changes — proceed to Step 6.
+
+**Why this step exists:** The assistant has blind spots that only the human can see (communication style, research breadth, domain assumptions). A retro without human input is self-congratulatory at best, self-delusional at worst. The A:B ratio from Step 1 already proves the assistant missed things — the user knows what else was missed that didn't surface as a turning point.
+
 ## Step 6 — Persist the Artifact
 
-Tell the user exactly where to save the checklist so it auto-triggers next time:
+After incorporating human feedback, tell the user exactly where to save the checklist so it auto-triggers next time:
 
 - Reusable skill: `.claude/skills/{name}/SKILL.md` or `~/.claude/skills/{name}/SKILL.md`
 - Slash command: `~/.claude/commands/{name}.md`
