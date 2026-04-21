@@ -263,6 +263,18 @@ Update the spec roadmap status to in-design.
 
 **Glossary**: Before naming new types or protocols, check the project glossary. If introducing new domain concepts, add entries in the same commit.
 
+### Spec Writing Style — Plain Language, Not Verbose
+
+Specs are read by humans (including junior engineers) who need to understand the design and implement it. Write for clarity, not impressiveness.
+
+**Rules:**
+1. **Lead with a one-liner.** §1 Goal opens with a single sentence a non-expert can understand — what the spec does in plain language, before any technical detail.
+2. **Use visual flow diagrams.** An ASCII diagram showing "user does X → system does Y → DB gets Z" conveys more than three paragraphs of prose.
+3. **Show example data, not just schema.** Every table definition must include a concrete example showing what 2-3 rows look like after a realistic usage scenario. Include column values, not just column names.
+4. **Use tables for comparisons.** "Why A not B" is a table, not paragraphs. Each row is one dimension, each cell is one fact.
+5. **Label fields with plain-language sources.** For JSON/metadata fields, show where each value comes from (which API, which method) — not just the field name.
+6. **Keep it concise.** If a section can be a 5-row table instead of 5 paragraphs, use the table. Cut adjectives. Cut "as mentioned above." Cut any sentence that restates what the reader just read.
+
 ### Acceptance verification command (mandatory)
 
 Every spec MUST state in §3 the exact command used to verify its acceptance criteria. The command MUST be the project's standard pipeline entry declared in the QA strategy doc. Do NOT invent per-spec shell scripts.
