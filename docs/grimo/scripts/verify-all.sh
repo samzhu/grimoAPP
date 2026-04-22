@@ -88,7 +88,7 @@ run_skippable "V3-integrationTest" \
     "which claude" \
     ./gradlew integrationTest --console=plain
 
-# V4: Coverage gate (JaCoCo line coverage ≥ 75% for service + domain)
+# V4: Coverage gate (JaCoCo line coverage ≥ 80%, 全部程式碼扣除純接線 + 第三方)
 run_critical "V4-coverage" \
     ./gradlew jacocoTestCoverageVerification --console=plain
 

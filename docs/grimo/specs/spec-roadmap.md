@@ -236,33 +236,9 @@
 
 ---
 
-## 驗證基礎設施（S024 後續）
+## 驗證基礎設施 ✅（2026-04-22）
 
-**目標。** 配置涵蓋率閘門，讓 `/verifying-quality` 可自動驗收涵蓋率。
-**完成條件。** S025 ✅ → S026 ✅。
-
-| # | 規格 | 點數 | 狀態 |
-| --- | --- | --- | --- |
-| S025 | JaCoCo Coverage Gate | XS (6) | ✅ |
-| S026 | Coverage Gate 80% — 修正配置 + 補齊測試 | XS (7) | 🔧 |
-
-### S025 — JaCoCo Coverage Gate · XS (6)
-
-**描述。** 在 build.gradle.kts 配置 JaCoCo 0.8.13 plugin，對 `application/service/` 和 `domain/` 套件強制行覆蓋率 ≥ 75%。更新 verify-all.sh 新增 V4 涵蓋率命令 + qa-strategy.md §6.1 新增 V4 條目。
-
-**依賴。** 無。
-
-**SBE（4 AC）。** JaCoCo 報告產生、涵蓋率驗證通過、verify-all.sh 含 V4、qa-strategy.md 含 V4。
-
-**估算。** 技術 1 · 不確定性 1 · 依賴 1 · 範疇 1 · 測試 1 · 可逆性 1 = **6 / XS**
-
-### S026 — Coverage Gate 80% · XS (7)
-
-**描述。** 修正 S025 的 JaCoCo gate bug（`rule.includes` 在 BUNDLE 層級無效），覆蓋率策略改為「全部程式碼扣除純接線」（`classDirectories` 過濾），閾值 80%。補齊 `TaskService` / `ProjectService` 單元測試。刪除冗餘腳本（`verify-tests-pass.sh`、`verify-spec-coverage.sh`）。
-
-**依賴。** 無。
-
-**SBE（5 AC）。** JaCoCo gate 使用 classDirectories + 80% 通過、TaskService 測試、ProjectService 測試、冗餘腳本刪除 + QA 文件同步、CSV 報告產生。
+2/2 規格完成（S025 + S026）。詳見 `specs/archive/2026-04-22-S02[5-6]-*.md`。
 
 **估算。** 技術 1 · 不確定性 1 · 依賴 1 · 範疇 2 · 測試 1 · 可逆性 1 = **7 / XS**
 
@@ -472,12 +448,10 @@
 | REST API 基礎 | S018 | 9 |
 | Message Tree | S023 | 7 |
 | E2E 驗收 | S024 | 9 |
-| 驗證基礎設施 | S025 | 6 |
-| **合計** | **22 個規格** | **204 點** |
+| 驗證基礎設施 | S025、S026 | 13 |
+| **合計** | **23 個規格** | **211 點** |
 
-v7 藍圖相較 v6（18 規格 / 173 點）新增 3 個規格（S018 REST API +9、S023 Message Tree +7、S024 E2E 驗收 +9 = +25 點）。
-
-下一步行動：`/planning-tasks S024`
+v8 藍圖相較 v7（22 規格 / 204 點）新增 1 個規格（S026 Coverage Gate 80% +7 = +7 點）。
 
 ---
 
