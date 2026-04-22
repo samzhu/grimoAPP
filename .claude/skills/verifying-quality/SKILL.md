@@ -356,6 +356,54 @@ The spec file preserves the proof; the test directory is ephemeral.
   3. The blocked spec does NOT ship until the testing capability
      exists and re-verification passes
 
+### 9.5 Self-healing loop — coverage gap remediation
+
+When the coverage gate (Step 2) reports that line coverage is below
+the project's stated target, this skill can **autonomously drive
+the fix** rather than just reporting REJECT-FIX.
+
+#### Trigger condition
+
+The coverage verification command (e.g., `jacocoTestCoverageVerification`)
+fails with a message like "covered ratio is X, but expected minimum is Y".
+
+#### Protocol
+
+1. **Diagnose** — Parse the coverage report (CSV preferred for
+   scripting, XML as fallback). Identify the classes/packages with
+   the lowest coverage that are dragging the aggregate below target.
+   Rank by "lines missed" descending.
+
+2. **Scope a coverage spec** — Create a lightweight spec whose sole
+   goal is "raise coverage from X% to ≥ Y%". The spec's AC is the
+   coverage gate passing. The file plan lists the test files to add
+   or extend. Prioritize by impact: a class with 47 uncovered lines
+   moves the needle more than one with 4.
+
+3. **Route to `/planning-tasks`** — Hand the coverage spec to the
+   task loop. `/planning-tasks` breaks it into BDD tasks (one per
+   class or cluster of related classes), then ping-pongs with
+   `/implementing-task` to write the tests.
+
+4. **Re-verify** — After all tasks complete, `/planning-tasks`
+   spawns `/verifying-quality` again. The coverage gate now runs
+   with the new tests. If it passes → PASS. If still below target
+   → loop back to step 1 with the remaining gap.
+
+#### Loop safety
+
+- **Max iterations: 3.** If coverage still fails after 3 rounds,
+  REJECT-FIX to the user with a detailed gap analysis. The
+  remaining uncovered code likely needs design discussion (dead
+  code removal, refactoring), not just more tests.
+- **Each iteration must reduce the gap.** If an iteration adds
+  tests but the coverage ratio does not improve, stop and report
+  — the new tests are not covering the intended classes.
+- **Do not generate meaningless tests.** Tests must assert real
+  behavior (Given/When/Then), not just call methods to inflate
+  coverage. The code quality review (Step 6) applies to generated
+  test code too.
+
 ## Troubleshooting
 
 ### UNTESTABLE vs. MANUAL-READY

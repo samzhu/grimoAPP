@@ -1,150 +1,235 @@
 ---
 name: retro
-description: Evidence-based retrospective on the preceding conversation or task. Use when the user asks to review the workflow, says "what could be improved", "lessons learned", "post-mortem", "retrospective", "review this", "哪裡可以優化", "哪裡可以改進", "回顧一下", "檢討", or types /retro. Also use proactively when a task has obviously circled — direction changed 3+ times or the user had to correct the assistant more than twice. Produces a reusable trigger-action checklist, not apologies or vague reflections. Works for any task type: coding, research, design, writing, planning.
+description: >
+  Evidence-based retrospective that produces a reusable trigger-action
+  checklist. Use when the user says "retro", "retrospective", "lessons
+  learned", "what went wrong", "post-mortem", "review this session",
+  "what could be improved", or equivalent in any language. Also use
+  proactively when a task has obviously circled — direction changed 3+
+  times or the user corrected the assistant more than twice. Works for
+  any task type in any project: coding, research, design, writing,
+  planning.
+metadata:
+  version: 2.0.0
+  category: workflow-automation
+  pattern: iterative-refinement
 ---
 
 # Retrospective Protocol
 
-Produce an evidence-grounded retrospective that yields a reusable artifact, not a feel-good reflection. Execute all seven steps in order. No step may be skipped or merged.
+Produce an evidence-grounded retrospective that yields a reusable
+artifact, not a feel-good reflection. Execute all seven steps in
+order. No step may be skipped or merged.
 
-## Banned phrases (violations require restart)
+## Design Constraints
 
-- Banned openings: "好的我來反思", "感謝指正", "您說得對", "抱歉", "Thanks for pointing this out", "You're right", "Great question", "Let me reflect"
-- Banned filler: "考慮不周", "經驗不足", "下次會注意", "可以更仔細", "insufficient context", "would have been better to", "I should have"
-- Banned self-credit: "we figured it out together", "with your help" — user interventions are autonomy gaps, not collaboration credits
+This skill is **portable across projects**. Every artifact it
+produces — trigger-action checklists, skill files, CLAUDE.md
+entries — must follow these rules:
+
+1. **Write in English.** All output artifacts must be in English
+   regardless of the conversation language. English ensures the
+   artifact is reusable across international teams and projects.
+   (The conversation itself may be in any language.)
+
+2. **Write principles, not project specifics.** Do not embed
+   project-specific file paths, class names, framework versions,
+   tool commands, or architecture details into persisted artifacts.
+   Write the general principle and let the executor adapt to the
+   local project context. A checklist item that only makes sense
+   inside one codebase is not a lesson learned — it's a TODO.
+
+3. **No hardcoded paths.** Never write absolute paths in
+   artifacts. Use relative references within the skill directory
+   or generic descriptions ("the project's architecture doc").
+
+These constraints follow the **Portability** principle from the
+official skill-building guide (see `references/skill-building-guide.md`):
+_"Skills work identically across Claude.ai, Claude Code, and API.
+Create a skill once and it works across all surfaces without
+modification."_
+
+## Banned phrases
+
+These indicate vague reflection instead of root-cause analysis.
+If you catch yourself writing one, delete it and write a concrete
+observation instead.
+
+- Apologetic openers: "I should have", "Thanks for pointing out",
+  "You're right", "Let me reflect", "Great question"
+- Vague filler: "would have been better", "insufficient context",
+  "could have been more careful", "will pay more attention"
+- Self-credit for user work: "we figured it out together",
+  "with your help" — user interventions are autonomy gaps,
+  not collaboration
 
 ## Step 1 — Turning Points Ledger
 
-List every point where approach, design, or direction materially changed in the preceding work. For each, tag the trigger source:
+List every point where approach, design, or direction materially
+changed. For each, tag the trigger source:
 
-- (A) User-triggered — user provided a link, correction, keyword, or contradicting fact
-- (B) Self-discovered — found without user prompting
+- **(A) User-triggered** — user provided a link, correction,
+  keyword, or contradicting fact
+- **(B) Self-discovered** — found without user prompting
 
-Output the A:B ratio as a headline number.
+Output the **A:B ratio** as a headline number. This ratio is the
+primary measure of how autonomous the session was.
 
 ## Step 2 — 5 Whys with Evidence
 
-For each (A) turning point, run 5 Whys. Each Why answer must cite a concrete artifact:
+For each (A) turning point, run 5 Whys. Each Why answer must cite
+a concrete artifact — not an abstract explanation:
 
-- A specific file that was not read (with path or name)
-- A specific keyword that was not searched (with exact string)
-- A specific tool that was not invoked (with tool name)
-- A specific assumption that was not verified (with where/how to verify)
+- A file that was not read (with path or name)
+- A keyword that was not searched (exact string)
+- A tool that was not invoked (tool name)
+- An assumption that was not verified (where/how to verify it)
+- A document that was available but ignored
 
-If a Why cannot be grounded in a concrete artifact, it is wrong — retry.
+If a Why cannot be grounded in a concrete artifact, it is wrong —
+retry.
 
 ## Step 3 — Root Cause (single selection)
 
 Pick exactly one primary root cause. Multi-select is not allowed.
 
-a) Started proposing solutions before inventorying existing resources or constraints
-b) Treated already-decided constraints as open options for re-discussion
-c) Shallow research — names and summaries only, no source / docs / examples
+a) Started proposing solutions before inventorying existing
+   resources or constraints
+b) Treated already-decided constraints as open for re-discussion
+c) Shallow research — names and summaries only, no source code,
+   docs, or worked examples
 d) Scope too wide — too many unknowns at once, no narrowing
-e) Ignored information the user already provided earlier in the conversation
+e) Ignored information the user already provided earlier in the
+   conversation
 f) Other (must be a concrete, non-abstract description)
 
 ## Step 4 — Counterfactual
 
-Answer honestly: "If the user had not intervened at all, where would I have stopped, with what wrong answer, and what downstream damage would it have caused?"
+Answer honestly: "If the user had not intervened at all, where
+would I have stopped, with what wrong answer, and what downstream
+damage would it have caused?"
 
-Grounding rule: the counterfactual must be consistent with the A:B ratio from Step 1. If A was high, do not claim "I would have figured it out eventually".
+Grounding rule: the counterfactual must be consistent with the A:B
+ratio from Step 1. If A was high, do not claim "I would have
+figured it out eventually."
 
 ## Step 5 — Trigger-Action Checklist (main deliverable)
 
 Format each item exactly:
 
-"When {specific trigger}, before {specific phase}, must {specific action with tool / keyword / path / exit criterion}."
+> When {specific trigger}, before {specific phase},
+> must {specific action with tool / keyword / path / exit criterion}.
 
 Requirements:
 
-- Each {trigger} must be recognizable from future conversation patterns, not abstract intent
-- Each {action} must specify: which tool, what keyword or path, what condition proves completion
-- Banned action verbs: "consider", "think about", "be careful", "pay attention to", "keep in mind"
+- Each {trigger} must be recognizable from future conversation
+  patterns, not abstract intent
+- Each {action} must specify: which tool, what keyword or path,
+  what condition proves completion
+- Banned action verbs: "consider", "think about", "be careful",
+  "pay attention to", "keep in mind"
 - Minimum 3 items, maximum 7
+- **All items must be in English** (Design Constraint 1)
+- **All items must be project-agnostic** (Design Constraint 2) —
+  write "the project's build file" not "build.gradle.kts"
 
-## Step 5.5 — Human Feedback (BLOCKING — do not skip)
+## Step 5.5 — Human Feedback (BLOCKING)
 
-Present Steps 1-5 output to the user, then **ask explicitly**:
+Present Steps 1-5 output to the user, then ask explicitly:
 
-"What did you observe that I missed? What would you change about this checklist?"
+> What did you observe that I missed? What would you change
+> about this checklist?
 
 **Rules:**
-- STOP and WAIT for the user's response. Do not proceed to Step 6.
-- The user's feedback overrides the self-generated checklist. If the user says "point 3 is wrong, the real issue was X" — replace point 3 with X, do not argue.
-- The user may add items the assistant cannot self-diagnose (e.g., "your explanations were hard to follow" or "you should have researched more broadly"). These are first-class findings — convert them to trigger-action format and add to the checklist.
-- If the user says "looks good" with no changes — proceed to Step 6.
+- STOP and WAIT for the user's response. Do not continue.
+- User feedback overrides self-generated findings. If the user
+  says "point 3 is wrong, the real issue was X" — replace it.
+  Do not argue.
+- The user may add items the assistant cannot self-diagnose
+  (communication style, research breadth, domain assumptions).
+  Convert these to trigger-action format and add to the checklist.
+- If the user says "looks good" — proceed to Step 6.
 
-**Why this step exists:** The assistant has blind spots that only the human can see (communication style, research breadth, domain assumptions). A retro without human input is self-congratulatory at best, self-delusional at worst. The A:B ratio from Step 1 already proves the assistant missed things — the user knows what else was missed that didn't surface as a turning point.
+**Why this step exists:** The assistant has blind spots only the
+human can see. The A:B ratio already proves things were missed.
 
 ## Step 6 — Persist the Artifact
 
 After incorporating human feedback, determine where to save the
-checklist so it auto-triggers next time:
+checklist so it auto-triggers in future sessions.
 
-- Reusable skill: `.claude/skills/{name}/SKILL.md` or `~/.claude/skills/{name}/SKILL.md`
-- Slash command: `~/.claude/commands/{name}.md`
-- Project memory: `CLAUDE.md` (only if fewer than 5 items)
+### Portability gate
 
-Include the exact path and the phrase or command that will invoke it.
+Before writing any file, verify every item against the Design
+Constraints at the top of this skill. Specifically:
 
-### Skill Portability Gate
+| Check | Pass criterion |
+|-------|---------------|
+| Language | All text is in English |
+| Project specifics | No file paths, class names, framework versions, or tool commands from the current project |
+| Hardcoded paths | No absolute paths; only relative or generic references |
+| Usefulness test | Would this item help someone working on a completely different codebase with a different tech stack? |
 
-When Step 5 items require creating or modifying a skill file, apply
-every rule below before writing. A skill that violates these rules
-is not shippable.
+If any item fails the usefulness test, rewrite it as a general
+principle. If it cannot be generalized, it belongs in the
+project's CLAUDE.md as a project-specific note, not in a
+portable skill.
 
-**1. Write principles, not project specifics.** A skill must be
-understandable and useful when copied to a different project with a
-different tech stack. Do not embed project-specific file paths,
-class names, framework versions, or tool commands. Instead, write
-the general principle and let the executor adapt to the local
-project context.
-
-- Bad: "check `docs/grimo/architecture.md` for Spring Modulith version"
-- Good: "check the project's architecture doc for framework versions"
-
-**2. No hardcoded paths.** Use `${CLAUDE_SKILL_DIR}` to reference
-files bundled with the skill. Use `$ARGUMENTS` for values that vary
-per invocation. Never write absolute paths (`/Users/...`).
-
-**3. Scope determines location.**
+### Location decision
 
 | Question | Location |
 |----------|----------|
 | Useful in any project by this user? | `~/.claude/skills/` (personal) |
 | Useful only in this project? | `.claude/skills/` (project) |
+| Fewer than 5 items, project-scoped? | `CLAUDE.md` |
 
-**4. Size ≤ 500 lines.** SKILL.md is the overview + navigation.
-Move detailed references, templates, and examples to supporting
-files in the same skill directory. Reference them with relative
-paths.
+### Skill file quality (from official guide)
 
-**5. Side-effect skills need `disable-model-invocation: true`.**
-If the skill deploys, commits, writes files, sends messages, or
-modifies shared state, it must not be auto-invoked by the model.
+When creating or updating a skill file, follow the official
+skill-building best practices in `references/skill-building-guide.md`:
 
-**6. Description front-loads trigger keywords.** The `description`
-field (max 1,536 chars with `when_to_use`) determines when the
-skill is matched. Put the most important use cases and trigger
-phrases first.
+- SKILL.md under 500 lines; move details to `references/`
+- YAML frontmatter: `name` in kebab-case, `description` under
+  1024 characters, includes WHAT + WHEN trigger phrases
+- No XML angle brackets in frontmatter
+- No README.md inside the skill folder
+- Instructions are specific and actionable, not vague
+
+Include the exact path and the phrase or command that will invoke
+the persisted artifact.
 
 ## Step 7 — One-Line Verdict
 
 Close with exactly one sentence:
 
-"The single most expensive mistake this session was {X}, costing roughly {N} rounds of conversation; checklist saved at {path}, auto-triggers on {phrase}."
+> The single most expensive mistake this session was {X}, costing
+> roughly {N} rounds of conversation; checklist saved at {path},
+> auto-triggers on {phrase}.
 
-No closing emoji, no "hope this helps", no "let me know if you need anything else".
+No closing emoji, no "hope this helps", no "let me know if you
+need anything else."
 
 ## Examples
 
 **Example A — research task that circled**
-User had to provide 4 links before the assistant discovered an existing library. Step 1 gives A:B = 4:1. Step 3 selects (a). Step 5 produces e.g. "When asked to design a component on top of an existing framework, before proposing any architecture, must list the framework's already-provided primitives by searching the framework-community org on GitHub and reading top 3 README files."
+
+User provided 4 links before the assistant discovered an existing
+library. Step 1: A:B = 4:1. Step 3: (a). Step 5 produces:
+"When asked to build on top of an existing framework, before
+proposing any architecture, must list the framework's existing
+primitives by searching the official docs and reading top 3
+reference pages, exit criterion: can name three public APIs and
+their signatures."
 
 **Example B — coding task with repeated failures**
-Step 1 gives A:B = 2:3. Step 3 selects (c). Step 5 produces e.g. "When writing code against a library, before first implementation, must read the library's public API via source or generated docs, not summary blogs, with exit criterion 'can name three public classes and their constructors'."
+
+Step 1: A:B = 2:3. Step 3: (c). Step 5 produces:
+"When writing code against a library, before first implementation,
+must read the library's public API via source or generated docs
+(not summary blogs), exit criterion: can name three public classes
+and their constructors."
 
 ## Output budget
 
-Steps 1-4 combined should fit in one screen. Step 5 is the deliverable — put the most effort there. Steps 6-7 are one-liners.
+Steps 1-4 combined: one screen. Step 5: main deliverable — put
+the most effort here. Steps 6-7: one-liners each.
