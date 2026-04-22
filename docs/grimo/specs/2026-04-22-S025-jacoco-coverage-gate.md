@@ -1,6 +1,6 @@
 # S025: JaCoCo Coverage Gate
 
-> Spec: S025 | Size: XS (6) | Status: ⏳ Design
+> Spec: S025 | Size: XS (6) | Status: ✅ Done
 > Date: 2026-04-22
 
 ---
@@ -177,3 +177,55 @@ test → jacocoTestReport → jacocoTestCoverageVerification
 | 測試 | 1 | 自我驗證 — 如果 coverageVerification 通過，配置就是對的 |
 | 可逆性 | 1 | 移除 plugin block 即可回滾 |
 | **合計** | **6** | **XS** |
+
+---
+
+## 6. Task Plan
+
+### POC Decision
+
+**POC: not required.** `jacoco` 是 Gradle 內建 plugin，標準 Kotlin DSL，無外部依賴。
+
+### Task Summary
+
+| Task | AC | Description | Depends On |
+|------|----|-------------|------------|
+| T01 | AC-1, AC-2, AC-3, AC-4 | JaCoCo plugin + coverage gate + registry update | — |
+
+### Execution Order
+
+```
+T01 (all 4 ACs — single infrastructure task)
+```
+
+Task files: `docs/grimo/tasks/2026-04-22-S025-T01.md`
+
+---
+
+## 7. Implementation Results
+
+### Verification Results
+
+```
+./gradlew test jacocoTestReport jacocoTestCoverageVerification → BUILD SUCCESSFUL
+./docs/grimo/scripts/verify-all.sh → V1 PASS, V2 PASS, V3 PASS, V4 PASS, OVERALL PASS
+```
+
+### Key Findings
+
+1. **JaCoCo 0.8.12 不支援 Java 25。** Class file major version 69 (Java 25) 導致 `Unsupported class file major version 69` 錯誤。JaCoCo 0.8.13（2025-04-02 發布）起有 Java 25 實驗性支援。已更新 `toolVersion` 為 `0.8.13`，同步更新 qa-strategy.md §2。
+
+2. **涵蓋率通過 ≥ 75%。** `jacocoTestCoverageVerification` exit 0，表示 `service/` 和 `domain/` 的行覆蓋率達標。
+
+### [Implementation note] Divergence from §2
+
+- §2.1 寫 `toolVersion = "0.8.12"` — 實際使用 `0.8.13`（Java 25 相容性需要）。qa-strategy.md §2 已同步更新。
+
+### AC Results
+
+| AC | Status | Evidence |
+|----|--------|----------|
+| AC-1 JaCoCo report generated | ✅ | `build/reports/jacoco/test/html/index.html` (25KB) + `jacocoTestReport.xml` (190KB) |
+| AC-2 Coverage verification ≥ 75% | ✅ | `jacocoTestCoverageVerification` exit 0 |
+| AC-3 verify-all.sh includes V4 | ✅ | `V4-coverage PASS` in output |
+| AC-4 qa-strategy.md §6.1 includes V4 | ✅ | V4 row added |

@@ -243,7 +243,7 @@
 
 | # | 規格 | 點數 | 狀態 |
 | --- | --- | --- | --- |
-| S025 | JaCoCo Coverage Gate | XS (6) | ⏳ Design |
+| S025 | JaCoCo Coverage Gate | XS (6) | ✅ |
 
 ### S025 — JaCoCo Coverage Gate · XS (6)
 

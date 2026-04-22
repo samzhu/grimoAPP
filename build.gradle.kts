@@ -1,5 +1,6 @@
 plugins {
 	java
+	jacoco
 	id("org.springframework.boot") version "4.0.5"
 	id("io.spring.dependency-management") version "1.1.7"
 	id("org.graalvm.buildtools.native") version "0.11.5"
@@ -75,6 +76,37 @@ tasks.register<Test>("integrationTest") {
 	System.getProperties().forEach { k, v ->
 		if (k.toString().startsWith("grimo.")) {
 			systemProperty(k.toString(), v)
+		}
+	}
+}
+
+// ── JaCoCo coverage gate (S025 · qa-strategy.md §2: ≥ 75% line for service + domain) ──
+
+jacoco {
+	toolVersion = "0.8.13"
+}
+
+tasks.jacocoTestReport {
+	dependsOn(tasks.test)
+	reports {
+		xml.required.set(true)
+		html.required.set(true)
+	}
+}
+
+tasks.jacocoTestCoverageVerification {
+	dependsOn(tasks.jacocoTestReport)
+	violationRules {
+		rule {
+			includes = listOf(
+				"io.github.samzhu.grimo.*.domain.*",
+				"io.github.samzhu.grimo.*.application.service.*"
+			)
+			limit {
+				counter = "LINE"
+				value = "COVEREDRATIO"
+				minimum = "0.75".toBigDecimal()
+			}
 		}
 	}
 }

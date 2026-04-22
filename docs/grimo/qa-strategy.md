@@ -22,7 +22,7 @@
 | DB 測試 | `@DataJdbcTest`（H2 記憶體模式） | 生產環境使用 H2 檔案模式（D17） |
 | 程式碼格式化 | _延後 — 在後續清理規格中以外部工具一次性執行_ | 非每次建置閘門（使用者 2026-04-16 決定） |
 | 原生建置 | `org.graalvm.buildtools.native` 0.11.5 | 夜間 `nativeCompile` 冒煙測試 |
-| 覆蓋率 | JaCoCo 0.8.12 | 目標：`application/service/` 和 `domain/` 套件的行覆蓋率 ≥ 75%；適配器覆蓋率為副產品，非目標 |
+| 覆蓋率 | JaCoCo 0.8.13 | 目標：`application/service/` 和 `domain/` 套件的行覆蓋率 ≥ 75%；適配器覆蓋率為副產品，非目標。0.8.12 不支援 Java 25（class version 69），0.8.13 起有實驗性支援。 |
 
 ## 3. 測試分類
 
@@ -91,6 +91,7 @@ CI 夜間：
 | V1 | `./gradlew compileTestJava` | 編譯 | S000 | 無 | CRITICAL — 阻擋出貨 |
 | V2 | `./gradlew test` | T0-T2 單元 + 切片 | S000 | 無 | CRITICAL — 阻擋出貨 |
 | V3 | `./gradlew integrationTest` | T4 E2E | S024 | claude CLI + 有效登入 | SKIP if unavailable — 記錄 skip 原因 |
+| V4 | `./gradlew jacocoTestCoverageVerification` | 涵蓋率 | S025 | 無 | CRITICAL — 阻擋出貨 |
 
 **失敗處理規則：**
 - `CRITICAL`：命令必須 exit 0，否則阻擋出貨。

@@ -88,6 +88,10 @@ run_skippable "V3-integrationTest" \
     "which claude" \
     ./gradlew integrationTest --console=plain
 
+# V4: Coverage gate (JaCoCo line coverage ≥ 75% for service + domain)
+run_critical "V4-coverage" \
+    ./gradlew jacocoTestCoverageVerification --console=plain
+
 # ── Results ───────────────────────────────────────────────────────
 
 echo ""
