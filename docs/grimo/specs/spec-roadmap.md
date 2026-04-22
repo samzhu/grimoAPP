@@ -1,8 +1,10 @@
-# Grimo — 規格藍圖（v4 · 重新排序於 2026-04-19）
+# Grimo — 規格藍圖（v9 · subagent 管線於 2026-04-22）
 
-**狀態：** v0.4 · **日期：** 2026-04-19
+**狀態：** v0.9 · **日期：** 2026-04-22
 **來源：** `docs/grimo/PRD.md` + `architecture.md` + `docs/local/competitive-analysis.md`
 
+> **v9 新增說明（2026-04-22）。** 新增 Subagent 執行管線：S027（Git Worktree Port）、S028（Subagent Sandbox Execution）、S029（Subagent Lifecycle + Diff Review）。S020（Task Execution Pipeline）被取代。Backlog 三項晉升���委派協議→S028, 工作樹管理員→S027, 子代理生命週期→S029。
+>
 > **v4 重新規劃說明（2026-04-19）。** S011 設計期間發現關鍵依賴鬆綁：S011（Session 持久化）只依賴 S007（`AgentSession` SPI），不需等 S008-S010（容器化 CLI）完成。S012（Skill 登錄檔）只依賴 S001（`GrimoHomePaths`，已出貨），可與 S008 並行。據此重新排序：S011 提前至 S007 之後，S012 與 S008 並行，新增 S014（Session 壓縮策略研究）。
 >
 > 研究發現：`SessionMemoryAdvisor`（spring-ai-session）為 ChatClient advisor，無法掛載到 `AgentSession`（agent-client）— 兩者屬不同 API 層次。S011 改用 decorator 模式包裝 `AgentSession` / `AgentSessionRegistry`，以 `SessionService` 做 H2 儲存後端。Hermes Agent 競品分析整合至 `docs/local/competitive-analysis.md`。
@@ -10,7 +12,7 @@
 > 估算量表（六維評分，每維 1–3）：`技術風險 · 不確定性 · 依賴關係 · 範疇 · 測試 · 可逆性`
 > 6–8 → XS · 9–11 → S · 12–14 → M · 15–16 → L · 17–18 → XL（必須分解）
 
-## 依賴關係圖（MVP）
+## 依賴關係圖（MVP + Subagent）
 
 ```
                                   S000 ✅
@@ -19,24 +21,24 @@
                                   S001 ── S002
                                     │      │
                                     ▼      ▼
-                                  S003（容器操作）
+                                  S003（容器操作）✅
                                     │
                          ┌──────────┼──────────┐
                          ▼          ▼          ▼
-                       S004（含 3 個 CLI 的執行映像）
+                       S004（含 3 個 CLI 的執行映像）✅
                          │
                          ▼
-                       S005（透過 docker exec 的 CLI 適配器）
+                       S005（透過 docker exec 的 CLI 適配器）✅
                          │
                          ▼
-                       S006（CLI 配置研究 + 策略驗證）
+                       S006（CLI 配置研究 + 策略驗證）✅
                          │
                          ▼
-                       S007（主機 claude 對話）
+                       S007（主機 claude 對話）✅
                          │
           ┌──────────────┼──────────────┐
           ▼              ▼              ▼
-        S011           S008           S012
+        S011 ✅        S008           S012 ✅
     (Session 持久化)  (Claude Docker)  (Skill 登錄檔)
           │              │              │
           ▼         ┌────┴────┐         │
@@ -48,6 +50,19 @@
                          ▼              │
                        S013 ◄───────────┘
                   (Skill 預裝至容器)
+
+  ─── Subagent 執行管線 ───
+
+  S018 ✅ (REST API) ── S003 ✅ (Sandbox) ── S005 ✅ (CLI adapter)
+          │                      │
+          ▼                      │
+        S027（Git Worktree Port）│
+          │                      │
+          ▼                      ▼
+        S028（Subagent Sandbox Execution）◄── S016 ✅ (Skill Projection)
+          │
+          ▼
+        S029（Lifecycle Events + Diff Review）◄── S017 ✅ (Session Memory)
 ```
 
 ## 里程碑地圖（MVP）
@@ -244,6 +259,76 @@
 
 ---
 
+## Subagent 執行管線（S018 + S003 + S005 後續）
+
+**目標。** Docker-sandboxed subagent 完整執行管線：git worktree → Docker 容器 → Claude Code YOLO → 技能投射 → diff 審核 → PR 自動化。取代 S020 + Backlog（委派協議 / 工作樹管理員 / 子代理生命週期）。
+**完成條件。** S027 + S028 + S029 ✅。
+
+| # | 規格 | 點數 | 狀態 |
+| --- | --- | --- | --- |
+| S027 | Git Worktree Port — hybrid ProcessBuilder + JGit | S (9) | ⏳ Design |
+| S028 | Subagent Sandbox Execution — Docker + Claude YOLO + Task tracking | M (13) | ⏳ Design |
+| S029 | Subagent Lifecycle Events + Diff Review — 事件 / session 記錄 / PR 自動化 | S (10) | ⏳ Design |
+
+### S027 — Git Worktree Port · S (9)
+
+**描述。** 為 subagent 任務執行提供 git worktree 生命週期管理。Hybrid 方案：native `git` CLI（ProcessBuilder）負責 worktree 建立/刪除/列表；JGit 7.1.1 `FileRepository` 負責已建立 worktree 內的 diff/commit/status。JGit 7.1.1 ��� `git worktree add/remove/list` API（Eclipse Bug 477475，2015 至今未解）。
+
+**依賴。** 無（僅 `core`）。
+
+**SBE。**
+- **AC-1** `worktreePort.create()` 建立有效 worktree + branch。
+- **AC-2** `worktreePort.openJGit()` 回傳可操作的 JGit `Git` 物件。
+- **AC-3** `worktreePort.diff()` 回傳包含變更的 unified diff。
+- **AC-4** `worktreePort.remove()` 刪除 worktree 目錄。
+- **AC-5** `worktreePort.list()` 列出所有 worktree。
+- **AC-6** git CLI 不存在時快速失敗。
+
+**估算。** 技術 2 · 不確定性 1 · 依賴 1 · 範疇 2 · 測試 2 · 可逆性 1 = **9 / S**
+
+### S028 — Subagent Sandbox Execution · M (13)
+
+**描述。** 實作 subagent 模組核心管線。`DelegateTaskUseCase` 串接 WorktreePort（S027）→ SandboxManager（S003）→ SkillProjection（S016）→ Claude Code YOLO 執行 → diff 收集。新增 `grimo_task_execution` 表追蹤執行狀態。非同步執行（virtual thread），REST API 觸發 + 輪詢。支援訂閱帳號 OAuth token 和 API key 認證。
+
+**取代。** S020 + Backlog���委派協議」(v2 S008)。
+
+**依賴。** S027（WorktreePort）、S003 ✅（Sandbox）、S005 ✅（CLI adapter）、S018 ✅（Task/Project CRUD）。
+
+**SBE。**
+- **AC-1** `POST /api/tasks/{n}/execute` 非同步啟動 subagent，回傳 202。
+- **AC-2** Claude Code YOLO 模式在容器內執行，worktree 有變更。
+- **AC-3** 執行成功後 task 狀態轉 IN_REVIEW。
+- **AC-4** 執行失敗後 task 狀態回 OPEN，容器清理。
+- **AC-5** 專案級 skills（含 references/）在 worktree 內可用。
+- **AC-6** OAuth token 認證（訂閱帳號）。
+- **AC-7** API key 認證（備用）。
+- **AC-8** `GET /api/tasks/{n}/executions/{id}` 查詢執行狀態。
+- **AC-9** Modulith verify 通過。
+
+**估算。** 技術 2 · 不確定性 2 · 依賴 2 · 範疇 3 · 測試 3 · 可逆性 1 = **13 / M**
+
+### S029 — Subagent Lifecycle Events + Diff Review · S (10)
+
+**描述。** 為 S028 補全可觀測性和審核。發布領域事件（`SubagentStarted`/`Completed`/`Failed`）。`SessionRecordingListener` 將 subagent 對話記錄到 session event store。Diff 審核 API：approve → commit + push + gh pr create；reject → task 回 OPEN。Worktree 清理。
+
+**取代。** Backlog「子代理生命週期 + diff 審查」(v2 S010)。
+
+**依賴。** S028（SubagentExecutorService）、S017 ✅（Session event store）。
+
+**SBE。**
+- **AC-1** `SubagentStarted` 事件發布。
+- **AC-2** `SubagentCompleted` 事件發布。
+- **AC-3** `SubagentFailed` 事件發布。
+- **AC-4** subagent 對話寫入 session event store。
+- **AC-5** approve → commit + push + PR + worktree cleanup。
+- **AC-6** reject → task 回 OPEN + worktree cleanup。
+- **AC-7** `gh` CLI 不存在時 PR 降級。
+- **AC-8** Modulith 事件驗證通���。
+
+**估算。** 技術 1 · 不確定性 2 · 依賴 2 · 範疇 2 · 測試 2 · 可逆性 1 = **10 / S**
+
+---
+
 ## 開發助手管線（S018 後續）
 
 **目標。** S018 建立資料基礎後，逐步加上 AI 智慧、執行管線、多平台入口、記憶系統。
@@ -252,7 +337,7 @@
 | # | 規格 | 點數 | 狀態 |
 | --- | --- | --- | --- |
 | S019 | Chat Intelligence — 對話驅動任務建立 | 待估 | 🔲 |
-| S020 | Task Execution Pipeline — worktree + Docker 執行 | 待估 | 🔲 |
+| S020 | ~~Task Execution Pipeline~~ — 被 S027-S029 取代 | — | ⛔ 取代 |
 | S021 | Channel Binding — 多平台入站適配器 | 待估 | 🔲 |
 | S022 | Memory Module — 兩層記憶 | 待估 | 🔲 |
 
@@ -269,20 +354,11 @@
 - Project 推斷邏輯：比對使用者訊息中的 repo 名稱 / 路徑 / 技術棧關鍵字
 - 回報機制：Task 狀態變更時，透過 chat session 通知使用者
 
-### S020 — Task Execution Pipeline（開發任務的 worktree + Docker 執行）
+### S020 — ~~Task Execution Pipeline~~ ⛔ 被 S027-S029 取代
 
-**描述。** 針對**開發類 Task**（labels 含 `dev` / `bug` / `refactor` 等）的自動執行管線。新增 `grimo_task_execution` 表（或擴充 `grimo_task` 加 execution 欄位）記錄執行資訊。流程：`git worktree add` → Docker sandbox 啟動 → Agent 在容器內執行 → commit + push → `gh pr create`。非開發類 Task（研究、文件、分析）不走此管線。非 git 資料夾的 Task 跳過 worktree/PR 流程。
+**原描述。** worktree + Docker 執行管線。
 
-**為什麼獨立：** Task 本身是通用工作項目（S018），開發執行管線是特定類型 Task 的行為層。與 Backlog subagent 模組高度重疊。
-
-**依賴。** S018（Task CRUD）、S003（sandbox）、S005（CLI adapter）。
-
-**關鍵設計方向：**
-- 執行資訊（branch, worktreePath, containerId, prUrl, prNumber）由本 spec 定義 schema
-- Agent 忘記 commit 的防護：容器退出前 orchestrator 強制 `git commit`
-- Worktree cleanup：PR merge 後或 Task CANCELLED 時自動移除
-- 非 git 資料夾：Task 仍可執行，但 worktree/PR 不適用
-- MVP 用 main agent 執行（不是 sub-agent），未來擴展為 sub-agent 模式
+**取代說明（2026-04-22）。** S020 原計畫 MVP 用 main agent 執行、未來擴展為 sub-agent。經 S027-S029 規劃，直接採用 Docker-sandboxed subagent 執行，涵蓋 S020 全部範疇並加上事件驅動生命週期和 diff 審核。詳見「Subagent 執行管線」章節。
 
 ### S021 — Channel Binding（多平台入站適配器）
 
@@ -449,9 +525,10 @@
 | Message Tree | S023 | 7 |
 | E2E 驗收 | S024 | 9 |
 | 驗證基礎設施 | S025、S026 | 13 |
-| **合計** | **23 個規格** | **211 點** |
+| Subagent 執行管線 | S027、S028、S029 | 32 |
+| **合計** | **26 個規格** | **243 點** |
 
-v8 藍圖相較 v7（22 規格 / 204 點）新增 1 個規格（S026 Coverage Gate 80% +7 = +7 點）。
+v9 藍圖相較 v8（23 規格 / 211 點）新增 3 個規格（S027 +9, S028 +13, S029 +10 = +32 點），S020 取消（原未估算）。Backlog 三項晉升（委派協議→S028, 工作樹管理員→S027, 子代理生命週期→S029）。
 
 ---
 
@@ -461,9 +538,9 @@ v8 藍圖相較 v7（22 規格 / 204 點）新增 1 個規格（S026 Coverage Ga
 
 | 能力 | 先前規格參考 | 延後原因 | 粗略工作量 |
 | --- | --- | --- | --- |
-| 委派協議（主代理 → Grimo） | v2 S008 | v3 重新排序：先驗證容器化 + session + skill，再做任務委派 | M (13) |
-| 工作樹管理員（JGit） | v2 S009 | 同上 | S (9) |
-| 子代理生命週期 + diff 審查 | v2 S010 | 同上 | M (14) |
+| ~~委派協議（主代理 → Grimo）~~ | v2 S008 | ✅ **晉升為 S028**（2026-04-22） | ~~M (13)~~ → S028 M(13) |
+| ~~工作樹管理員（JGit）~~ | v2 S009 | ✅ **晉升為 S027**（2026-04-22） | ~~S (9)~~ → S027 S(9) |
+| ~~子代理生命週期 + diff 審查~~ | v2 S010 | ✅ **晉升為 S029**（2026-04-22） | ~~M (14)~~ → S029 S(10) |
 | Web UI（Thymeleaf + HTMX + SSE） | v1 S003 + S006 | CLI 直通為 MVP 介面。需要展示 UI 時再晉升。 | M×2 (23) |
 | 帶壓縮重放的 CLI 切換 | v1 S009 | MVP 主代理僅使用 Claude-Code；多 CLI 主代理為後期考量。 | L (15) — 需手動 QA |
 | 明確的主代理唯讀工具允許清單 | v1 S010 | 容器隔離 + S006 CLI 配置已在 MVP 中抵消主代理的寫入路徑。 | S (9) |
