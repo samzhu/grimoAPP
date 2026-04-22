@@ -215,6 +215,48 @@
 
 ---
 
+## E2E 驗收驗證（S023 後續）
+
+**目標。** 以 `@SpringBootTest` + 真實 Claude CLI 進行端對端整合測試，驗證 Chat REST API → Session Recording → H2 持久化 → Message Tree 的完整垂直切片。
+**完成條件。** S024 ✅。
+
+| # | 規格 | 點數 | 狀態 |
+| --- | --- | --- | --- |
+| S024 | Chat E2E Integration — 真實 Claude CLI 全棧驗收 | S (9) | ✅ |
+
+### S024 — Chat E2E Integration · S (9)
+
+**描述。** 建立 `ChatEndToEndIT`（`@SpringBootTest` + `@AutoConfigureMockMvc`），透過 MockMvc 發送 HTTP 請求，走完 ChatController → MainAgentChatService → RecordingAgentSessionRegistry → 真實 Claude CLI → TurnRecorder → H2。驗證 session event 持久化、projection 物化、parent-child chain（S023 tree）、Project-scoped session。開發者本機 `./gradlew integrationTest` 執行，CI 因缺 claude CLI 自動跳過。
+
+**依賴。** S018 ✅、S023 ✅。
+
+**SBE（6 AC）。** 新建 GRIMO session + 真實回應、session event 持久化、projection 物化、多輪 parent-child chain、Project-scoped session、session close。
+
+**估算。** 技術 2 · 不確定性 2 · 依賴 1 · 範疇 2 · 測試 1 · 可逆性 1 = **9 / S**
+
+---
+
+## 驗證基礎設施（S024 後續）
+
+**目標。** 配置涵蓋率閘門，讓 `/verifying-quality` 可自動驗收涵蓋率。
+**完成條件。** S025 ✅。
+
+| # | 規格 | 點數 | 狀態 |
+| --- | --- | --- | --- |
+| S025 | JaCoCo Coverage Gate | XS (6) | ⏳ Design |
+
+### S025 — JaCoCo Coverage Gate · XS (6)
+
+**描述。** 在 build.gradle.kts 配置 JaCoCo 0.8.12 plugin，對 `application/service/` 和 `domain/` 套件強制行覆蓋率 ≥ 75%。更新 verify-all.sh 新增 V4 涵蓋率命令 + qa-strategy.md §6.1 新增 V4 條目。
+
+**依賴。** 無。
+
+**SBE（4 AC）。** JaCoCo 報告產生、涵蓋率驗證通過、verify-all.sh 含 V4、qa-strategy.md 含 V4。
+
+**估算。** 技術 1 · 不確定性 1 · 依賴 1 · 範疇 1 · 測試 1 · 可逆性 1 = **6 / XS**
+
+---
+
 ## 開發助手管線（S018 後續）
 
 **目標。** S018 建立資料基礎後，逐步加上 AI 智慧、執行管線、多平台入口、記憶系統。
@@ -416,11 +458,15 @@
 | M7 Skill 注入 + 壓縮 + 評估 | S013、S014、S015 | 30 |
 | 驗證閘門 | S016 | 7 |
 | Session 記錄層 | S017 | 11 |
-| **合計** | **18 個規格** | **173 點** |
+| REST API 基礎 | S018 | 9 |
+| Message Tree | S023 | 7 |
+| E2E 驗收 | S024 | 9 |
+| 驗證基礎設施 | S025 | 6 |
+| **合計** | **22 個規格** | **204 點** |
 
-v6 藍圖相較 v5（16 規格 / 153 點）新增 1 個規格（S016 MVP 人工驗證閘門，+7 點）。S016 在 M5 → M6 之間插入人工驗證環節：Skill CLI 子命令 + Skill 投影至工作目錄。
+v7 藍圖相較 v6（18 規格 / 173 點）新增 3 個規格（S018 REST API +9、S023 Message Tree +7、S024 E2E 驗收 +9 = +25 點）。
 
-下一步行動：`/planning-tasks S016`
+下一步行動：`/planning-tasks S024`
 
 ---
 

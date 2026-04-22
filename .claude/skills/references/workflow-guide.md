@@ -144,8 +144,18 @@ Two-stage verification, both executed during Phase 4:
 
 | Stage | Method | What it checks |
 |---|---|---|
-| **Deterministic** (inline) | Ecosystem test commands (e.g., `./gradlew test`) | Build passes, unit tests green, modulith verify |
+| **Deterministic** (inline) | `verify-all.sh` (Verification Command Registry) | ALL registered commands: unit, integration, E2E — deterministic, no LLM inference |
 | **Independent QA** (subagent) | `/verifying-quality` in fresh context | Spec compliance, AC-to-test mapping, code quality, Javadoc accuracy, design-section sync |
+
+**Verification Command Registry.** `/verifying-quality` owns and
+maintains the registry table (in the QA strategy doc) and its
+executable form (`verify-all.sh`). On every QA run it reconciles
+the registry against the build file and QA targets — adding missing
+commands, flagging stale entries, and proposing specs when tooling
+is absent (e.g., coverage target exists but no coverage plugin).
+
+No LLM inference needed for the deterministic checks — the script
+handles command ordering, environment detection, and skip logic.
 
 This applies to **all spec sizes** (XS through L+). The subagent
 approach replaces the old model where only L+ specs got QA review.

@@ -68,9 +68,8 @@
 ```
 開發者儲存程式碼
    ↓
-./gradlew check  ──▶ compile + T0 + T1 + T2 + modulith verify
+docs/grimo/scripts/verify-all.sh         ──▶ 執行驗證命令登錄表中的所有命令
    ↓（通過）
-scripts/verify-tests-pass.sh             ──▶ 記錄 PASS 時間戳
 scripts/verify-spec-coverage.sh S###     ──▶ 斷言規格中每個 AC 都有測試
    ↓
 CI PR 閘門：執行 T0..T3、JaCoCo 報告、Dependabot/OWASP 檢查
@@ -80,6 +79,26 @@ CI 夜間：
   - T5 nativeCompile + health probe
   - T6 推理評審對話記錄（一旦有記錄）
 ```
+
+### 6.1 驗證命令登錄表（Verification Command Registry）
+
+**權威單一來源。** `docs/grimo/scripts/verify-all.sh` 是此表的可執行版本。
+
+**維護者：`/verifying-quality`。** 每次 QA 審查時，`/verifying-quality` 負責對照 build file 和 QA 目標，偵測 gap 並更新此表 + `verify-all.sh`。若需要新的驗證工具（如 JaCoCo）但尚未配置，`/verifying-quality` 會 `REJECT-BLOCKED` 並建議開立 spec。
+
+| # | 命令 | 層級 | 引入 spec | 環境需求 | 失敗處理 |
+|---|------|------|-----------|----------|----------|
+| V1 | `./gradlew compileTestJava` | 編譯 | S000 | 無 | CRITICAL — 阻擋出貨 |
+| V2 | `./gradlew test` | T0-T2 單元 + 切片 | S000 | 無 | CRITICAL — 阻擋出貨 |
+| V3 | `./gradlew integrationTest` | T4 E2E | S024 | claude CLI + 有效登入 | SKIP if unavailable — 記錄 skip 原因 |
+
+**失敗處理規則：**
+- `CRITICAL`：命令必須 exit 0，否則阻擋出貨。
+- `SKIP if unavailable`：環境不可用時允許跳過，但必須記錄 skip 原因。環境可用時必須 exit 0。
+
+**一致性規則：**
+- `verify-all.sh` 的命令清單必須與此表完全一致。
+- `/verifying-quality` 每次執行時自動對帳（build file vs 此表），發現 gap 即修正或 REJECT-BLOCKED。
 
 ## 7. CLI 代理的確定性存根
 

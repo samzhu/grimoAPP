@@ -19,7 +19,7 @@ allowed-tools:
   - WebSearch
 metadata:
   author: samzhu
-  version: 5.0.0
+  version: 6.0.0
   category: workflow-automation
   pattern: domain-specific-intelligence
 ---
@@ -80,26 +80,84 @@ Read the project's key documents to understand its conventions:
 Use any prior implementation results as context, but **re-verify
 independently** — do not trust prior findings blindly.
 
+### 0.5 Build and maintain verification command inventory
+
+**This skill OWNS the verification infrastructure.** The verification
+script and registry table are assets maintained by `/verifying-quality`,
+not by other skills or by the implementer.
+
+#### Locate existing infrastructure
+
+Look for two artifacts in the project:
+
+1. **Verification Command Registry** — a structured table in the
+   project's QA strategy or test documentation listing every
+   verification command, its severity, and environment prerequisites.
+2. **Deterministic verification script** — an executable (e.g.,
+   `verify-all.sh`) that encodes the registry as runnable code.
+
+#### Reconcile: detect gaps between registry and reality
+
+Scan the project's build configuration (e.g., `build.gradle.kts`,
+`package.json`, `Makefile`, CI config) for test tasks, coverage
+tools, and quality gates. Compare against the registry.
+
+**Gap detection checklist:**
+
+| What to check | Where to look | Gap signal |
+|---|---|---|
+| Test tasks beyond `test` | Build file (`integrationTest`, `contractTest`, `e2eTest`, etc.) | Build registers task but registry does not list it |
+| Coverage tooling | QA strategy targets vs build plugins | QA doc states coverage target but no plugin configured |
+| Lint / format gates | Build file, CI config | QA doc mentions linting but no command in registry |
+| Architecture checks | Build file (modulith verify, ArchUnit) | Tests exist but not in registry |
+
+#### Act on gaps
+
+| Gap type | Action |
+|---|---|
+| **Build task exists, not in registry** | Add it to registry + script now (this is a maintenance task, not a spec) |
+| **QA doc states a target but tooling is not configured** (e.g., coverage ≥ 75% but no JaCoCo plugin) | `REJECT-BLOCKED` — propose a spec to configure the tooling. Record in verdict: "QA strategy requires X but no tooling exists to measure it." |
+| **New test infra was shipped by a spec but not added to registry** | Add it to registry + script now. Flag as IMPORTANT finding: "Spec S0XX shipped `<task>` but did not update the verification registry." |
+| **Registry lists a command that no longer exists in build** | Remove from registry + script. Flag as MINOR finding. |
+
+**After reconciliation, the registry and script must be in sync.**
+If you made changes, commit them as part of the QA review.
+
 ### 1. Layer 1 — Automated checks
 
-Run the project's standard test pipeline. Every command must exit 0.
+**If a deterministic verification script exists**, run it. The script
+handles command ordering, environment detection, skip logic, and
+result logging — no LLM inference needed for the deterministic layer.
 
-**Discover commands from the project's own documentation.** Do not
-assume any particular ecosystem. Look for:
-- Test runner commands in README, QA docs, or CI configuration
-- Build verification commands (compile, lint, type-check)
-- Architecture/module boundary checks if the project enforces them
+**If no script exists**, create one. Use the registry table as the
+source of truth. The script should:
+- Run each CRITICAL command and fail on non-zero exit
+- Run each SKIP-if-unavailable command with an environment check
+  (e.g., `which <binary>`) and skip gracefully when unavailable
+- Log results with timestamps to a persistent file
+- Exit 0 only if all CRITICAL commands pass
+
+**If neither registry nor script exists** (greenfield project),
+discover commands from the build file and QA docs, create both
+the registry table and the script, then run it.
+
+Record the full output of the verification script as evidence.
+A PASS without captured output is incomplete.
 
 ### 2. Layer 2 — Coverage & integration
 
-**Coverage:** If the project has coverage tooling configured, run it
-and check results for changed files against the project's stated
-targets. Flag new production files with 0% coverage.
+**Coverage:** Check if the QA strategy states a coverage target. If
+yes, verify that coverage tooling is configured in the build and
+included in the verification script. If tooling is missing →
+`REJECT-BLOCKED` with a proposal to configure it (e.g., "Add JaCoCo
+plugin + coverage verification task to build + V4 entry in registry").
+If tooling exists, the verification script in Step 1 already ran it.
+Check results for changed files against the project's stated targets.
+Flag new production files with 0% coverage.
 
-**Integration tests:** Determine whether the spec touches external
-systems (subprocesses, databases, containers, APIs). If yes, run
-integration tests with appropriate environment guards. If the
-environment is unavailable, mark as pending — not a failure.
+**Integration tests:** Already handled by the verification script
+(Step 1) if registered. If the spec touches external systems not yet
+covered by a registered command, flag as a gap per Step 0.5.
 
 ### 3. Layer 3 — Manual verification readiness
 

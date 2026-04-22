@@ -47,7 +47,7 @@ AC passed. If no section 7 or any AC failed:
 ## Process
 
 ```
-- [ ] Pre-flight: verify spec results PASS + run project tests + git status clean
+- [ ] Pre-flight: verify spec results PASS + verification gate + git status clean
 - [ ] Clean up: archive/delete PoC directories if any
 - [ ] Commit: clear message referencing spec ID
 - [ ] Doc sync: update product & design docs to reflect new reality
@@ -56,6 +56,25 @@ AC passed. If no section 7 or any AC failed:
 - [ ] Status: spec-roadmap.md → ✅
 - [ ] Tag: version tag if milestone complete
 ```
+
+### Pre-flight verification gate
+
+Before shipping, run the project's deterministic verification script.
+Look for a `verify-all.sh` (or equivalent) in the project's scripts
+directory. If it exists, run it — it encodes the full Verification
+Command Registry and handles environment detection, skip logic, and
+result logging without LLM inference.
+
+If no script exists, read the QA strategy doc for a Verification
+Command Registry table and run each command manually.
+
+**Gate rule:** ALL CRITICAL commands must PASS. SKIP-if-unavailable
+commands may skip (with documented reason). If any CRITICAL command
+fails → REJECT, fix first.
+
+Cross-check: the spec's §8 QA Review section must reference execution
+of the verification script (or all registry commands). If the QA
+review only ran a subset, flag as incomplete and re-run.
 
 ### Commit message format
 
