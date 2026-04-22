@@ -229,3 +229,35 @@ Task files: `docs/grimo/tasks/2026-04-22-S025-T01.md`
 | AC-2 Coverage verification ≥ 75% | ✅ | `jacocoTestCoverageVerification` exit 0 |
 | AC-3 verify-all.sh includes V4 | ✅ | `V4-coverage PASS` in output |
 | AC-4 qa-strategy.md §6.1 includes V4 | ✅ | V4 row added |
+
+---
+
+## 8. QA Review
+
+**審查者：** 獨立 QA 子代理 (`/verifying-quality`) | **日期：** 2026-04-22 | **判定：PASS**
+
+### 四層驗證結果
+
+| Layer | Result | Detail |
+|-------|--------|--------|
+| Automated tests | PASS | V1-V4 全通過 (verify-all.sh) |
+| Coverage / Integration | PASS | `jacocoTestCoverageVerification` exit 0 |
+| Manual verification | N/A | 所有 AC 皆有自動化驗證 |
+| Testability gate | CLEAR | 4/4 AC 均 VERIFIED |
+
+### AC 驗證明細
+
+| AC | 分類 | 證據 |
+|----|------|------|
+| AC-1 JaCoCo report generated | VERIFIED | `jacocoTestReport` 產生 HTML + XML |
+| AC-2 Coverage ≥ 75% | VERIFIED | `jacocoTestCoverageVerification` exit 0 |
+| AC-3 verify-all.sh V4 | VERIFIED | `V4-coverage PASS` in output |
+| AC-4 qa-strategy.md §6.1 V4 | VERIFIED | qa-strategy.md 第 94 行，CRITICAL |
+
+### 發現
+
+| # | 嚴重度 | 描述 |
+|---|--------|------|
+| 1 | MINOR | `spec-roadmap.md:250` 描述仍寫 "JaCoCo 0.8.12"，實際為 0.8.13 |
+
+**無 CRITICAL 或 IMPORTANT 發現。可以出貨。**

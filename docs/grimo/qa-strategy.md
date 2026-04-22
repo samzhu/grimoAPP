@@ -22,7 +22,7 @@
 | DB 測試 | `@DataJdbcTest`（H2 記憶體模式） | 生產環境使用 H2 檔案模式（D17） |
 | 程式碼格式化 | _延後 — 在後續清理規格中以外部工具一次性執行_ | 非每次建置閘門（使用者 2026-04-16 決定） |
 | 原生建置 | `org.graalvm.buildtools.native` 0.11.5 | 夜間 `nativeCompile` 冒煙測試 |
-| 覆蓋率 | JaCoCo 0.8.13 | 目標：`application/service/` 和 `domain/` 套件的行覆蓋率 ≥ 75%；適配器覆蓋率為副產品，非目標。0.8.12 不支援 Java 25（class version 69），0.8.13 起有實驗性支援。 |
+| 覆蓋率 | JaCoCo 0.8.13 | 全部程式碼行覆蓋率總和 ≥ 80%，排除純接線（`*Config`、`port/in/`、`port/out/`、`events/`、`package-info`）及第三方程式碼（`org.springaicommunity`）。透過 `classDirectories` 過濾，非 `rule.includes`（後者在 `element=BUNDLE` 下比對 bundle 名稱，無法過濾 class）。報告格式：HTML + XML + CSV。 |
 
 ## 3. 測試分類
 
@@ -38,7 +38,7 @@
 
 ## 4. SBE ↔ 測試對映
 
-每個 PRD 驗收標準必須至少被一個測試引用。規格文件攜帶前向引用。反向索引位於此處，由 `scripts/verify-spec-coverage.sh` 每夜重新生成。
+每個 PRD 驗收標準必須至少被一個測試引用。規格文件攜帶前向引用。反向索引位於此處。AC 覆蓋由 `/verifying-quality` Step 4（可測試性閘門）在每次 QA 審查時驗證。
 
 | PRD AC | 主要測試類別 | 層級 |
 | --- | --- | --- |
@@ -68,11 +68,9 @@
 ```
 開發者儲存程式碼
    ↓
-docs/grimo/scripts/verify-all.sh         ──▶ 執行驗證命令登錄表中的所有命令
+docs/grimo/scripts/verify-all.sh         ──▶ 執行驗證命令登錄表中的所有命令（V1-V4）
    ↓（通過）
-scripts/verify-spec-coverage.sh S###     ──▶ 斷言規格中每個 AC 都有測試
-   ↓
-CI PR 閘門：執行 T0..T3、JaCoCo 報告、Dependabot/OWASP 檢查
+CI PR 閘門：執行 T0..T3、JaCoCo 報告（≥ 80%）、Dependabot/OWASP 檢查
    ↓（合併至 main）
 CI 夜間：
   - 完整 T4 整合測試
@@ -91,7 +89,7 @@ CI 夜間：
 | V1 | `./gradlew compileTestJava` | 編譯 | S000 | 無 | CRITICAL — 阻擋出貨 |
 | V2 | `./gradlew test` | T0-T2 單元 + 切片 | S000 | 無 | CRITICAL — 阻擋出貨 |
 | V3 | `./gradlew integrationTest` | T4 E2E | S024 | claude CLI + 有效登入 | SKIP if unavailable — 記錄 skip 原因 |
-| V4 | `./gradlew jacocoTestCoverageVerification` | 涵蓋率 | S025 | 無 | CRITICAL — 阻擋出貨 |
+| V4 | `./gradlew jacocoTestCoverageVerification` | 行覆蓋率 ≥ 80%（全部程式碼扣除純接線 + 第三方） | S025 | 無 | CRITICAL — 阻擋出貨 |
 
 **失敗處理規則：**
 - `CRITICAL`：命令必須 exit 0，否則阻擋出貨。
@@ -127,15 +125,14 @@ CI 夜間：
 ## 9. 覆蓋率與儀表板
 
 - JaCoCo HTML：`build/reports/jacoco/test/html/index.html`。
+- JaCoCo CSV：`build/reports/jacoco/test/jacocoTestReport.csv`（方便腳本解析逐 class 覆蓋率）。
 - Modulith 生成的 C4 + 模組畫布：`build/spring-modulith-docs/`。
-- 規格覆蓋率報告（由下方腳本生成）：`build/reports/grimo/spec-coverage.md`。
 
 ## 10. 腳本（驗證命令）
 
 位於 `docs/grimo/scripts/`：
 
-- `verify-tests-pass.sh` — 執行 `./gradlew test` 並將帶時間戳的 PASS/FAIL 記錄寫入 `build/reports/grimo/verify-log.txt`。
-- `verify-spec-coverage.sh` — 解析規格檔案，提取其 `## Acceptance criteria` 區塊，在測試樹中搜索匹配的 `@DisplayName(...)` / `// AC<id>` 注解，並斷言每個 AC 至少有一個命中。
+- `verify-all.sh` — 驗證命令登錄表（§6.1）的可執行版本。執行所有 V1-V4 命令，記錄結果至 `build/reports/grimo/verify-all-log.txt`。
 
 ## 11. 升級路徑
 
@@ -150,5 +147,5 @@ CI 夜間：
 - `./gradlew test` 報告零測試但以 0 退出。
 - `./gradlew modulith:verify` 在空模組圖上通過。
 - `./gradlew nativeCompile` 在 hello-world 應用上成功。
-- `scripts/verify-tests-pass.sh` 呼叫記錄一行 PASS。
+- `docs/grimo/scripts/verify-all.sh` 呼叫所有 V1-V4 且記錄 PASS。
 - 程式碼格式化有意不在建置時把關（見 §2）。

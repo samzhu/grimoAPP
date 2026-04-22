@@ -80,7 +80,7 @@ tasks.register<Test>("integrationTest") {
 	}
 }
 
-// ── JaCoCo coverage gate (S025 · qa-strategy.md §2: ≥ 75% line for service + domain) ──
+// ── JaCoCo coverage gate (qa-strategy.md §2: ≥ 80% line, 全部程式碼扣除純接線) ──
 
 jacoco {
 	toolVersion = "0.8.13"
@@ -91,21 +91,41 @@ tasks.jacocoTestReport {
 	reports {
 		xml.required.set(true)
 		html.required.set(true)
+		csv.required.set(true)
 	}
 }
 
 tasks.jacocoTestCoverageVerification {
 	dependsOn(tasks.jacocoTestReport)
+
+	// 全部程式碼納入，排除無業務邏輯的接線 + 非本專案程式碼：
+	//   - *Config.java          @Bean / @ComponentScan 接線
+	//   - port/in/, port/out/   純 interface，0 行可執行碼
+	//   - package-info.java     模組宣告
+	//   - **/events/*           純 Spring event record
+	//   - org/springaicommunity 第三方程式碼，非本專案維護範圍
+	//   - sandbox/internal      Docker 依賴，待 S008 一併處理（技術債）
+	classDirectories.setFrom(
+		sourceSets["main"].output.classesDirs.asFileTree.matching {
+			exclude(
+				"**/*Config.class",
+				"**/*Config\$*.class",
+				"**/port/in/**",
+				"**/port/out/**",
+				"**/events/**",
+				"**/package-info.class",
+				"org/springaicommunity/**",
+				"**/sandbox/internal/**"
+			)
+		}
+	)
+
 	violationRules {
 		rule {
-			includes = listOf(
-				"io.github.samzhu.grimo.*.domain.*",
-				"io.github.samzhu.grimo.*.application.service.*"
-			)
 			limit {
 				counter = "LINE"
 				value = "COVEREDRATIO"
-				minimum = "0.75".toBigDecimal()
+				minimum = "0.80".toBigDecimal()
 			}
 		}
 	}

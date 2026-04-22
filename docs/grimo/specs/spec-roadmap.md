@@ -239,21 +239,32 @@
 ## 驗證基礎設施（S024 後續）
 
 **目標。** 配置涵蓋率閘門，讓 `/verifying-quality` 可自動驗收涵蓋率。
-**完成條件。** S025 ✅。
+**完成條件。** S025 ✅ → S026 ✅。
 
 | # | 規格 | 點數 | 狀態 |
 | --- | --- | --- | --- |
 | S025 | JaCoCo Coverage Gate | XS (6) | ✅ |
+| S026 | Coverage Gate 80% — 修正配置 + 補齊測試 | XS (7) | 🔧 |
 
 ### S025 — JaCoCo Coverage Gate · XS (6)
 
-**描述。** 在 build.gradle.kts 配置 JaCoCo 0.8.12 plugin，對 `application/service/` 和 `domain/` 套件強制行覆蓋率 ≥ 75%。更新 verify-all.sh 新增 V4 涵蓋率命令 + qa-strategy.md §6.1 新增 V4 條目。
+**描述。** 在 build.gradle.kts 配置 JaCoCo 0.8.13 plugin，對 `application/service/` 和 `domain/` 套件強制行覆蓋率 ≥ 75%。更新 verify-all.sh 新增 V4 涵蓋率命令 + qa-strategy.md §6.1 新增 V4 條目。
 
 **依賴。** 無。
 
 **SBE（4 AC）。** JaCoCo 報告產生、涵蓋率驗證通過、verify-all.sh 含 V4、qa-strategy.md 含 V4。
 
 **估算。** 技術 1 · 不確定性 1 · 依賴 1 · 範疇 1 · 測試 1 · 可逆性 1 = **6 / XS**
+
+### S026 — Coverage Gate 80% · XS (7)
+
+**描述。** 修正 S025 的 JaCoCo gate bug（`rule.includes` 在 BUNDLE 層級無效），覆蓋率策略改為「全部程式碼扣除純接線」（`classDirectories` 過濾），閾值 80%。補齊 `TaskService` / `ProjectService` 單元測試。刪除冗餘腳本（`verify-tests-pass.sh`、`verify-spec-coverage.sh`）。
+
+**依賴。** 無。
+
+**SBE（5 AC）。** JaCoCo gate 使用 classDirectories + 80% 通過、TaskService 測試、ProjectService 測試、冗餘腳本刪除 + QA 文件同步、CSV 報告產生。
+
+**估算。** 技術 1 · 不確定性 1 · 依賴 1 · 範疇 2 · 測試 1 · 可逆性 1 = **7 / XS**
 
 ---
 
@@ -532,3 +543,5 @@ v7 藍圖相較 v6（18 規格 / 173 點）新增 3 個規格（S018 REST API +9
 | S023 | `architecture.md` 第 168–169 行：`grimo_session` 缺 `current_event_id`；`grimo_session_event` 仍寫 `branch (reserved)` 而非 `parent_event_id` | drift | 中 | ✅ S023 出貨時修正 |
 | S023 | `glossary.md` 缺少 S023 新增術語：Adjacency List tree（Adjacency List 樹）、branch bookmark（分支書籤 / current_event_id）、Message Tree（訊息樹） | drift | 低 | 🔲 |
 | S023 | `SchemaTest#currentEventIdColumn`（AC-2）只驗證欄位存在 + nullable，未驗證 FK 指向 grimo_session_event(id)（AC-2 spec 要求） | bug | 低 | 🔲 |
+| S025 | JaCoCo `rule.includes` 在 `element=BUNDLE` 下比對 bundle 名稱而非 class 名稱 — gate 形同虛設。S026 以 `classDirectories` 過濾修正 | bug | 高 | ✅ S026 修正 |
+| S026 | `sandbox.internal`（HostMountedSandboxFiles / BindMountSandbox / TestcontainersSandboxManager）共 119 行覆蓋率趨近 0% — Docker 依賴無法 unit test，已從 coverage gate 排除 | skip | 中 | 🔲 待 S008 |
