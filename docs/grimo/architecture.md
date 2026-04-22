@@ -39,7 +39,7 @@ io.github.samzhu.grimo                                   # 根（GrimoApplicatio
 ├── project                                 # Project CRUD REST API（S018 ✅）— ProjectRestController + ProjectUseCase
 ├── task                                    # Task CRUD + lifecycle REST API（S018 ✅）— TaskRestController + TaskUseCase
 ├── session                                 # Event-sourced session memory（S017 ✅ → S018 Spring AI 命名重設計）+ SessionRestController
-├── subagent                                # 委派 + 工作樹 + 子代理生命週期（Backlog，待晉升）
+├── subagent                                # WorktreePort（S027 ✅）+ 委派 + 子代理生命週期（S028–S029）
 └── skills                                  # SKILL.md 登錄檔（S012）+ SkillRestController（S018 ✅）
 ```
 
@@ -57,7 +57,7 @@ io.github.samzhu.grimo                                   # 根（GrimoApplicatio
 | `agent` | `MainAgentChatUseCase`（`@NamedInterface("api")`）、`ChatController`（REST） | `session::api`（`SessionRecordingPort`）、`skills::api`（投影）、`project::api`（workDir 解析） | — | S007 → S016 → S018 ✅ |
 | `project` | `ProjectUseCase`（`@NamedInterface("api")`）、`ProjectRestController`（REST） | `ProjectPort`（JDBC） | — | S018 ✅ |
 | `task` | `TaskUseCase`（`@NamedInterface("api")`）、`TaskRestController`（REST） | `TaskPort`（JDBC）、`project::api`（FK 驗證） | — | S018 ✅ |
-| `subagent` | `DelegateTaskUseCase` | `Sandbox`（SPI）、`WorktreePort`、`AgentCliPort` | `SubagentStarted`、`SubagentCompleted`、`SubagentFailed` | Backlog（v2 S008–S010） |
+| `subagent` | `DelegateTaskUseCase`（S028 規劃） | `WorktreePort`（S027 ✅）、`Sandbox`（SPI）、`AgentCliPort` | `SubagentStarted`、`SubagentCompleted`、`SubagentFailed` | S027 ✅ → S028–S029 |
 | `session` | `SessionHistoryUseCase`、`SessionRecordingPort`（`@NamedInterface("api")`）、`SessionRestController`（REST） | `SessionEventPort`、`SessionProjectionPort`、`ProviderMetadataExtractor` | `TurnRecorded`（`@NamedInterface("events")`） | S017 ✅ → S018 ✅ |
 | `skills` | `SkillRegistryUseCase`、`SkillProjectionUseCase`（`@NamedInterface("api")`）、`SkillRestController`（REST） | `SkillStorePort`（檔案系統） | `SkillEnabled`、`SkillDisabled` | S012 / S016 → S018 ✅ |
 
@@ -110,7 +110,7 @@ io.github.samzhu.grimo                                   # 根（GrimoApplicatio
 | `org.springaicommunity:agent-sandbox-core` | **0.9.1** | `org.springaicommunity.sandbox.Sandbox`（SPI）、`ExecSpec`、`ExecResult`、`SandboxFiles` — **S003 的沙箱埠介面**（D9 修訂） | yes — Maven Central 上的 groupId 為 `org.springaicommunity`（非 `.agents`） |
 | `org.springaicommunity:agent-sandbox-docker` | **0.9.1** | `org.springaicommunity.sandbox.docker.DockerSandbox` — **S003 不使用**（建構子啟動容器，無 bind-mount 鉤點）；僅供不需 bind-mount 的短暫檔案複製情境 | yes — 同上 group |
 | `org.testcontainers:testcontainers` | 1.20.4 | `org.testcontainers.containers.GenericContainer` | yes（僅 JVM；`@DisabledInNativeImage`） |
-| `org.eclipse.jgit:org.eclipse.jgit` | 7.1.1.202506271520-r | `org.eclipse.jgit.api.Git`（worktree add/remove） | yes |
+| `org.eclipse.jgit:org.eclipse.jgit` | **7.6.0.202603022253-r** | `org.eclipse.jgit.api.Git`（worktree 內 diff/status/commit）；JGit 仍無 worktree add/remove API（Eclipse Bug 477475）— 由 native git CLI 處理 | yes — S027 驗證 |
 | `org.springframework.boot:spring-boot-starter-test` | 4.0.5 | （自動） | yes |
 | `org.testcontainers:junit-jupiter` | 1.20.4 | `@Testcontainers` | yes（僅測試 classpath） |
 | `com.tngtech.archunit:archunit-junit5` | 1.3.0 | 透過 Modulith verify API | yes（傳遞引入） |

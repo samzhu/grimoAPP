@@ -266,7 +266,7 @@
 
 | # | 規格 | 點數 | 狀態 |
 | --- | --- | --- | --- |
-| S027 | Git Worktree Port — hybrid ProcessBuilder + JGit | S (9) | ⏳ Design |
+| S027 | Git Worktree Port — hybrid ProcessBuilder + JGit | S (9) | ✅ |
 | S028 | Subagent Sandbox Execution — Docker + Claude YOLO + Task tracking | M (13) | ⏳ Design |
 | S029 | Subagent Lifecycle Events + Diff Review — 事件 / session 記錄 / PR 自動化 | S (10) | ⏳ Design |
 
