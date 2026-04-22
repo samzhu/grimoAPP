@@ -4,7 +4,7 @@ description: >
   Generates a structured handover note so any agent or human can resume work
   without context loss. Writes a single HANDOVER.md with two layers: a portable
   summary (Layer 1) and environment details (Layer 2).
-  Use when the user says "handover", "交班", "shift change", "save progress",
+  Use when the user says "handover", "交班", "換手", "shift change", "save progress",
   "wrap up session", "I need to switch", "pass the baton", "先到這裡", "存檔",
   "context is getting long", or before closing a long session.
   Pair with /takeover to resume in a new session.
