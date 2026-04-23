@@ -234,6 +234,7 @@ POC without a clear hypothesis.
 | Spec introduces packages/SDKs **never used before** in this project | **Always Yes** — even if spec research is thorough, API semantics (return values, exception behavior, builder patterns) must be verified against real code |
 | Spec integrates with unfamiliar external APIs | Yes |
 | **Spec's approach wraps/extends a framework SPI** | **Yes** — verify the SPI's actual behavior before designing a wrapper. The SPI may already provide what the spec builds manually |
+| **Spec references CLI flags or commands run in a different environment than the developer's host** (containers, CI runners, different OS/user) | **Yes** — flags that work on the developer's host may be blocked or behave differently in the target execution environment. Test the exact command in the target environment before encoding it into task files. |
 | High uncertainty on whether approach will work | Yes |
 | Spec only modifies existing, well-understood code | No |
 | All packages already validated by prior specs | No |
@@ -305,6 +306,19 @@ single infrastructure task when they share the same verification
 command. Each task should carry enough work to justify a full
 RED → GREEN → REFACTOR cycle — if RED is just "file does not exist"
 and GREEN is creating a 5-line file, the task is too small.
+
+**E2E smoke test task (mandatory when stubs replace real systems):**
+
+Ask: "Do unit tests for this spec stub or mock any external
+boundary — infrastructure, subprocesses, third-party services,
+credential stores?"
+
+If **yes** → the task plan MUST include a final task that exercises
+the feature through its real entry point against real dependencies,
+verifying every AC's data assertions return non-empty, conformant
+output. Stubs prove logic; only a real run proves assembly.
+
+If **no** (pure logic, no stubbed boundaries) → skip.
 
 **Create individual task files:**
 

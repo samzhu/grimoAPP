@@ -11,6 +11,9 @@ IMPORTANT: Follow these in every session.
 - **Web-Verify First**: Searching official docs is faster than trial-and-error — cite sources
 - **Log-Driven Debugging**: When logs are insufficient to identify the root cause, add more logs and retest before planning a fix
 - **No Deprecated APIs**: Check `architecture.md` for exact versions and import paths — do NOT guess
+- **Ecosystem-Managed Versions**: When adding dependencies, check the build system's managed versions first. Never pin an explicit version that downgrades a managed one — upgrade is free, downgrade creates bugs.
+- **Scope-Check Before Applying**: When applying a security or compliance finding, verify the current code falls within the finding's stated scope before changing anything. Search for the distinguishing identifier in the codebase.
+- **Clean Experiments**: When debugging, create a restore point before each attempt. Revert failed experiments before trying the next one. When the fix is confirmed, audit the complete changeset — every line must trace to the actual fix, not to leftover experiments.
 
 ## Workflow Skills
 

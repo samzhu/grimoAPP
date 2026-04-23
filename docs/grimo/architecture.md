@@ -109,10 +109,9 @@ io.github.samzhu.grimo                                   # 根（GrimoApplicatio
 | `org.springaicommunity:spring-ai-session-management` | 0.2.0 | `org.springframework.ai.session.compaction.*` | yes |
 | `org.springaicommunity:agent-sandbox-core` | **0.9.1** | `org.springaicommunity.sandbox.Sandbox`（SPI）、`ExecSpec`、`ExecResult`、`SandboxFiles` — **S003 的沙箱埠介面**（D9 修訂） | yes — Maven Central 上的 groupId 為 `org.springaicommunity`（非 `.agents`） |
 | `org.springaicommunity:agent-sandbox-docker` | **0.9.1** | `org.springaicommunity.sandbox.docker.DockerSandbox` — **S003 不使用**（建構子啟動容器，無 bind-mount 鉤點）；僅供不需 bind-mount 的短暫檔案複製情境 | yes — 同上 group |
-| `org.testcontainers:testcontainers` | 1.20.4 | `org.testcontainers.containers.GenericContainer` | yes（僅 JVM；`@DisabledInNativeImage`） |
+| `org.testcontainers:testcontainers` | **2.0.4**（Spring Boot BOM 管理） | `org.testcontainers.containers.GenericContainer` | yes（僅 JVM；`@DisabledInNativeImage`）— S028 驗證：2.0.4 原生支援 Docker 29.x（API ≥ 1.44）。`junit-jupiter` 模組已合併到主 jar，移除獨立依賴。 |
 | `org.eclipse.jgit:org.eclipse.jgit` | **7.6.0.202603022253-r** | `org.eclipse.jgit.api.Git`（worktree 內 diff/status/commit）；JGit 仍無 worktree add/remove API（Eclipse Bug 477475）— 由 native git CLI 處理 | yes — S027 驗證 |
 | `org.springframework.boot:spring-boot-starter-test` | 4.0.5 | （自動） | yes |
-| `org.testcontainers:junit-jupiter` | 1.20.4 | `@Testcontainers` | yes（僅測試 classpath） |
 | `com.tngtech.archunit:archunit-junit5` | 1.3.0 | 透過 Modulith verify API | yes（傳遞引入） |
 
 > **原則提醒：** 這裡的每個版本都是截至 2026-04-16 針對 Boot 4.0.5 驗證過的最新穩定版。`spring-ai-session` 設計上為 pre-1.0 — 固定於 `0.2.0` 發版；不追蹤 `0.3.0-SNAPSHOT`。

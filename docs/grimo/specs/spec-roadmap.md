@@ -262,13 +262,14 @@
 ## Subagent 執行管線（S018 + S003 + S005 後續）
 
 **目標。** Docker-sandboxed subagent 完整執行管線：git worktree → Docker 容器 → Claude Code YOLO → 技能投射 → diff 審核 → PR 自動化。取代 S020 + Backlog（委派協議 / 工作樹管理員 / 子代理生命週期）。
-**完成條件。** S027 + S028 + S029 ✅。
+**完成條件。** S027 + S028 + S029 + S030 ✅。
 
 | # | 規格 | 點數 | 狀態 |
 | --- | --- | --- | --- |
 | S027 | Git Worktree Port — hybrid ProcessBuilder + JGit | S (9) | ✅ |
-| S028 | Subagent Sandbox Execution — Docker + Claude YOLO + Task tracking | M (13) | ⏳ Design |
+| S028 | Subagent Sandbox Execution — Docker + Claude YOLO + Task tracking | M (13) | ✅ |
 | S029 | Subagent Lifecycle Events + Diff Review — 事件 / session 記錄 / PR 自動化 | S (10) | ⏳ Design |
+| S030 | Subagent Credential Pool — 多帳號 token 管理 + 優先序/隨機策略 | XS (7) | ⏳ Design |
 
 ### S027 — Git Worktree Port · S (9)
 
@@ -306,6 +307,26 @@
 - **AC-9** Modulith verify 通過。
 
 **估算。** 技術 2 · 不確定性 2 · 依賴 2 · 範疇 3 · 測試 3 · 可逆性 1 = **13 / M**
+
+### S030 — Subagent Credential Pool · XS (7)
+
+**描述。** 為 subagent 執行管線提供 credential pool 管理。使用者透過 Main Agent 引導執行 `claude setup-token`，取得 1 年期 OAuth token 後存入 Grimo（H2 `grimo_credential` 表）。支援多帳號：依優先序（PRIORITY）或隨機（RANDOM）選取 credential。Token 過期自動跳過。S028 的 `buildEnvVars()` 整合 credential pool，認證優先序：API Key > Credential Pool > CLI native。
+
+**依賴。** S028 ✅（SubagentExecutorService）、S018 ✅（REST API 基礎）。
+
+**SBE。**
+- **AC-1** 建立 credential（POST → 201）。
+- **AC-2** 列出 credentials（secretValue 遮蔽）。
+- **AC-3** PRIORITY 策略選取（sort_order ASC）。
+- **AC-4** RANDOM 策略選取（均勻分布）。
+- **AC-5** 過期 token 自動跳過。
+- **AC-6** buildEnvVars 整合（CLAUDE_CODE_OAUTH_TOKEN 注入）。
+- **AC-7** API Key 優先於 Credential Pool。
+- **AC-8** 刪除 credential。
+- **AC-9** 更新策略設定。
+- **AC-10** Modulith verify 通過。
+
+**估算。** 技術 1 · 不確定性 1 · 依賴 1 · 範疇 2 · 測試 1 · 可逆性 1 = **7 / XS**
 
 ### S029 — Subagent Lifecycle Events + Diff Review · S (10)
 
@@ -525,8 +546,8 @@
 | Message Tree | S023 | 7 |
 | E2E 驗收 | S024 | 9 |
 | 驗證基礎設施 | S025、S026 | 13 |
-| Subagent 執行管線 | S027、S028、S029 | 32 |
-| **合計** | **26 個規格** | **243 點** |
+| Subagent 執行管線 | S027、S028、S029、S030 | 39 |
+| **合計** | **27 個規格** | **250 點** |
 
 v9 藍圖相較 v8（23 規格 / 211 點）新增 3 個規格（S027 +9, S028 +13, S029 +10 = +32 點），S020 取消（原未估算）。Backlog 三項晉升（委派協議→S028, 工作樹管理員→S027, 子代理生命週期→S029）。
 
@@ -596,3 +617,7 @@ v9 藍圖相較 v8（23 規格 / 211 點）新增 3 個規格（S027 +9, S028 +1
 | S023 | `SchemaTest#currentEventIdColumn`（AC-2）只驗證欄位存在 + nullable，未驗證 FK 指向 grimo_session_event(id)（AC-2 spec 要求） | bug | 低 | 🔲 |
 | S025 | JaCoCo `rule.includes` 在 `element=BUNDLE` 下比對 bundle 名稱而非 class 名稱 — gate 形同虛設。S026 以 `classDirectories` 過濾修正 | bug | 高 | ✅ S026 修正 |
 | S026 | `sandbox.internal`（HostMountedSandboxFiles / BindMountSandbox / TestcontainersSandboxManager）共 119 行覆蓋率趨近 0% — Docker 依賴無法 unit test，已從 coverage gate 排除 | skip | 中 | 🔲 待 S008 |
+| S028 | `ExecSpec.timeout()` 被 `BindMountSandbox` 忽略 — 30 分鐘 claude exec 無 timeout 保護。需在 orchestrator 層加 `Future.get(timeout)` | skip | 低 | 🔲 |
+| S028 | E2E integration test（Docker + grimo-runtime + Claude CLI）未建立。subagent 執行管線端對端驗證需 IT 類別 | skip | 中 | 🔲 |
+| S028 | `grimo-runtime` Docker 容器以 root 執行，`--dangerously-skip-permissions` 被 Claude CLI 硬性阻擋（硬編碼安全檢查，非可配置）。目前以 `--allowedTools` 白名單替代，但限制工具存取範圍。需開 spec 建立非 root 使用者 | drift | 中 | 🔲 |
+| S028 | Testcontainers 版本在 `build.gradle.kts` 手動 pin 為 1.20.4，靜默降級 Spring Boot BOM 管理的 2.0.4，導致 docker-java API 1.32 被 Docker 29.x（最低 1.44）拒絕 | bug | 高 | ✅ S028 移除顯式版本，改用 BOM 2.0.4 |

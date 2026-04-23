@@ -33,7 +33,7 @@ dependencies {
 	implementation("org.springaicommunity.agents:agent-codex:0.12.2")
 	implementation("org.springaicommunity.agents:agent-gemini:0.12.2")
 	implementation("org.springaicommunity:spring-ai-agent-utils:0.7.0")
-	implementation("org.testcontainers:testcontainers:1.20.4")
+	implementation("org.testcontainers:testcontainers")
 	implementation("org.eclipse.jgit:org.eclipse.jgit:7.6.0.202603022253-r")
 	implementation("org.springframework.boot:spring-boot-starter-web")
 	implementation("org.springframework.boot:spring-boot-starter-jdbc")
@@ -41,7 +41,6 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 	testImplementation("org.springframework.modulith:spring-modulith-starter-test")
-	testImplementation("org.testcontainers:junit-jupiter:1.20.4")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

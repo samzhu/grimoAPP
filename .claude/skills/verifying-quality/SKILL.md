@@ -260,6 +260,29 @@ Classify its absence as CRITICAL.
 its integration seams has an unverified assembly — the same risk
 category as an untested AC.
 
+**Execution protocol when E2E gate triggers:**
+
+1. Clean-build the artifact
+2. Start it with real dependencies — not stubs, not mocks
+3. Trigger the feature through its real entry point — not by
+   calling internal methods
+4. Verify every AC's data assertions against the actual response.
+   An empty value where the AC requires content is a FAIL
+5. Record full request + response as evidence
+
+**When E2E reveals failures — route back, don't pass:**
+
+- `REJECT-FIX` with root cause analysis
+- Recommend creating new task files via the project's task
+  planning workflow (fixes must be traceable, not ad-hoc hotfixes)
+- If the failure reveals a design flaw, recommend routing back to
+  spec design for revision
+
+**Anti-pattern: declaring E2E "not required" when all tests use
+stubs.** If every external boundary in the test suite is stubbed,
+E2E is MORE required, not less — the stubs are exactly the
+integration seams that need real verification.
+
 #### Evidence standard
 
 Evidence means captured execution output — not "code review
@@ -295,6 +318,12 @@ Check against the project's own standards. Common areas:
   AI-generated code has a 2.74x higher XSS introduction rate
   (GitClear 2025) — scrutinize input handling.
 - **No orphaned TODO/FIXME** in changed files
+- **Dependency versions** — verify that explicitly pinned versions
+  are not overriding ecosystem-managed versions. Use the build
+  system's dependency resolution tools to confirm actual resolved
+  versions. An explicit version that downgrades a managed version
+  is a CRITICAL finding — it reintroduces fixed bugs and forces
+  unnecessary workarounds.
 
 ### 7. Design-section sync check
 

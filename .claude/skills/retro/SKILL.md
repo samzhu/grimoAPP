@@ -158,6 +158,29 @@ human can see. The A:B ratio already proves things were missed.
 After incorporating human feedback, determine where to save the
 checklist so it auto-triggers in future sessions.
 
+### Concrete-to-principle translation
+
+Steps 1-5.5 deliberately use concrete, project-specific language
+(file names, tool commands, framework APIs) — this makes root
+cause analysis precise. But persisted artifacts must be portable.
+
+**Rule: discuss in specifics, persist in principles.**
+
+Before writing any file, translate each item:
+- Replace specific tool names with generic descriptions
+  ("the build system's dependency resolver" not "dependencyInsight")
+- Replace specific file paths with role descriptions
+  ("the project's architecture doc" not "architecture.md")
+- Replace specific flags or commands with the general pattern
+  ("flags that control permission bypass" not
+  "--dangerously-skip-permissions")
+- Keep the trigger condition recognizable from conversation
+  patterns, but strip implementation details from the action
+
+If an item cannot be generalized without losing its meaning, it
+belongs in the project's configuration file (CLAUDE.md), not in
+a portable skill.
+
 ### Portability gate
 
 Before writing any file, verify every item against the Design

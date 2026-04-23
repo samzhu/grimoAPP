@@ -6,6 +6,7 @@
 ALTER TABLE IF EXISTS grimo_session DROP CONSTRAINT IF EXISTS fk_session_current_event;
 
 -- Drop old tables in reverse FK order
+DROP TABLE IF EXISTS grimo_task_execution;
 DROP TABLE IF EXISTS grimo_session_event;
 DROP TABLE IF EXISTS grimo_session;
 DROP TABLE IF EXISTS grimo_task;
@@ -92,3 +93,25 @@ CREATE INDEX IF NOT EXISTS idx_session_event_session_ts
 -- Circular FK: grimo_session.current_event_id → grimo_session_event.id
 ALTER TABLE grimo_session ADD CONSTRAINT IF NOT EXISTS fk_session_current_event
     FOREIGN KEY (current_event_id) REFERENCES grimo_session_event(id);
+
+-- 5. Task Execution (S028 — subagent execution tracking)
+CREATE TABLE IF NOT EXISTS grimo_task_execution (
+    id                VARCHAR(12)   PRIMARY KEY,
+    task_id           VARCHAR(12)   NOT NULL,
+    task_number       INT           NOT NULL,
+    execution_status  VARCHAR(20)   NOT NULL DEFAULT 'PENDING',
+    prompt            CLOB          NOT NULL,
+    branch            VARCHAR(200),
+    worktree_path     VARCHAR(500),
+    container_id      VARCHAR(100),
+    agent_response    CLOB,
+    diff_summary      CLOB,
+    error_message     VARCHAR(2000),
+    started_at        TIMESTAMP,
+    finished_at       TIMESTAMP,
+    created_at        TIMESTAMP     NOT NULL,
+    FOREIGN KEY (task_id) REFERENCES grimo_task(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_execution_task
+    ON grimo_task_execution(task_id, execution_status);
