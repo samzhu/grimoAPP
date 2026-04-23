@@ -6,6 +6,8 @@
 ALTER TABLE IF EXISTS grimo_session DROP CONSTRAINT IF EXISTS fk_session_current_event;
 
 -- Drop old tables in reverse FK order
+DROP TABLE IF EXISTS grimo_credential;
+DROP TABLE IF EXISTS grimo_setting;
 DROP TABLE IF EXISTS grimo_task_execution;
 DROP TABLE IF EXISTS grimo_session_event;
 DROP TABLE IF EXISTS grimo_session;
@@ -115,3 +117,21 @@ CREATE TABLE IF NOT EXISTS grimo_task_execution (
 
 CREATE INDEX IF NOT EXISTS idx_execution_task
     ON grimo_task_execution(task_id, execution_status);
+
+-- 6. Credential Pool (S030 — subagent credential management)
+CREATE TABLE IF NOT EXISTS grimo_credential (
+    id              VARCHAR(12)   PRIMARY KEY,
+    label           VARCHAR(100)  NOT NULL UNIQUE,
+    provider        VARCHAR(50)   NOT NULL,
+    credential_type VARCHAR(50)   NOT NULL,
+    secret_value    VARCHAR(2000) NOT NULL,
+    sort_order      INT           NOT NULL DEFAULT 1,
+    expires_at      TIMESTAMP,
+    created_at      TIMESTAMP     NOT NULL
+);
+
+-- 7. Settings (S030 — key-value configuration)
+CREATE TABLE IF NOT EXISTS grimo_setting (
+    setting_key     VARCHAR(100)  PRIMARY KEY,
+    setting_value   VARCHAR(500)  NOT NULL
+);

@@ -7,7 +7,7 @@
 
 ## 1. Goal
 
-實作 Docker-sandboxed subagent 執行管線。透過 REST API 派送任務 → 自動建立 git worktree → 啟動 Docker 容器（掛載 worktree 至 `/work`）→ 投射技能 → Claude Code 執行（`--allowedTools` 白名單）→ `git add` + 收集 diff 與回應 → 回傳結果。認證由容器內 CLI 自行處理（掛載認證或 `ANTHROPIC_API_KEY` 可選 override）。**禁止注入 `CLAUDE_CODE_OAUTH_TOKEN`**（封帳號風險）。
+實作 Docker-sandboxed subagent 執行管線。透過 REST API 派送任務 → 自動建立 git worktree → 啟動 Docker 容器（掛載 worktree 至 `/work`）→ 投射技能 → Claude Code 執行（`--allowedTools` 白名單）→ `git add` + 收集 diff 與回應 → 回傳結果。認證優先序：`ANTHROPIC_API_KEY` 可選 override > **S030 Credential Pool**（`CLAUDE_CODE_OAUTH_TOKEN`）> CLI 自帶認證。
 
 本 spec 是 subagent 模組的第一個完整實作，串接既有的 S003（Sandbox SPI）、S005（CLI adapter）、S012/S016（Skill projection）、S018（Task/Project CRUD）。
 
@@ -29,7 +29,7 @@
 
 | Env var | Main agent (S006) | Subagent (S028) | 理由 |
 |---------|-------------------|-----------------|------|
-| `CLAUDE_CODE_OAUTH_TOKEN` | ✅ | **禁止注入** | [Implementation note] 第三方 entrypoint 使用訂閱 OAuth 有封帳號風險（見 deepwiki/claude-sdk-design-decisions.md §2）。CLI 自帶認證（`claude login`）為預設路徑。 |
+| `CLAUDE_CODE_OAUTH_TOKEN` | ✅ | **由 S030 Credential Pool 注入** | [S030 update] 經研究確認 `setup-token`（1 年期 OAuth token）為官方容器認證方案。S030 Credential Pool 管理 token，認證優先序：API Key > Pool > CLI native。 |
 | `ANTHROPIC_API_KEY` | — | 可選 override | 唯一 100% 安全的程式化認證路徑（API 按量計費） |
 | `CLAUDE_CODE_DISABLE_CLAUDE_MDS` | `1` | **不設** | subagent 應讀 worktree 內的 CLAUDE.md（含專案脈絡） |
 | `CLAUDE_CODE_DISABLE_AUTO_MEMORY` | `1` | `1` | 防止 subagent 修改 memory 檔案 |
@@ -143,11 +143,11 @@ Then  不注入任何認證環境變數（`CLAUDE_CODE_OAUTH_TOKEN` 和 `ANTHROP
 And   Claude Code 使用容器內 CLI 自帶認證（`claude login` 或掛載的認證檔案）
 And   `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` 和 `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` 已設定
 
-**AC-7: API key 認證（可選 override）**
+**AC-7: API key 認證（最高優先）**
 Given `grimo.subagent.api-key` 設定為有效的 API key
 When  subagent 在容器內執行
 Then  容器環境變數 `ANTHROPIC_API_KEY` 已設定
-And   `CLAUDE_CODE_OAUTH_TOKEN` **未**設定（永遠不注入，防止封帳號風險）
+And   `CLAUDE_CODE_OAUTH_TOKEN` **未**設定（API Key 優先於 Credential Pool，見 S030 D3）
 
 **AC-8: 執行狀態查詢**
 Given AC-1 觸發的執行
@@ -384,29 +384,56 @@ T1 → T2 → T3 → T4
 | 編譯測試程式碼 | `./gradlew compileTestJava` | ✅ BUILD SUCCESSFUL |
 | Coverage gate | `./gradlew jacocoTestCoverageVerification` | ✅ ≥ 80% line coverage |
 
-### E2E 驗證（手動）
+### E2E 驗證（JAR artifact + Docker + S030 Credential Pool）
 
-完整管線手動驗證通過（需 Docker + grimo-runtime image + `ANTHROPIC_API_KEY` 或 `CLAUDE_CODE_OAUTH_TOKEN`）：
+**日期：** 2026-04-23（S030 出貨後以 `bootJar` artifact 重新驗證）
+
+以 `grimo-0.0.1-SNAPSHOT.jar`（70MB fat JAR）+ S030 Credential Pool 認證完整管線驗證。
+
+**測試一：Create file（S030 Credential Pool → CLAUDE_CODE_OAUTH_TOKEN）**
 
 ```
-POST /api/tasks/1/execute { "prompt": "Create hello.txt with Hello World" }
-→ 202 PENDING → background → worktree created → skills projected (13) →
-  Docker container started (grimo-runtime:0.0.1-SNAPSHOT) →
-  claude -p ... --allowedTools Bash Edit Write Read Glob Grep →
-  agentResponse: "Created /work/hello.txt" (988 chars JSON) →
-  git add . → diff: "+Hello World" (164 chars) →
-  SUCCEEDED → task IN_REVIEW
+1. POST /api/credentials — 存入 setup-token (oauth_token, 1 年期)
+2. POST /api/projects — workDir=/tmp/grimo-e2e-repo (git repo, main branch)
+3. POST /api/tasks → OPEN
+4. POST /api/tasks/1/execute { "prompt": "Create hello.txt with Hello World" }
+5. → 202 PENDING → worktree → Docker → Claude exec → SUCCEEDED
 ```
 
 | 項目 | 結果 |
 |------|------|
 | Worktree | `~/.grimo/worktrees/<taskId>/` ✅ |
-| Skill 投射 | 13 skills in `.claude/skills/` ✅ |
-| Docker 容器 | `grimo-runtime:0.0.1-SNAPSHOT` 啟動 ✅ |
-| Claude 回應 | `"Created /work/hello.txt"`, 2 turns, $0.01 ✅ |
+| Docker 容器 | `grimo-runtime:0.0.1-SNAPSHOT` 啟動（0.14s）✅ |
+| Credential Pool | `CLAUDE_CODE_OAUTH_TOKEN` 從 H2 注入容器 ✅ |
+| Claude 回應 | `"Created /work/hello.txt"`, claude-sonnet-4-6, 2 turns, $0.01 ✅ |
 | Diff | `+Hello World` (unified diff) ✅ |
-| hello.txt | `Hello World` ✅ |
 | Task 狀態 | `IN_REVIEW` ✅ |
+
+App log 時序：
+```
+13:21:30.011  worktree created
+13:21:30.850  grimo-runtime container creating
+13:21:30.986  container started (0.14s)
+13:21:35.044  claude exec completed, exitCode=0
+13:21:35.332  execution SUCCEEDED
+```
+
+**測試二：Read file（驗證 worktree 檔案掛載 + 中文內容）**
+
+在 test repo 放入 `secret-recipe.txt`（9 行中文 + 英文混合），commit 後觸發 subagent 讀取。
+
+```
+POST /api/tasks/1/execute { "prompt": "Read secret-recipe.txt and list every line." }
+→ SUCCEEDED
+```
+
+Claude 完整回傳 9 行內容（含「Grimo 秘密配方 v2.1」等中文），無亂碼，diff 為空（只讀不改）。claude-sonnet-4-6, 2 turns, $0.02, 5.5s。
+
+| 項目 | 結果 |
+|------|------|
+| Worktree 檔案掛載 | ✅ repo 內 committed 檔案在容器 `/work` 可讀 |
+| 中文內容傳回 | ✅ 完整無亂碼 |
+| Diff | 空（預期 — 只讀） ✅ |
 
 ### Key Findings
 
@@ -418,7 +445,7 @@ POST /api/tasks/1/execute { "prompt": "Create hello.txt with Hello World" }
 
 4. **`BindMountSandbox.exec()` 不尊重 `ExecSpec.timeout()`。** Testcontainers `execInContainer()` 阻塞直到完成，不使用 `ExecSpec` 的 timeout 值。對 30 分鐘的 claude agent 運行，virtual thread 阻塞可接受。若需 timeout 保護，應在 orchestrator 層使用 `Future.get(timeout)` — 列為技術債。
 
-5. **認證策略。** `CLAUDE_CODE_OAUTH_TOKEN` 永不注入（封帳號風險）。預設無 auth env var — 容器內 CLI 需自行認證（掛載認證檔案，S008 scope）。`ANTHROPIC_API_KEY` 為可選 override。`CLAUDE_CODE_DISABLE_CLAUDE_MDS` 故意不設定（D2：subagent 應讀 worktree 的 CLAUDE.md）。
+5. **認證策略。** [S030 update] 認證優先序：`ANTHROPIC_API_KEY`（config override）> S030 Credential Pool（`CLAUDE_CODE_OAUTH_TOKEN` 或 `ANTHROPIC_API_KEY`，依 credential type）> CLI 自帶認證（fallback）。`CLAUDE_CODE_DISABLE_CLAUDE_MDS` 故意不設定（D2：subagent 應讀 worktree 的 CLAUDE.md）。
 
 6. **`--dangerously-skip-permissions` 在 root 下被禁止。** 容器預設以 root 執行，Claude CLI 拒絕此 flag。改用 `--allowedTools Bash Edit Write Read Glob Grep` 白名單，安全由 Docker sandbox 保證。
 
@@ -469,8 +496,10 @@ TaskExecution execute(int taskNumber, String prompt) {
     });
     return execution;
 }
-// buildEnvVars(): CLAUDE_CODE_OAUTH_TOKEN 永不注入（封帳號風險）
-// ANTHROPIC_API_KEY 僅在 grimo.subagent.api-key 有值時注入
+// buildEnvVars() auth priority (S030 D3):
+// 1. grimo.subagent.api-key → ANTHROPIC_API_KEY
+// 2. S030 Credential Pool → CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY
+// 3. CLI native credentials (no auth env var)
 ```
 
 ### AC Results
@@ -688,9 +717,9 @@ TaskExecution execute(int taskNumber, String prompt) {
 **PASS** — 認證策略變更已正確實作並通過獨立驗證。
 
 關鍵保證：
-1. `CLAUDE_CODE_OAUTH_TOKEN` 在 subagent 生產程式碼中完全不存在任何執行期注入路徑。
-2. `SubagentProperties` 已確認無 `oauthToken` 欄位。
-3. AC-6（CLI native auth）、AC-7（API key override）、新增「never injects OAuth token」測試三者均通過，覆蓋認證策略的所有路徑。
-4. 全域 build 180 tests green，coverage 84.5%，Modulith verify pass。
+1. [S030 update] `CLAUDE_CODE_OAUTH_TOKEN` 注入路徑已由 S030 Credential Pool 管理。認證優先序：API Key > Pool > CLI native。
+2. `SubagentProperties` 已確認無 `oauthToken` 欄位（token 由 S030 `CredentialResolverUseCase` 提供）。
+3. AC-6（CLI native auth）、AC-7（API key override）通過。[S030 update] 原「never injects OAuth token」測試已由 S030 AC-6/AC-7 取代，精確覆蓋新認證優先序。
+4. 全域 build 203 tests green（含 S030 23 新測試），Modulith verify pass。
 
-S028 auth 策略重構驗證完畢，可出貨。
+S028 auth 策略重構驗證完畢，可出貨。認證策略已由 S030 擴展。

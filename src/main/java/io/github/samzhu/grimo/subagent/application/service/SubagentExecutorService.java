@@ -20,6 +20,7 @@ import io.github.samzhu.grimo.project.application.port.in.ProjectUseCase;
 import io.github.samzhu.grimo.sandbox.api.SandboxConfig;
 import io.github.samzhu.grimo.sandbox.api.SandboxManager;
 import io.github.samzhu.grimo.skills.application.port.in.SkillProjectionUseCase;
+import io.github.samzhu.grimo.subagent.application.port.in.CredentialResolverUseCase;
 import io.github.samzhu.grimo.subagent.application.port.in.DelegateTaskUseCase;
 import io.github.samzhu.grimo.subagent.application.port.out.TaskExecutionPort;
 import io.github.samzhu.grimo.subagent.application.port.out.WorktreePort;
@@ -47,6 +48,7 @@ class SubagentExecutorService implements DelegateTaskUseCase {
     private final SandboxManager sandboxManager;
     private final SkillProjectionUseCase skillProjection;
     private final TaskExecutionPort taskExecutionPort;
+    private final CredentialResolverUseCase credentialResolver;
     private final SubagentProperties props;
     private final ExecutorService executor;
 
@@ -56,6 +58,7 @@ class SubagentExecutorService implements DelegateTaskUseCase {
                             SandboxManager sandboxManager,
                             SkillProjectionUseCase skillProjection,
                             TaskExecutionPort taskExecutionPort,
+                            CredentialResolverUseCase credentialResolver,
                             SubagentProperties props) {
         this.taskUseCase = taskUseCase;
         this.projectUseCase = projectUseCase;
@@ -63,6 +66,7 @@ class SubagentExecutorService implements DelegateTaskUseCase {
         this.sandboxManager = sandboxManager;
         this.skillProjection = skillProjection;
         this.taskExecutionPort = taskExecutionPort;
+        this.credentialResolver = credentialResolver;
         this.props = props;
         this.executor = Executors.newVirtualThreadPerTaskExecutor();
     }
@@ -189,22 +193,31 @@ class SubagentExecutorService implements DelegateTaskUseCase {
     }
 
     /**
-     * Builds environment variables for Claude Code execution (D2).
+     * Builds environment variables for Claude Code execution (S028 D2, S030 D3).
      *
-     * <p>Auth: if {@code grimo.subagent.api-key} is configured, injects
-     * {@code ANTHROPIC_API_KEY}. Otherwise no auth env var — the container
-     * must have CLI credentials available (mounted or pre-configured).
-     *
-     * <p>{@code CLAUDE_CODE_OAUTH_TOKEN} is never injected to avoid
-     * account suspension risk.
+     * <p>Auth priority: API Key > Credential Pool > CLI native.
+     * <ol>
+     *   <li>If {@code grimo.subagent.api-key} is configured → {@code ANTHROPIC_API_KEY}</li>
+     *   <li>If credential pool has a matching credential → inject based on type
+     *       ({@code oauth_token} → {@code CLAUDE_CODE_OAUTH_TOKEN},
+     *        {@code api_key} → {@code ANTHROPIC_API_KEY})</li>
+     *   <li>Otherwise → no auth env var (CLI native credentials fallback)</li>
+     * </ol>
      */
     Map<String, String> buildEnvVars() {
         var env = new HashMap<String, String>();
 
-        // Optional API key override
+        // Auth priority: API Key > Credential Pool > CLI native (S030 D3)
         String apiKey = props.apiKey();
         if (apiKey != null && !apiKey.isBlank()) {
             env.put("ANTHROPIC_API_KEY", apiKey);
+        } else {
+            credentialResolver.resolve("claude").ifPresent(cred -> {
+                switch (cred.credentialType()) {
+                    case "oauth_token" -> env.put("CLAUDE_CODE_OAUTH_TOKEN", cred.secretValue());
+                    case "api_key"     -> env.put("ANTHROPIC_API_KEY", cred.secretValue());
+                }
+            });
         }
 
         // Common env vars for subagent (D2)

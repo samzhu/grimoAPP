@@ -6,18 +6,17 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * Configuration for subagent execution (S028).
+ * Configuration for subagent execution (S028 + S030).
  *
- * <p>Auth: container must have CLI credentials available via one of:
- * <ul>
- *   <li>Mounted host credentials (S008 scope)</li>
+ * <p>Auth priority (S030 D3):
+ * <ol>
  *   <li>{@code apiKey} override — injects {@code ANTHROPIC_API_KEY}</li>
- * </ul>
+ *   <li>Credential Pool (S030) — injects {@code CLAUDE_CODE_OAUTH_TOKEN}
+ *       or {@code ANTHROPIC_API_KEY} based on credential type</li>
+ *   <li>CLI native credentials — no auth env var (fallback)</li>
+ * </ol>
  *
- * <p>{@code CLAUDE_CODE_OAUTH_TOKEN} is never injected to avoid
- * account suspension risk.
- *
- * @param apiKey     optional Anthropic API key (API billing)
+ * @param apiKey     optional Anthropic API key (API billing, highest priority)
  * @param image      Docker image name for the subagent runtime
  * @param maxTurns   max agent turns for Claude Code ({@code --max-turns})
  * @param timeout    execution timeout

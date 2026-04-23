@@ -262,14 +262,15 @@
 ## Subagent 執行管線（S018 + S003 + S005 後續）
 
 **目標。** Docker-sandboxed subagent 完整執行管線：git worktree → Docker 容器 → Claude Code YOLO → 技能投射 → diff 審核 → PR 自動化。取代 S020 + Backlog（委派協議 / 工作樹管理員 / 子代理生命週期）。
-**完成條件。** S027 + S028 + S029 + S030 ✅。
+**完成條件。** S027 + S028 + S029 + S030 + S031 ✅。
 
 | # | 規格 | 點數 | 狀態 |
 | --- | --- | --- | --- |
 | S027 | Git Worktree Port — hybrid ProcessBuilder + JGit | S (9) | ✅ |
 | S028 | Subagent Sandbox Execution — Docker + Claude YOLO + Task tracking | M (13) | ✅ |
 | S029 | Subagent Lifecycle Events + Diff Review — 事件 / session 記錄 / PR 自動化 | S (10) | ⏳ Design |
-| S030 | Subagent Credential Pool — 多帳號 token 管理 + 優先序/隨機策略 | XS (7) | ⏳ Design |
+| S030 | Subagent Credential Pool — 多帳號 token 管理 + 優先序/隨機策略 | XS (7) | ✅ |
+| S031 | Subagent Preflight + Setup Guide — 前置條件檢查 + setup-token 引導 | XS (7) | 🔲 |
 
 ### S027 — Git Worktree Port · S (9)
 
@@ -325,6 +326,24 @@
 - **AC-8** 刪除 credential。
 - **AC-9** 更新策略設定。
 - **AC-10** Modulith verify 通過。
+
+**估算。** 技術 1 · 不確定性 1 · 依賴 1 · 範疇 2 · 測試 1 · 可逆性 1 = **7 / XS**
+
+### S031 — Subagent Preflight + Setup Guide · XS (7)
+
+**描述。** `GET /api/subagent/preflight` 前置條件檢查（Docker 運行中？grimo-runtime image 存在？credentials 已設定？）回傳結構化結果 + 缺漏項目的具體引導步驟。Credential 缺失時回傳 `claude setup-token` 教學（含步驟說明和限制：需要 interactive TTY）。Main Agent 直接轉述 API 回傳的引導，降低 agent 端邏輯。
+
+**來源。** S030 E2E 測試中發現的 UX gap：使用者需要被引導完成 subagent 認證設定，產品不應假設使用者知道 `setup-token` 指令。
+
+**依賴。** S030 ✅（Credential Pool）、S028 ✅（SubagentExecutorService）。
+
+**SBE（草稿）。**
+- **AC-1** Docker 未運行時，preflight 回傳 `dockerAvailable: false` + 引導步驟。
+- **AC-2** grimo-runtime image 不存在時，preflight 回傳 `runtimeImageExists: false` + 引導步驟。
+- **AC-3** Credential 已設定時，preflight 回傳 `credentialConfigured: true` + 來源（api_key / credential_pool）。
+- **AC-4** Credential 缺失時，preflight 回傳 `setup-token` 教學步驟。
+- **AC-5** 所有條件就緒時，`ready: true`。
+- **AC-6** Modulith verify 通過。
 
 **估算。** 技術 1 · 不確定性 1 · 依賴 1 · 範疇 2 · 測試 1 · 可逆性 1 = **7 / XS**
 
@@ -546,8 +565,8 @@
 | Message Tree | S023 | 7 |
 | E2E 驗收 | S024 | 9 |
 | 驗證基礎設施 | S025、S026 | 13 |
-| Subagent 執行管線 | S027、S028、S029、S030 | 39 |
-| **合計** | **27 個規格** | **250 點** |
+| Subagent 執行管線 | S027、S028、S029、S030、S031 | 46 |
+| **合計** | **28 個規格** | **257 點** |
 
 v9 藍圖相較 v8（23 規格 / 211 點）新增 3 個規格（S027 +9, S028 +13, S029 +10 = +32 點），S020 取消（原未估算）。Backlog 三項晉升（委派協議→S028, 工作樹管理員→S027, 子代理生命週期→S029）。
 
@@ -621,3 +640,8 @@ v9 藍圖相較 v8（23 規格 / 211 點）新增 3 個規格（S027 +9, S028 +1
 | S028 | E2E integration test（Docker + grimo-runtime + Claude CLI）未建立。subagent 執行管線端對端驗證需 IT 類別 | skip | 中 | 🔲 |
 | S028 | `grimo-runtime` Docker 容器以 root 執行，`--dangerously-skip-permissions` 被 Claude CLI 硬性阻擋（硬編碼安全檢查，非可配置）。目前以 `--allowedTools` 白名單替代，但限制工具存取範圍。需開 spec 建立非 root 使用者 | drift | 中 | 🔲 |
 | S028 | Testcontainers 版本在 `build.gradle.kts` 手動 pin 為 1.20.4，靜默降級 Spring Boot BOM 管理的 2.0.4，導致 docker-java API 1.32 被 Docker 29.x（最低 1.44）拒絕 | bug | 高 | ✅ S028 移除顯式版本，改用 BOM 2.0.4 |
+| S030 | `Credential.maskedSecret()` Javadoc 示例格式 `sk-ant-***...***` 與實際輸出 `sk-ant***...hij` 略有差異。測試按實際格式斷言（正確） | drift | 低 | 🔲 |
+| S030 | `CredentialRestController` 直接注入 `SettingPort`（outbound port），嚴格 hex 架構應包裝為 `SettingUseCase`。Modulith 驗證通過，不阻擋出貨 | drift | 低 | 🔲 |
+| S028 | §6 AC 覆蓋表 AC-6/AC-7 標籤仍為「OAuth token auth」/「API key auth fallback」舊措辭（複驗 F-1）；§8 QA 表同樣。需更新為「CLI native auth (default)」/「API key override」 | drift | 低 | 🔲 |
+| S028 | §9 Re-Verification 第 646 行列「`[S028] CLAUDE_CODE_OAUTH_TOKEN is never injected`」為 PASS，但此測試已不存在（已由 S030 AC-6/AC-7 取代）。複驗 F-2 — §9 需清理此失效引用 | drift | 低 | 🔲 |
+| S030 | `JdbcSettingAdapter` 無直接 H2 測試（§5 File Plan 未列 `JdbcSettingAdapterTest`）。覆蓋率 3/8（37.5%）。MERGE INTO 語法已由 `JdbcCredentialAdapterTest` 間接驗證相同模式。複驗 F-3 | skip | 低 | 🔲 |

@@ -256,6 +256,15 @@ artifact starts, that unit tests bypass by calling methods directly
 or injecting stubs?" If yes → hermetic artifact testing is REQUIRED.
 Classify its absence as CRITICAL.
 
+**Code size ≠ integration risk.** A spec may be XS in code changes
+but high in integration complexity (e.g., credential injection into
+containers, subprocess orchestration, cross-service auth). When a
+spec integrates with infrastructure — Docker, subprocesses,
+credential stores, network services — explicitly list every
+integration seam and justify why each does or does not need
+artifact-level testing. Do NOT conflate small code size with low
+verification need.
+
 **This gate cannot be waived.** A spec that ships without verifying
 its integration seams has an unverified assembly — the same risk
 category as an untested AC.
@@ -263,12 +272,27 @@ category as an untested AC.
 **Execution protocol when E2E gate triggers:**
 
 1. Clean-build the artifact
-2. Start it with real dependencies — not stubs, not mocks
-3. Trigger the feature through its real entry point — not by
+2. Reset persistent state (delete DB files, clear caches) —
+   stale data from prior runs masks real bugs
+3. Start it with real dependencies — not stubs, not mocks
+4. Trigger the feature through its real entry point — not by
    calling internal methods
-4. Verify every AC's data assertions against the actual response.
+5. **Design realistic scenarios that exercise the feature's core
+   value proposition.** A trivial smoke test ("create empty file")
+   does not prove the feature works. If the feature reads/writes
+   data across a boundary (container, subprocess, network), the
+   test must verify data actually crosses that boundary with
+   meaningful content. Example: if subagent reads files from a
+   mounted worktree, place a real file with domain content and
+   verify the subagent returns its actual contents — not just
+   that the container started.
+6. Verify every AC's data assertions against the actual response.
    An empty value where the AC requires content is a FAIL
-5. Record full request + response as evidence
+7. **Collect infrastructure logs** (application logs, container
+   logs, subprocess output) showing the full execution trace.
+   Timestamped log entries confirming each pipeline stage
+   completed are stronger evidence than API response JSON alone.
+8. Record full request + response + log evidence
 
 **When E2E reveals failures — route back, don't pass:**
 
@@ -457,6 +481,15 @@ evidence is incomplete.
 GitClear/Qodo 2025 data).
 **Fix:** Flag duplicated logic, unnecessary abstractions, overly
 complex control flow.
+
+### UX gaps discovered during E2E testing
+**Cause:** E2E or user demonstration reveals that a feature works
+technically but the user experience is poor — missing guidance,
+confusing setup flow, no onboarding instructions.
+**Fix:** Record the UX observation as a candidate spec in the
+project's roadmap or backlog with a one-sentence description.
+Do not let UX discoveries evaporate — they are product insights
+that emerge only when testing the real artifact with real users.
 
 ### REJECT-BLOCKED feels heavy for a small change
 **Response:** The cost of shipping unverified behavior exceeds the

@@ -21,8 +21,10 @@ import io.github.samzhu.grimo.project.domain.Project;
 import io.github.samzhu.grimo.sandbox.api.SandboxConfig;
 import io.github.samzhu.grimo.sandbox.api.SandboxManager;
 import io.github.samzhu.grimo.skills.application.port.in.SkillProjectionUseCase;
+import io.github.samzhu.grimo.subagent.application.port.in.CredentialResolverUseCase;
 import io.github.samzhu.grimo.subagent.application.port.out.TaskExecutionPort;
 import io.github.samzhu.grimo.subagent.application.port.out.WorktreePort;
+import io.github.samzhu.grimo.subagent.domain.Credential;
 import io.github.samzhu.grimo.subagent.domain.ExecutionStatus;
 import io.github.samzhu.grimo.subagent.domain.TaskExecution;
 import io.github.samzhu.grimo.subagent.domain.WorktreeInfo;
@@ -48,6 +50,7 @@ class SubagentExecutorServiceTest {
     private StubSandboxManager sandboxManager;
     private StubSkillProjection skillProjection;
     private StubTaskExecutionPort taskExecutionPort;
+    private StubCredentialResolver credentialResolver;
 
     private SubagentExecutorService service;
 
@@ -59,13 +62,15 @@ class SubagentExecutorServiceTest {
         sandboxManager = new StubSandboxManager();
         skillProjection = new StubSkillProjection();
         taskExecutionPort = new StubTaskExecutionPort();
+        credentialResolver = new StubCredentialResolver();
 
-        // Default: no API key — CLI uses its own credentials
+        // Default: no API key, empty credential pool — CLI uses its own credentials
         var props = new SubagentProperties(null,
                 "grimo-runtime:0.0.1-SNAPSHOT", 100, Duration.ofMinutes(30));
 
         service = new SubagentExecutorService(taskUseCase, projectUseCase,
-                worktreePort, sandboxManager, skillProjection, taskExecutionPort, props);
+                worktreePort, sandboxManager, skillProjection, taskExecutionPort,
+                credentialResolver, props);
     }
 
     @Test
@@ -144,9 +149,9 @@ class SubagentExecutorServiceTest {
     }
 
     @Test
-    @DisplayName("[S028] AC-6: default auth — no auth env vars, CLI uses own credentials")
+    @DisplayName("[S028] AC-6: default auth — no API key, empty pool → no auth env vars")
     void ac6_defaultCliNativeAuth() {
-        // Given — default props (no API key)
+        // Given — default props (no API key), empty credential pool
 
         // When
         Map<String, String> env = service.buildEnvVars();
@@ -166,7 +171,8 @@ class SubagentExecutorServiceTest {
         var props = new SubagentProperties("sk-ant-test-key",
                 "grimo-runtime:0.0.1-SNAPSHOT", 100, Duration.ofMinutes(30));
         service = new SubagentExecutorService(taskUseCase, projectUseCase,
-                worktreePort, sandboxManager, skillProjection, taskExecutionPort, props);
+                worktreePort, sandboxManager, skillProjection, taskExecutionPort,
+                credentialResolver, props);
 
         // When
         Map<String, String> env = service.buildEnvVars();
@@ -177,18 +183,57 @@ class SubagentExecutorServiceTest {
     }
 
     @Test
-    @DisplayName("[S028] CLAUDE_CODE_OAUTH_TOKEN is never injected regardless of config")
-    void neverInjectsOauthToken() {
-        // Given — API key configured
-        var props = new SubagentProperties("sk-ant-key",
-                "grimo-runtime:0.0.1-SNAPSHOT", 100, Duration.ofMinutes(30));
-        service = new SubagentExecutorService(taskUseCase, projectUseCase,
-                worktreePort, sandboxManager, skillProjection, taskExecutionPort, props);
+    @DisplayName("[S030] AC-6: credential pool oauth_token → CLAUDE_CODE_OAUTH_TOKEN injected")
+    void s030_ac6_credentialPoolOauthToken() {
+        // Given — no API key, pool has oauth_token
+        var cred = new Credential("cred1", "personal-max", "claude", "oauth_token",
+                "sk-ant-oat01-pool-token", 1,
+                Instant.now().plus(365, java.time.temporal.ChronoUnit.DAYS), Instant.now());
+        credentialResolver.credential = cred;
 
         // When
         Map<String, String> env = service.buildEnvVars();
 
         // Then
+        assertThat(env).containsEntry("CLAUDE_CODE_OAUTH_TOKEN", "sk-ant-oat01-pool-token");
+        assertThat(env).doesNotContainKey("ANTHROPIC_API_KEY");
+    }
+
+    @Test
+    @DisplayName("[S030] AC-7: API key takes priority over credential pool")
+    void s030_ac7_apiKeyPriorityOverPool() {
+        // Given — API key set AND pool has oauth_token
+        var props = new SubagentProperties("sk-ant-api03-direct",
+                "grimo-runtime:0.0.1-SNAPSHOT", 100, Duration.ofMinutes(30));
+        var cred = new Credential("cred1", "personal-max", "claude", "oauth_token",
+                "sk-ant-oat01-pool-token", 1,
+                Instant.now().plus(365, java.time.temporal.ChronoUnit.DAYS), Instant.now());
+        credentialResolver.credential = cred;
+        service = new SubagentExecutorService(taskUseCase, projectUseCase,
+                worktreePort, sandboxManager, skillProjection, taskExecutionPort,
+                credentialResolver, props);
+
+        // When
+        Map<String, String> env = service.buildEnvVars();
+
+        // Then — API key wins, no CLAUDE_CODE_OAUTH_TOKEN
+        assertThat(env).containsEntry("ANTHROPIC_API_KEY", "sk-ant-api03-direct");
+        assertThat(env).doesNotContainKey("CLAUDE_CODE_OAUTH_TOKEN");
+    }
+
+    @Test
+    @DisplayName("[S030] credential pool api_key type → ANTHROPIC_API_KEY injected")
+    void s030_credentialPoolApiKeyType() {
+        // Given — no API key config, pool has api_key type credential
+        var cred = new Credential("cred1", "api-backup", "claude", "api_key",
+                "sk-ant-api03-from-pool", 1, null, Instant.now());
+        credentialResolver.credential = cred;
+
+        // When
+        Map<String, String> env = service.buildEnvVars();
+
+        // Then
+        assertThat(env).containsEntry("ANTHROPIC_API_KEY", "sk-ant-api03-from-pool");
         assertThat(env).doesNotContainKey("CLAUDE_CODE_OAUTH_TOKEN");
     }
 
@@ -402,6 +447,14 @@ class SubagentExecutorServiceTest {
         Path projectedPath;
         @Override
         public void projectToWorkDir(Path workDir) { projectedPath = workDir; }
+    }
+
+    static class StubCredentialResolver implements CredentialResolverUseCase {
+        Credential credential;
+        @Override
+        public Optional<Credential> resolve(String provider) {
+            return Optional.ofNullable(credential);
+        }
     }
 
     static class StubTaskExecutionPort implements TaskExecutionPort {
