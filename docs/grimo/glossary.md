@@ -1,0 +1,255 @@
+# Grimo Product Language
+
+Grimo 的產品語言用來固定使用者應該理解的核心概念，避免把產品定位、工程架構和內部 workflow 名詞混在一起。
+
+## Language
+
+**Grimo**:
+本地優先的 AI 開發工作台，讓開發者把想法變成可指派、可執行、可審查、可學習的 AI coding task。
+_Avoid_: CLI user harness, thin CLI launcher, workflow console
+
+**Project**:
+Grimo MVP 中的一個本機 repo 或 codebase，是 Task、執行證據、connector 和 runtime capability 的歸屬單位。
+_Avoid_: Multi-repo workspace as MVP meaning
+
+**Task**:
+使用者想完成的一件工作，是 Grimo 追蹤進度、執行、審查和收尾的主要單位。
+_Avoid_: Workflow step, internal phase, prompt message
+
+**AI 開發工作台 (AI Development Workbench)**:
+Grimo MVP 對使用者的主定位，聚焦在管理 AI 開發任務、執行證據、審查與流程學習。
+_Avoid_: Local Agent Control Plane as user-facing tagline, generic AI workspace as MVP positioning
+
+**Local Agent Control Plane**:
+Grimo 的工程定位，表示它在本機協調 agent runtime、skills、workflow recipes、任務狀態和執行證據。
+_Avoid_: User-facing product tagline
+
+**Agent-Facing Task System**:
+Grimo 的延伸能力，表示外部 coding agent 可以領取 Ready Task 並回報執行結果。
+_Avoid_: Main product positioning
+
+**Agent Profile**:
+給使用者指派工作的薄角色入口，包含名稱、用途、runtime、skills 和 assignment rules；MVP 先服務 coding work，但角色模型可延伸到行銷、財務、營運等非開發工作。
+_Avoid_: Thick AI coworker, independent persona, separate inbox, coding-only role model
+
+**Future General Workbench Extension**:
+Grimo 架構保留的未來方向，讓非開發角色也能透過 Agent Profile、skills 和 workflow recipes 進入同一套工作台。
+_Avoid_: MVP promise
+
+**Workflow Recipe**:
+可重複執行的工作流程，將某個 Task Type 的專業工作實務拆成可推進、可審查、可留下 evidence 的步驟；coding 的 SDD 九步驟只是其中一種 recipe。
+_Avoid_: One-off prompt, rigid user-facing state machine
+
+**Skill**:
+Agent 在 Workflow Recipe 某一步中使用的實務能力包，包含知識、工具使用方式、判斷規則或文件化經驗。
+_Avoid_: Persona trait, vague capability label
+
+**MVP Core Promise**:
+Grimo 第一版不可退讓的使用者結果：AI agent 領走 Ready Task，完成開發，並交回可審查的 Review Materials。
+_Avoid_: Only generating tickets, issue writer, planning-only assistant
+
+**Definition Package**:
+把原始想法收斂成可執行任務前，人類用來判斷是否要按 READY 的需求定義資料包。
+_Avoid_: Issue draft, chat summary
+
+**Review Materials**:
+AI agent 完成開發後，人類用來 approve 或 reject 的審查資料包。
+_Avoid_: Final diff only, loose transcript
+
+**Human Review State**:
+Task List State 中等待人類 approve 或 reject 的狀態；Task 必須先完成 AI self-review、必要測試和 Review Materials，才會停在這裡。
+_Avoid_: AI reviewer still running, internal Quality Loop review
+
+**Workflow Step**:
+Grimo 在 Task 底下自動推進工作的內部階段；具體步驟由 Task Type / Workflow Recipe 決定，例如 coding recipe 會有 Discuss、Explore、Prototype、Spec、Usage、Tkt、Dev、Review 和 Wrap。
+_Avoid_: User-level Task
+
+**Quality Loop**:
+Grimo 在每個 Workflow Step 中自動執行的 Review、Rating、Fix 循環，用來提高輸出品質並決定是否能推進狀態。
+_Avoid_: Manual user checklist, top-level Task status
+
+**Quality Bar**:
+由 Task Type / Workflow Recipe 提供的通用品質期待，用來輔助 Project Quality Gate 和 Task/Spec Acceptance Gate 定義。
+_Avoid_: Fixed universal checklist, per-run ad hoc judgment with no prior rubric
+
+**Project Quality Gate**:
+在 Project 設計階段依 repo/codebase 型態與最佳實踐定義的 baseline 驗收制度，例如前端、後端、全端、CLI 或 library 各自需要的測試、build、lint、review criteria 與人工驗收條件。
+_Avoid_: Redefining quality from scratch in every Task
+
+**Project Planning Task**:
+用來設計 Project 架構、開發標準、QA strategy 和 Project Quality Gate 的 Task，可由架構師類 Agent Profile 依 project-planning Workflow Recipe 推進。
+_Avoid_: Treating planning-project as only a manual command
+
+**Product Definition Task**:
+用來釐清要做什麼、目標使用者、核心價值、MVP 範圍與成功條件的 Task；它必須先於 Project Planning Task。
+_Avoid_: Starting architecture before product direction is clear
+
+**Product Definition Review**:
+當 Project 已有 PRD 或等效產品文件時，Product Definition Task 會改為檢查、更新和補齊現有方向，而不是從零重新定義。
+_Avoid_: Rewriting a valid PRD from scratch
+
+**Quality Gate**:
+Project Quality Gate、Workflow Recipe Quality Bar 和 Task/Spec Acceptance Gate 共同形成的具體檢查集合，用來判斷 Task 是否能進入 REVIEW 或 DONE。
+_Avoid_: One-size-fits-all testing requirement
+
+**Task/Spec Acceptance Gate**:
+單一 Task 或 Spec 根據內容從 Project Quality Gate 中挑選、補充或覆寫的驗收條件。
+_Avoid_: Ignoring Project-level quality rules
+
+**Task Type**:
+Task 所屬的工作類型，用來決定適用的 Workflow Recipe、Agent Profile 和 Quality Bar；MVP 只內建 coding，未來可延伸 research、analysis、marketing、video production 或 finance。
+_Avoid_: One universal quality rule for all work
+
+**Primary Product Flow**:
+Grimo 第一版的主要使用流程：使用者先建立或選擇 Project，進入 Task Management Interface，再透過 chat 建立或推進 Task。
+_Avoid_: Chat-only homepage, treating chat as the product itself
+
+**Task Management Interface**:
+Grimo 用來查看 Task list、Task detail、READY、DEV、REVIEW、worker log 和 Review Materials 的工作管理介面。
+_Avoid_: Hiding task state behind chat history
+
+**Task List State**:
+Task list / board 上給使用者追蹤進度的跨領域簡化狀態，例如 BACKLOG、DEFINING、READY、RUNNING、REVIEW、DONE 和 BLOCKED；開發、研究、分析、行銷、影片製作等任務共用這組外層狀態。
+_Avoid_: Discuss, Explore, Prototype, Spec, Usage, Tkt, or domain-specific steps as board columns
+
+**BACKLOG**:
+尚未排定或尚未開始定義的低承諾 Task 狀態，適合 follow-up、外部匯入或暫存想法。
+_Avoid_: Work that is already being actively clarified
+
+**Task Detail Evidence**:
+Task detail 中用來建立信任和除錯的詳細證據，例如 CLAIMED、DEV、WRAP、Workflow Step、Quality Loop、quality_score、fix history、worker log、run history、diff、測試輸出或其他 Task Type 的領域 evidence。
+_Avoid_: Hiding evidence in raw chat transcript only
+
+**Task-Forming Chat**:
+Grimo 用來建立或推進 Task 的對話入口，目標是問清楚工作並收斂成可管理的 Task。
+_Avoid_: General assistant chat, loose prompt history
+
+**External Work Entry Client**:
+Codex、Claude Code 或未來 connector 用來把外部對話、指令或 issue 類工作送進 Grimo Task system 的入口。
+_Avoid_: Separate task system, provider-owned source of truth
+
+**Ready Gate**:
+人類在 Grimo Task Management Interface 中確認 Definition Package 後，Task 才能進入 READY 的產品關卡。
+_Avoid_: External client directly marking work READY
+
+**Follow-up Task**:
+Agent 在執行或審查時發現的新工作，會帶著來源 Task、理由和建議 priority 進入 DEFINING 或 BACKLOG，等待人類確認。
+_Avoid_: Agent-created work that starts execution automatically
+
+## Relationships
+
+- **Grimo** presents itself to users as an **AI 開發工作台**.
+- A **Project** owns the local repo/codebase where its **Task** work is defined, executed and reviewed.
+- A **Task** is user-level work; **Workflow Step** and **Quality Loop** are internal machinery that advance and improve that Task.
+- **Grimo** is engineered internally as a **Local Agent Control Plane**.
+- An **Agent Profile** may look human-legible in the UI, but its product meaning is a thin assignment/runtime/skills profile that can support coding and non-coding roles.
+- **Future General Workbench Extension** is an architectural extension path, not the MVP positioning.
+- **Agent-Facing Task System** is a capability of **Grimo**, not the primary product positioning.
+- **Workflow Recipe**, **Skill**, **Quality Gate** and **Review Materials** turn repeatable professional practice into an executable product workflow.
+- The **MVP Core Promise** starts from a **Definition Package**, but is only fulfilled when the user receives **Review Materials** after agent execution.
+- **Primary Product Flow** starts from Project, continues in **Task Management Interface**, and uses **Task-Forming Chat** to create or advance work.
+- **External Work Entry Client** can create or advance the same **Task** records that the **Task Management Interface** shows.
+- **External Work Entry Client** may create or advance a defining Task, but only the **Ready Gate** can move it to READY.
+- **Task List State** is the shared outer progress abstraction across Task Types; **Task Detail Evidence** contains recipe steps, Quality Loop details and domain evidence for trust and debugging.
+- A **Follow-up Task** may be proposed by an agent, but it still requires human confirmation before READY.
+- **BACKLOG** holds low-commitment work before Grimo actively defines it.
+- **Human Review State** starts only after AI self-review, required tests and Review Materials are ready.
+- **Task Type** selects the relevant **Workflow Recipe** and **Quality Bar**; Project rules may add local constraints.
+- MVP ships with **coding** as the only built-in **Task Type**, while the model remains extensible to research, analysis, marketing, video production and finance.
+- **Project Quality Gate** is the baseline; **Task/Spec Acceptance Gate** adapts it for a specific Task.
+- **Quality Gate** is used by **Quality Loop** and **Human Review State** to decide whether evidence is sufficient.
+- **Product Definition Task** establishes product direction before **Project Planning Task** designs architecture and **Project Quality Gate**.
+- **Product Definition Review** is the existing-artifact path of a **Product Definition Task**.
+
+## Example dialogue
+
+> **Dev:** "首頁要說 Grimo 是 Local Agent Control Plane 嗎？"
+> **Domain expert:** "不要。首頁說 Grimo 是本地優先的 AI 開發工作台；Local Agent Control Plane 留給工程文件。"
+>
+> **Dev:** "Project 可以先代表一整個產品 workspace 嗎？"
+> **Domain expert:** "MVP 先不要。Project 先是一個本機 repo/codebase，這樣 worktree、測試和審查證據才有明確歸屬。"
+>
+> **Dev:** "使用者要看到 Discuss、Explore、Prototype、Spec、Usage、Tkt、Dev、Review、Wrap 每個階段嗎？"
+> **Domain expert:** "使用者追蹤 Task 狀態就好；這些 Workflow Step 和 Quality Loop 是 Grimo 自動優化與推進任務的內部機制。"
+>
+> **Dev:** "第一版只要把 chat 變成任務就算成功嗎？"
+> **Domain expert:** "不算。那只是 Definition Package；第一版要讓 Ready Task 被 AI 做完，並交 Review Materials 給人審。"
+>
+> **Dev:** "Backend Engineer agent 要像 AI 同事一樣有 inbox 和長期人格嗎？"
+> **Domain expert:** "不要。UI 可以用人類可讀的角色名，但 Agent Profile 本質是 runtime、skills 和指派規則。"
+>
+> **Dev:** "Agent Profile 只能是工程角色嗎？"
+> **Domain expert:** "MVP 先用在 coding work，但模型不能寫死；未來行銷、財務或營運角色都可以透過對應 skills 加入。"
+>
+> **Dev:** "那 Grimo 現在要改叫 AI 工作台，不限開發嗎？"
+> **Domain expert:** "不要。MVP 對外仍是 AI 開發工作台；架構保留未來泛工作角色，但不把第一版承諾拉寬。"
+>
+> **Dev:** "這套 SDD 流程是不是要取一個新的產品名？"
+> **Domain expert:** "不用。它的本質是把可重複的開發實務工程化成 Workflow Recipe、Skills、Quality Gate 和 Review Materials。"
+>
+> **Dev:** "第一版打開 Grimo 要先看到 chat 嗎？"
+> **Domain expert:** "先建立或選擇 Project，進入 Task Management Interface；建立任務時再從 chat 開始。"
+>
+> **Dev:** "Codex 裡說一句話建立任務，跟 Linear 建 issue 類似嗎？"
+> **Domain expert:** "類似。Codex 是 External Work Entry Client；它可以幫使用者建立 Grimo Task，但 Task 狀態和證據仍回到 Grimo 管。"
+>
+> **Dev:** "Codex 建好任務後可以直接 READY 給 agent 做嗎？"
+> **Domain expert:** "不行。Codex 可以建立或推進 defining Task，但 READY 必須由人回到 Grimo 的 Ready Gate 確認。"
+>
+> **Dev:** "Task board 要把 Discuss、Explore、Spec、Dev、Review 全部攤開嗎？"
+> **Domain expert:** "不要。Task board 顯示簡化 Task List State；細節頁才展開 Workflow Step、Quality Loop 和執行證據。"
+>
+> **Dev:** "Board 要顯示 CLAIMED、DEV、WRAP 嗎？"
+> **Domain expert:** "不要。Board 顯示 RUNNING；CLAIMED、DEV、WRAP 是細節頁的執行證據。"
+>
+> **Dev:** "AI reviewer 還在跑時，Task 要放 REVIEW 嗎？"
+> **Domain expert:** "不要。REVIEW 代表等人類 approve；AI 自審、單元測試和 E2E 等證據要先完成。"
+>
+> **Dev:** "進 REVIEW 前到底要跑哪些測試，可以執行時再猜嗎？"
+> **Domain expert:** "不行。合格線要在 Project、spec 或 Workflow Recipe 設計階段先定義，執行時照那份 Quality Bar 收集 evidence。"
+>
+> **Dev:** "coding Task 的測試動作固定都是 unit、integration、E2E 嗎？"
+> **Domain expert:** "不是。Project 設計階段會先依專案是前端、後端或全端定義 Project Quality Gate；Task/Spec 再挑選或補充適用項。"
+>
+> **Dev:** "所有任務都用同一條合格線嗎？"
+> **Domain expert:** "不是。每一種 Task Type 都有自己的 Quality Bar；coding、research、analysis、marketing、video production、finance 的 evidence 不會一樣。"
+>
+> **Dev:** "planning-project 是 command、Task，還是 role 在做的事？"
+> **Domain expert:** "它可以是一張 Project Planning Task，由架構師類 Agent Profile 依 project-planning Workflow Recipe 推進，產出 Project Quality Gate。"
+>
+> **Dev:** "建立 Project 後要直接做 architecture 嗎？"
+> **Domain expert:** "不要。先用 Product Definition Task 釐清要做什麼和方向，再進 Project Planning Task。"
+>
+> **Dev:** "如果 Project 已經有 PRD，還要重新定義產品嗎？"
+> **Domain expert:** "不用從零開始。Product Definition Task 變成 Product Definition Review，檢查並更新現有 PRD。"
+>
+> **Dev:** "MVP 要先內建 research、marketing、finance 嗎？"
+> **Domain expert:** "不要。MVP 只內建 coding Task Type，但 schema 保留 research、analysis、marketing、video production、finance 等未來擴展。"
+>
+> **Dev:** "Agent 發現額外重構機會時，可以直接開工嗎？"
+> **Domain expert:** "不行。它可以建立 Follow-up Task，附來源和理由，但只能進 DEFINING 或 BACKLOG，等人確認。"
+>
+> **Dev:** "還沒決定要不要做的 follow-up 要放哪？"
+> **Domain expert:** "放 BACKLOG。DEFINING 代表 Grimo 已經開始問清楚和收斂。"
+
+## Flagged ambiguities
+
+- "Grimo 是什麼" 曾同時指向 **AI 開發工作台**、**Local Agent Control Plane** 和 **Agent-Facing Task System**。Resolved: user-facing canonical positioning is **AI 開發工作台**; engineering definition is **Local Agent Control Plane**; external-agent API is a capability.
+- "Grimo 是否是泛 AI 工作台" 曾因非開發 Agent Profile 擴展而變模糊。Resolved: MVP positioning remains **AI 開發工作台**; **Future General Workbench Extension** is architectural runway only.
+- "Project" 曾可能指產品 workspace 或多 repo 容器。Resolved: MVP **Project** means one local repo/codebase; multi-repo workspace is future scope.
+- "Task" 曾可能指使用者工作或 workflow 拆出的步驟。Resolved: **Task** is user-level work; **Workflow Step** is the internal execution/evidence unit under a Task.
+- "Agent" 曾可能指厚 AI coworker、薄 runtime profile 或 coding-only role。Resolved: MVP uses thin **Agent Profile**; teammate-like naming is UI language only, and the model remains extensible to non-coding roles through skills.
+- "專業工作實務工程化" 曾可能被命名成新的產品方法論。Resolved: do not add a new product term; express it through **Workflow Recipe**, **Skill**, **Quality Gate** and **Review Materials**.
+- "MVP 成功" 曾可能只代表產生 **Definition Package**。Resolved: MVP can start its story from definition, but the core promise is fulfilled only when **Review Materials** are produced after agent execution.
+- "第一屏入口" 曾在 chat 和 task list 之間搖擺。Resolved: MVP primary flow is Project first, then **Task Management Interface**; **Task-Forming Chat** is used when creating or advancing a Task.
+- "外部入口權限" 曾可能讓 Codex 直接把工作送到 READY。Resolved: external clients can create or advance defining work only; **Ready Gate** is human-confirmed inside Grimo.
+- "Task 進度呈現" 曾可能把 SDD 階段或其他領域步驟直接當 board columns。Resolved: board/list uses shared **Task List State**; recipe steps and Quality Loop live in **Task Detail Evidence**.
+- "RUNNING" 曾可能被拆成 CLAIMED / DEV / WRAP board columns。Resolved: board uses **RUNNING**; finer execution states live in **Task Detail Evidence**.
+- "REVIEW" 曾可能同時代表 AI review 和 human review。Resolved: **Human Review State** means AI review/testing/evidence are complete and the task is waiting for human approval.
+- "測試與驗收門檻" 曾可能在每次 run 中臨場判斷或套固定 checklist。Resolved: **Project Quality Gate** is defined during Project design; **Task/Spec Acceptance Gate** adapts it for each Task.
+- "planning-project" 曾可能只被理解成手動 workflow command。Resolved: project planning can be represented as a **Project Planning Task** assigned to an architect-like **Agent Profile**.
+- "Project onboarding" 曾可能直接從 architecture 開始。Resolved: start with **Product Definition Task**; only after direction is clear should **Project Planning Task** define architecture and quality gates.
+- "已有 PRD 的 Project" 曾可能被迫從零重跑 product definition。Resolved: use **Product Definition Review** to review/update existing artifacts.
+- "MVP Task Type scope" 曾可能拉到多種工作類型。Resolved: MVP has one built-in **coding** Task Type; future types such as research, analysis, marketing, video production and finance are extension points.
+- "Agent 發現新工作" 曾可能直接自動執行。Resolved: agents may create **Follow-up Task** proposals only; execution still requires human confirmation.
+- "未排定工作" 曾可能混入 DEFINING。Resolved: **BACKLOG** is the low-commitment holding state; **DEFINING** means active clarification has started.
