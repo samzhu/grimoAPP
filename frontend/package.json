@@ -6,19 +6,22 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview --host 127.0.0.1"
+    "preview": "vite preview --host 127.0.0.1",
+    "test:visual": "playwright test",
+    "test:visual:update": "playwright test --update-snapshots"
   },
   "dependencies": {
-    "@assistant-ui/react": "latest",
-    "@phosphor-icons/react": "latest",
-    "@vitejs/plugin-react": "latest",
-    "vite": "latest",
-    "typescript": "latest",
-    "react": "latest",
-    "react-dom": "latest"
+    "@assistant-ui/react": "0.14.8",
+    "@phosphor-icons/react": "2.1.10",
+    "@vitejs/plugin-react": "6.0.2",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "typescript": "6.0.3",
+    "vite": "8.0.14"
   },
   "devDependencies": {
-    "@types/react": "latest",
-    "@types/react-dom": "latest"
+    "@playwright/test": "1.60.0",
+    "@types/react": "19.2.15",
+    "@types/react-dom": "19.2.3"
   }
 }
