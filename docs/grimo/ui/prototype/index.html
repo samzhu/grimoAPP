@@ -1,0 +1,3513 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Grimo · AI Development Workbench</title>
+  <style>
+    :root {
+      --bg: oklch(98% 0.004 245);
+      --surface: oklch(100% 0 0);
+      --fg: oklch(18% 0.012 245);
+      --muted: oklch(49% 0.018 245);
+      --border: oklch(90% 0.007 245);
+      --accent: oklch(55% 0.135 152);
+      --accent-soft: color-mix(in oklch, var(--accent) 12%, transparent);
+      --fg-soft: color-mix(in oklch, var(--fg) 5%, transparent);
+      --warn: oklch(66% 0.135 78);
+      --danger: oklch(58% 0.16 28);
+      --info: oklch(57% 0.14 248);
+      --code: oklch(25% 0.014 245);
+      --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
+      --font-body: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+      --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+      --radius: 6px;
+      --radius-lg: 8px;
+      --shadow-pop: 0 16px 40px color-mix(in oklch, var(--fg) 9%, transparent);
+      --detail-width: clamp(460px, 34vw, 720px);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--font-body);
+      font-size: 14px;
+      line-height: 1.45;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    button, input, textarea, select { font: inherit; }
+    button { cursor: pointer; }
+    h1, h2, h3, h4 { font-family: var(--font-display); margin: 0; text-wrap: balance; letter-spacing: 0; }
+    p { margin: 0; text-wrap: pretty; }
+    a { color: inherit; text-decoration: none; }
+    svg { display: block; }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+    .topbar {
+      height: 52px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 18px;
+      background: color-mix(in oklch, var(--surface) 86%, transparent);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      flex: 0 0 auto;
+    }
+    .topbar-menu {
+      width: 34px;
+      height: 34px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      display: grid;
+      place-items: center;
+      padding: 0;
+      flex: 0 0 auto;
+    }
+    .topbar-menu:hover,
+    .topbar-menu[aria-expanded="true"] {
+      color: var(--fg);
+      border-color: color-mix(in oklch, var(--accent) 45%, var(--border));
+    }
+    .brand-mark {
+      width: 24px;
+      height: 24px;
+      border: 1px solid var(--fg);
+      border-radius: 5px;
+      display: grid;
+      place-items: center;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      background: var(--surface);
+    }
+    .brand strong {
+      font-size: 15px;
+      letter-spacing: 0;
+    }
+    .brand span {
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .workspace-context {
+      display: grid;
+      grid-template-columns: auto minmax(0, auto) minmax(180px, 520px);
+      align-items: baseline;
+      column-gap: 10px;
+      row-gap: 2px;
+      min-width: 0;
+      color: var(--muted);
+    }
+    .workspace-context strong {
+      color: var(--fg);
+      font-weight: 600;
+      font-size: 13px;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .workspace-context span {
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .context-label {
+      color: var(--muted);
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--muted);
+    }
+    .dot.live { background: var(--accent); }
+    .dot.warn { background: var(--warn); }
+    .dot.danger { background: var(--danger); }
+    .shell {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr;
+      min-height: calc(100vh - 52px);
+    }
+    .shell.nav-pinned {
+      grid-template-columns: 172px 1fr;
+    }
+    .shell.nav-pinned.nav-collapsed {
+      grid-template-columns: 52px 1fr;
+    }
+    .shell:not(.nav-pinned):not(.nav-collapsed) .main {
+      padding-left: 172px;
+    }
+    .rail {
+      border-right: 1px solid var(--border);
+      background: color-mix(in oklch, var(--surface) 58%, var(--bg));
+      padding: 12px 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+      width: 172px;
+      height: calc(100vh - 52px);
+      position: fixed;
+      left: 0;
+      top: 52px;
+      z-index: 35;
+      box-shadow: var(--shadow-pop);
+      transition: transform 160ms ease, width 160ms ease, box-shadow 160ms ease;
+    }
+    .shell.nav-pinned .rail {
+      position: sticky;
+      top: 52px;
+      box-shadow: none;
+      align-self: start;
+    }
+    .shell.nav-collapsed .rail {
+      width: 52px;
+    }
+    .shell.nav-collapsed:not(.nav-pinned) .rail {
+      transform: translateX(-100%);
+      box-shadow: none;
+      pointer-events: none;
+    }
+    .rail-controls {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 34px;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+    .rail-toggle {
+      width: 100%;
+      min-height: 34px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 0 10px;
+    }
+    .rail-pin {
+      width: 34px;
+      min-height: 34px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      display: grid;
+      place-items: center;
+      padding: 0;
+    }
+    .rail-toggle span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .rail-toggle:hover,
+    .rail-pin:hover,
+    .rail-pin[aria-pressed="true"] {
+      color: var(--fg);
+      border-color: color-mix(in oklch, var(--accent) 45%, var(--border));
+    }
+    .rail-toggle svg {
+      transition: transform 140ms ease;
+    }
+    .shell.nav-collapsed .rail {
+      padding-inline: 7px;
+      align-items: center;
+    }
+    .shell.nav-collapsed .rail-controls {
+      grid-template-columns: 38px;
+    }
+    .shell.nav-collapsed .rail-toggle {
+      width: 38px;
+      padding: 0;
+      justify-content: center;
+    }
+    .shell.nav-collapsed .rail-pin {
+      display: none;
+    }
+    .shell.nav-collapsed .rail-toggle span,
+    .shell.nav-collapsed .rail-btn span {
+      display: none;
+    }
+    .shell.nav-collapsed .rail-toggle svg {
+      transform: rotate(180deg);
+    }
+    .rail-btn {
+      width: 100%;
+      min-height: 38px;
+      border-radius: var(--radius);
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 0 10px;
+      text-align: left;
+    }
+    .shell.nav-collapsed .rail-btn {
+      width: 38px;
+      padding: 0;
+      justify-content: center;
+    }
+    .rail-btn span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .rail-btn:hover, .rail-btn.active, .rail-btn[aria-selected="true"] {
+      background: var(--surface);
+      color: var(--fg);
+      border-color: var(--border);
+    }
+    .main {
+      min-width: 0;
+      overflow: hidden;
+      transition: padding-left 160ms ease;
+    }
+    .view {
+      display: none;
+      min-height: calc(100vh - 52px);
+    }
+    .view.active { display: block; }
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      min-height: calc(100vh - 52px);
+      position: relative;
+    }
+    .workspace.detail-pinned {
+      grid-template-columns: minmax(0, 1fr) var(--detail-width);
+    }
+    .workspace.detail-closed {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .workspace:not(.detail-pinned) .pane,
+    .workspace.detail-closed .pane {
+      border-right: 0;
+    }
+    .workspace.detail-closed .aside {
+      display: none;
+    }
+    .pane {
+      min-width: 0;
+      border-right: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .aside {
+      min-width: 0;
+      background: var(--surface);
+      overflow: auto;
+    }
+    .workspace > .aside {
+      position: fixed;
+      right: 0;
+      top: 52px;
+      width: min(var(--detail-width), calc(100vw - 24px));
+      height: calc(100vh - 52px);
+      z-index: 36;
+      border-left: 1px solid var(--border);
+      box-shadow: var(--shadow-pop);
+    }
+    .workspace.detail-pinned > .aside {
+      position: static;
+      width: auto;
+      height: auto;
+      z-index: auto;
+      box-shadow: none;
+      border-left: 0;
+    }
+    .section-head {
+      min-height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      background: color-mix(in oklch, var(--surface) 62%, var(--bg));
+    }
+    .section-title {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .section-title h1, .section-title h2 {
+      font-size: 17px;
+      line-height: 1.2;
+    }
+    .section-title span {
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .section-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .btn {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--fg);
+      border-radius: var(--radius);
+      padding: 7px 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      min-height: 34px;
+      transition: background 120ms ease, border-color 120ms ease, transform 80ms ease;
+    }
+    .btn:hover { background: var(--fg-soft); border-color: color-mix(in oklch, var(--fg) 20%, var(--border)); }
+    .btn:active { transform: translateY(1px); }
+    .btn.primary {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: var(--surface);
+    }
+    .btn.danger { color: var(--danger); }
+    .btn.icon { width: 34px; padding: 0; }
+    .fieldline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 0 9px;
+      min-height: 34px;
+      color: var(--muted);
+    }
+    .fieldline input {
+      border: 0;
+      outline: 0;
+      background: transparent;
+      min-width: 160px;
+      color: var(--fg);
+    }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(184px, 1fr));
+      gap: 10px;
+      padding: 14px;
+      overflow: auto;
+      height: calc(100vh - 110px);
+    }
+    .column {
+      min-width: 184px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: color-mix(in oklch, var(--surface) 62%, var(--bg));
+      display: flex;
+      flex-direction: column;
+      min-height: 520px;
+    }
+    .column-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 10px 8px;
+      border-bottom: 1px solid var(--border);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0;
+    }
+    .column-count {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .column-count strong {
+      color: var(--fg);
+      font-weight: 700;
+    }
+    .column-body {
+      display: grid;
+      gap: 8px;
+      padding: 8px;
+      align-content: start;
+    }
+    .task-card {
+      text-align: left;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      padding: 9px 10px;
+      display: grid;
+      gap: 8px;
+      width: 100%;
+      min-width: 0;
+      color: var(--fg);
+    }
+    .task-card:hover, .task-card.selected {
+      border-color: color-mix(in oklch, var(--accent) 62%, var(--border));
+      box-shadow: inset 2px 0 0 var(--accent);
+    }
+    .task-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      min-width: 0;
+    }
+    .task-id {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted);
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .task-title {
+      font-size: 13px;
+      line-height: 1.35;
+      font-weight: 650;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .card-action {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      border-radius: 999px;
+      border: 1px solid color-mix(in oklch, var(--accent) 42%, var(--border));
+      background: var(--accent-soft);
+      color: color-mix(in oklch, var(--accent) 72%, var(--fg));
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      line-height: 1.2;
+    }
+    .task-labels {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      min-height: 20px;
+    }
+    .task-label {
+      display: inline-flex;
+      align-items: center;
+      min-height: 20px;
+      max-width: 94px;
+      padding: 2px 6px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: color-mix(in oklch, var(--fg) 3%, var(--surface));
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .task-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding-top: 2px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.2;
+    }
+    .task-activity {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      margin-left: auto;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .comment-count {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-family: var(--font-mono);
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 3px 7px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--muted);
+      background: var(--surface);
+      white-space: nowrap;
+    }
+    .pill.good { color: var(--accent); background: var(--accent-soft); border-color: color-mix(in oklch, var(--accent) 35%, var(--border)); }
+    .pill.warn { color: var(--warn); background: color-mix(in oklch, var(--warn) 13%, transparent); }
+    .pill.bad { color: var(--danger); background: color-mix(in oklch, var(--danger) 10%, transparent); }
+    .pill.info { color: var(--info); background: color-mix(in oklch, var(--info) 10%, transparent); }
+    .evidence {
+      font-size: 12px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      padding-top: 7px;
+    }
+    .detail {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+    .detail-title {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+    }
+    .detail-title h2 {
+      font-size: 18px;
+      line-height: 1.25;
+      margin-bottom: 8px;
+    }
+    .detail-title .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .detail-empty {
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-lg);
+      background: color-mix(in oklch, var(--surface) 70%, var(--bg));
+      padding: 18px;
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+    }
+    .detail-empty strong {
+      color: var(--fg);
+      font-size: 14px;
+    }
+    .task-actions-band {
+      position: sticky;
+      bottom: 0;
+      z-index: 3;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: color-mix(in oklch, var(--surface) 94%, var(--bg));
+      box-shadow: 0 -10px 24px color-mix(in oklch, var(--fg) 5%, transparent);
+      padding: 10px;
+    }
+    .task-actions-band p {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .task-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .quick-list {
+      display: grid;
+      gap: 7px;
+    }
+    .quick-row {
+      display: grid;
+      gap: 3px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 7px;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .quick-row:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+    .quick-row label {
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 10px;
+    }
+    .stage-card {
+      display: grid;
+      gap: 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: color-mix(in oklch, var(--surface) 82%, var(--bg));
+      padding: 10px;
+    }
+    .stage-summary {
+      display: grid;
+      gap: 8px;
+    }
+    .stage-line {
+      display: grid;
+      grid-template-columns: 78px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .stage-line label {
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding-top: 1px;
+    }
+    .stage-line strong {
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+    .gap-list {
+      display: grid;
+      gap: 6px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .gap-list li {
+      display: grid;
+      grid-template-columns: 14px 1fr;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .gap-list li::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      margin-top: 6px;
+      border-radius: 999px;
+      background: var(--warn);
+    }
+    .suggestion-card {
+      border: 1px solid color-mix(in oklch, var(--accent) 35%, var(--border));
+      border-radius: var(--radius);
+      background: var(--accent-soft);
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+    .suggestion-card strong {
+      font-size: 12px;
+    }
+    .suggestion-card p {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .task-workspace-modal[hidden] {
+      display: none;
+    }
+    .task-workspace-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: grid;
+      place-items: center;
+      background: color-mix(in oklch, var(--fg) 26%, transparent);
+      padding: 20px;
+    }
+    .task-workspace-dialog {
+      width: min(1040px, calc(100vw - 40px));
+      max-height: calc(100vh - 40px);
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      box-shadow: var(--shadow-pop);
+      overflow: hidden;
+    }
+    .task-workspace-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      background: color-mix(in oklch, var(--surface) 72%, var(--bg));
+    }
+    .task-workspace-head h2 {
+      font-size: 18px;
+      line-height: 1.25;
+      margin-top: 5px;
+    }
+    .task-workspace-body {
+      overflow: auto;
+      padding: 14px;
+    }
+    .task-workspace-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
+      gap: 12px;
+      align-items: start;
+    }
+    .task-workspace-stack {
+      display: grid;
+      gap: 12px;
+    }
+    .task-workspace-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 12px 14px;
+      border-top: 1px solid var(--border);
+      background: color-mix(in oklch, var(--surface) 78%, var(--bg));
+    }
+    .task-page {
+      min-height: calc(100vh - 52px);
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }
+    .task-page-head {
+      display: grid;
+      gap: 12px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 14px;
+    }
+    .task-page-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .task-page-title {
+      display: grid;
+      gap: 8px;
+      max-width: 920px;
+      min-width: 0;
+    }
+    .task-page-title h1 {
+      font-size: clamp(24px, 3vw, 36px);
+      line-height: 1.12;
+      letter-spacing: 0;
+      overflow-wrap: anywhere;
+    }
+    .task-page-meta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+    .task-page-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 310px;
+      gap: 14px;
+      align-items: start;
+    }
+    .task-main-column,
+    .task-sidebar {
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+    .timeline {
+      display: grid;
+      gap: 0;
+      padding: 0 12px;
+    }
+    .timeline-item {
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr);
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .timeline-item:last-child { border-bottom: 0; }
+    .timeline-item .time {
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+    .timeline-item strong {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 2px;
+    }
+    .issue-timeline {
+      display: grid;
+      gap: 10px;
+    }
+    .conversation-item {
+      display: grid;
+      grid-template-columns: 30px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+    }
+    .conversation-avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: var(--fg);
+      color: var(--surface);
+      font-size: 11px;
+      font-weight: 850;
+      font-family: var(--font-mono);
+    }
+    .conversation-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      overflow: hidden;
+    }
+    .conversation-card.decision {
+      border-color: color-mix(in oklch, var(--accent) 34%, var(--border));
+      background: color-mix(in oklch, var(--accent) 7%, var(--surface));
+    }
+    .conversation-meta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      background: color-mix(in oklch, var(--surface) 72%, var(--bg));
+      font-size: 12px;
+    }
+    .conversation-meta strong { font-size: 12px; }
+    .conversation-card p {
+      padding: 10px;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    .system-event {
+      display: grid;
+      grid-template-columns: 78px minmax(0, 1fr);
+      gap: 10px;
+      padding: 8px 2px;
+      color: var(--muted);
+      font-size: 12px;
+      border-bottom: 1px solid color-mix(in oklch, var(--border) 72%, transparent);
+    }
+    .system-event:last-child { border-bottom: 0; }
+    .system-event .time {
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+    .activity-log details {
+      border-top: 1px solid var(--border);
+      margin-top: 2px;
+      padding-top: 8px;
+    }
+    .activity-log summary {
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+    }
+    .comment-composer {
+      display: grid;
+      gap: 8px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 10px;
+      background: color-mix(in oklch, var(--surface) 78%, var(--bg));
+    }
+    .comment-composer textarea {
+      min-height: 86px;
+      resize: vertical;
+    }
+    .composer-options,
+    .composer-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+    .composer-options label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .sidebar-list {
+      display: grid;
+      gap: 8px;
+    }
+    .sidebar-list .kv {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+    .sidebar-list .kv:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      overflow: hidden;
+    }
+    .panel h3 {
+      font-size: 12px;
+      letter-spacing: 0;
+      text-transform: none;
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--border);
+      background: color-mix(in oklch, var(--surface) 70%, var(--bg));
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .panel-body {
+      padding: 10px;
+      display: grid;
+      gap: 10px;
+    }
+    .kv {
+      display: grid;
+      grid-template-columns: 112px 1fr;
+      gap: 8px;
+      font-size: 12px;
+    }
+    .kv span:first-child {
+      color: var(--muted);
+      font-family: var(--font-mono);
+    }
+    .task-copy {
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--fg);
+    }
+    .check-list {
+      display: grid;
+      gap: 7px;
+    }
+    .check-row {
+      display: grid;
+      grid-template-columns: 16px 1fr;
+      gap: 8px;
+      align-items: start;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .check-row::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      margin-top: 3px;
+      border-radius: 3px;
+      border: 1px solid var(--border);
+      background: color-mix(in oklch, var(--surface) 78%, var(--bg));
+    }
+    .advanced-record {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      overflow: hidden;
+    }
+    .advanced-record summary {
+      cursor: pointer;
+      padding: 10px;
+      font-size: 12px;
+      font-weight: 800;
+      list-style-position: inside;
+      background: color-mix(in oklch, var(--surface) 70%, var(--bg));
+      border-bottom: 1px solid var(--border);
+    }
+    .advanced-record[open] summary {
+      border-bottom-color: var(--border);
+    }
+    .advanced-record .panel-body {
+      padding-top: 8px;
+    }
+    .runtime-grid {
+      display: grid;
+      gap: 8px;
+    }
+    .runtime-field {
+      display: grid;
+      gap: 4px;
+      font-size: 12px;
+    }
+    .runtime-field label {
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+    .select-control {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: color-mix(in oklch, var(--surface) 82%, var(--bg));
+      color: var(--fg);
+      padding: 7px 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .steps {
+      display: grid;
+      gap: 6px;
+    }
+    .step {
+      display: grid;
+      grid-template-columns: 88px 96px 1fr auto;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+    }
+    .step:last-child { border-bottom: 0; }
+    .bar {
+      height: 6px;
+      border-radius: 999px;
+      background: var(--fg-soft);
+      overflow: hidden;
+    }
+    .bar span {
+      display: block;
+      height: 100%;
+      width: var(--value);
+      background: var(--accent);
+    }
+    .history {
+      display: grid;
+      gap: 0;
+      border-top: 1px solid var(--border);
+    }
+    .history-row {
+      display: grid;
+      grid-template-columns: 84px 1fr auto;
+      gap: 8px;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      align-items: center;
+    }
+    .history-row:last-child { border-bottom: 0; }
+    .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+    .muted { color: var(--muted); }
+    .chat-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 390px;
+      min-height: calc(100vh - 52px);
+    }
+    .chat-thread {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      min-height: calc(100vh - 52px);
+      border-right: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .messages {
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+      align-content: start;
+      overflow: auto;
+      max-height: calc(100vh - 188px);
+    }
+    .msg {
+      display: grid;
+      grid-template-columns: 34px minmax(0, 760px);
+      gap: 10px;
+      align-items: start;
+    }
+    .avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      display: grid;
+      place-items: center;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .bubble {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+    .bubble.user { background: color-mix(in oklch, var(--info) 4%, var(--surface)); }
+    .draft-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: color-mix(in oklch, var(--surface) 78%, var(--bg));
+    }
+    .draft-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 650;
+      font-size: 12px;
+    }
+    .draft-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      border-bottom: 1px solid var(--border);
+    }
+    .draft-grid div {
+      padding: 8px 10px;
+      border-right: 1px solid var(--border);
+      min-width: 0;
+    }
+    .draft-grid div:last-child { border-right: 0; }
+    .draft-grid label {
+      display: block;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      margin-bottom: 2px;
+    }
+    .quality-gate {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px;
+    }
+    .composer {
+      border-top: 1px solid var(--border);
+      padding: 12px 18px;
+      background: var(--surface);
+      display: grid;
+      gap: 8px;
+    }
+    .context-chips {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .attachment-strip {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .attachment-badge {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: color-mix(in oklch, var(--surface) 82%, var(--bg));
+      padding: 5px 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--fg);
+      font-size: 12px;
+      max-width: 100%;
+    }
+    .attachment-badge svg {
+      width: 14px;
+      height: 14px;
+      color: var(--muted);
+      flex: 0 0 auto;
+    }
+    .attachment-badge .mono {
+      color: var(--muted);
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+    .sources-trigger {
+      justify-self: start;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--muted);
+      padding: 5px 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+    .sources-trigger:hover {
+      color: var(--fg);
+      border-color: color-mix(in oklch, var(--fg) 18%, var(--border));
+    }
+    .suggestion-row {
+      display: flex;
+      gap: 7px;
+      flex-wrap: wrap;
+    }
+    .suggestion-chip {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--fg);
+      padding: 6px 10px;
+      font-size: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .suggestion-chip:hover {
+      border-color: color-mix(in oklch, var(--accent) 42%, var(--border));
+      background: var(--accent-soft);
+    }
+    .input-row {
+      display: grid;
+      grid-template-columns: auto 1fr auto auto;
+      gap: 8px;
+      align-items: end;
+    }
+    .voice-toggle {
+      width: 36px;
+      height: 36px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+    }
+    .voice-toggle.active {
+      color: var(--accent);
+      border-color: color-mix(in oklch, var(--accent) 40%, var(--border));
+      background: var(--accent-soft);
+    }
+    textarea.chat-input {
+      min-height: 38px;
+      max-height: 130px;
+      resize: vertical;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 9px 10px;
+      outline: 0;
+      background: var(--surface);
+      color: var(--fg);
+    }
+    textarea.chat-input:focus { border-color: color-mix(in oklch, var(--accent) 60%, var(--border)); }
+    .side-stack {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+    .projects-page {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: calc(100vh - 52px);
+      background: var(--bg);
+    }
+    .projects-content, .blockers-content {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 390px;
+      min-height: calc(100vh - 110px);
+    }
+    .project-list, .blocker-list {
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+      align-content: start;
+      border-right: 1px solid var(--border);
+    }
+    .project-card {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      text-align: left;
+      color: var(--fg);
+    }
+    .project-card:hover, .project-card.selected {
+      border-color: color-mix(in oklch, var(--accent) 58%, var(--border));
+      box-shadow: inset 2px 0 0 var(--accent);
+    }
+    .project-card-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+    }
+    .project-card h3 {
+      font-size: 15px;
+      line-height: 1.25;
+    }
+    .project-desc {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .project-folder {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: color-mix(in oklch, var(--surface) 80%, var(--bg));
+      padding: 7px 8px;
+      color: var(--muted);
+      font-size: 11px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .project-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .blocker-card .project-desc {
+      margin-top: 2px;
+    }
+    .blocker-summary {
+      display: grid;
+      gap: 8px;
+    }
+    .project-form {
+      display: grid;
+      gap: 10px;
+    }
+    .task-create-form {
+      display: grid;
+      gap: 12px;
+    }
+    .form-field {
+      display: grid;
+      gap: 5px;
+    }
+    .form-field label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .text-control {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: color-mix(in oklch, var(--surface) 82%, var(--bg));
+      color: var(--fg);
+      padding: 8px 9px;
+      outline: 0;
+    }
+    textarea.text-control {
+      min-height: 78px;
+      resize: vertical;
+    }
+    textarea.task-body-input {
+      min-height: 140px;
+    }
+    .text-control:focus {
+      border-color: color-mix(in oklch, var(--accent) 58%, var(--border));
+      background: var(--surface);
+    }
+    .label-picker {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+    .label-chip {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--muted);
+      padding: 6px 9px;
+      font-size: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .label-chip[aria-pressed="true"] {
+      color: var(--accent);
+      border-color: color-mix(in oklch, var(--accent) 42%, var(--border));
+      background: var(--accent-soft);
+    }
+    .label-add {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+    }
+    .source-list {
+      display: grid;
+      gap: 8px;
+    }
+    .source-item {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 8px;
+      align-items: center;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+    }
+    .source-item:last-child { border-bottom: 0; padding-bottom: 0; }
+    .workflow-page {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: calc(100vh - 52px);
+      background: var(--bg);
+    }
+    .workflow-content {
+      padding: 14px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
+      gap: 14px;
+      align-items: start;
+    }
+    .diagram {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(120px, 1fr));
+      gap: 8px;
+      align-items: stretch;
+      overflow: auto;
+    }
+    .flow-node {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px;
+      min-height: 92px;
+      display: grid;
+      align-content: start;
+      gap: 8px;
+      background: color-mix(in oklch, var(--surface) 78%, var(--bg));
+      position: relative;
+    }
+    .flow-node::after {
+      content: "";
+      position: absolute;
+      right: -8px;
+      top: 50%;
+      width: 8px;
+      border-top: 1px solid var(--border);
+    }
+    .flow-node:last-child::after { display: none; }
+    .flow-node strong { font-size: 12px; }
+    .flow-node span { font-size: 11px; color: var(--muted); }
+    .recipe {
+      display: grid;
+      gap: 8px;
+    }
+    .recipe-step {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      padding: 9px;
+      display: grid;
+      grid-template-columns: 92px 104px 1fr;
+      gap: 10px;
+      align-items: start;
+    }
+    .state-tag {
+      align-self: start;
+      justify-self: start;
+      border-color: color-mix(in oklch, var(--info) 34%, var(--border));
+      color: color-mix(in oklch, var(--info) 72%, var(--fg));
+      background: color-mix(in oklch, var(--info) 8%, var(--surface));
+    }
+    .recipe-map {
+      display: grid;
+      gap: 8px;
+    }
+    .map-row {
+      display: grid;
+      grid-template-columns: minmax(128px, 1.1fr) 118px minmax(148px, 1fr) 120px;
+      gap: 8px;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 8px;
+      background: color-mix(in oklch, var(--surface) 78%, var(--bg));
+    }
+    .map-row label {
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      display: block;
+      margin-bottom: 3px;
+    }
+    .select-like {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      padding: 6px 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .loop {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+      gap: 6px;
+      align-items: center;
+    }
+    .loop span {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 5px 6px;
+      font-size: 11px;
+      color: var(--muted);
+      text-align: center;
+      background: color-mix(in oklch, var(--surface) 72%, var(--bg));
+    }
+    .codebox {
+      background: var(--code);
+      color: oklch(94% 0.006 245);
+      border-radius: var(--radius);
+      padding: 12px;
+      overflow: auto;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.55;
+      white-space: pre;
+    }
+    .run-list {
+      display: grid;
+      gap: 8px;
+    }
+    .run-row {
+      display: grid;
+      grid-template-columns: 86px 1fr auto;
+      gap: 8px;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+      font-size: 12px;
+    }
+    .run-row:last-child { border-bottom: 0; padding-bottom: 0; }
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      color: var(--fg);
+      box-shadow: var(--shadow-pop);
+      padding: 10px 12px;
+      font-size: 13px;
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: opacity 140ms ease, transform 140ms ease;
+      z-index: 50;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 1180px) {
+      .workspace, .chat-layout, .workflow-content, .projects-content, .blockers-content, .task-page-layout { grid-template-columns: 1fr; }
+      .aside { border-top: 1px solid var(--border); }
+      .project-list { border-right: 0; }
+      .board { height: auto; min-height: 560px; }
+      .topbar { height: auto; min-height: 52px; }
+    }
+    @media (max-width: 920px) {
+      .shell { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+      .shell.nav-collapsed { grid-template-columns: 1fr; }
+      .shell.nav-pinned,
+      .shell.nav-pinned.nav-collapsed { grid-template-columns: 1fr; }
+      .shell:not(.nav-pinned):not(.nav-collapsed) .main {
+        padding-left: 0;
+      }
+      .rail {
+        position: static;
+        width: auto;
+        height: auto;
+        transform: none !important;
+        pointer-events: auto;
+        box-shadow: none;
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+        flex-direction: row;
+        overflow-x: auto;
+        padding: 8px 10px;
+      }
+      .rail-controls { display: none; }
+      .rail-toggle,
+      .rail-pin { display: none; }
+      .rail-btn {
+        flex: 0 0 auto;
+        width: auto;
+        min-width: 118px;
+      }
+      .shell.nav-collapsed .rail {
+        align-items: stretch;
+        padding: 8px 10px;
+      }
+      .shell.nav-collapsed .rail-btn {
+        width: auto;
+        min-width: 118px;
+        padding: 0 10px;
+        justify-content: flex-start;
+      }
+      .shell.nav-collapsed .rail-btn span {
+        display: inline;
+      }
+      .topbar { padding: 8px 10px; }
+      .brand span { display: none; }
+      .workspace-context { grid-template-columns: 1fr; row-gap: 0; }
+      .context-label { display: none; }
+      .section-head { align-items: flex-start; flex-direction: column; }
+      .toolbar { justify-content: flex-start; width: 100%; }
+      .fieldline { width: 100%; }
+      .fieldline input { min-width: 0; width: 100%; }
+      .board { grid-template-columns: 1fr; overflow: visible; padding: 10px; }
+      .column { min-height: 0; }
+      .workspace > .aside {
+        top: auto;
+        bottom: 0;
+        width: 100%;
+        height: min(72vh, 620px);
+        border-left: 0;
+        border-top: 1px solid var(--border);
+      }
+      .workspace.detail-pinned > .aside {
+        position: static;
+        width: auto;
+        height: auto;
+      }
+      .detail { padding: 10px; }
+      .task-actions-band { grid-template-columns: 1fr; }
+      .task-actions { justify-content: flex-start; }
+      .task-workspace-grid { grid-template-columns: 1fr; }
+      .task-workspace-actions { flex-wrap: wrap; justify-content: flex-start; }
+      .task-page { padding: 12px; }
+      .task-page-toolbar { align-items: flex-start; flex-direction: column; }
+      .timeline-item { grid-template-columns: 1fr; gap: 4px; }
+      .step { grid-template-columns: 1fr; }
+      .input-row { grid-template-columns: auto 1fr auto; }
+      .input-row .btn.icon { display: none; }
+      .draft-grid { grid-template-columns: 1fr; }
+      .draft-grid div { border-right: 0; border-bottom: 1px solid var(--border); }
+      .draft-grid div:last-child { border-bottom: 0; }
+      .flow { grid-template-columns: 1fr; }
+      .flow-node::after { display: none; }
+      .recipe-step { grid-template-columns: 1fr; }
+      .map-row { grid-template-columns: 1fr; }
+      .loop { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <button class="topbar-menu" id="topbarNavToggle" type="button" aria-expanded="false" aria-label="展開主選單" title="展開主選單">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>
+      </button>
+      <div class="brand">
+        <div class="brand-mark">G</div>
+        <div>
+          <strong>Grimo</strong>
+        </div>
+      </div>
+      <div class="workspace-context" aria-label="目前開啟的專案">
+        <span class="context-label">目前專案</span>
+        <strong id="activeProjectName">grimo/web</strong>
+        <span id="activeProjectFolder">/Users/samzhu/workspace/github-samzhu/grimo/apps/web</span>
+      </div>
+    </header>
+
+    <div class="shell nav-collapsed" id="appShell">
+      <aside class="rail" aria-label="主要頁面">
+        <div class="rail-controls">
+          <button class="rail-toggle" id="navToggle" type="button" aria-expanded="false" aria-label="展開主選單" title="展開主選單">
+            <span>主選單</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <button class="rail-pin" id="navPin" type="button" aria-pressed="false" aria-label="固定主選單" title="固定主選單">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 17v5"/><path d="M5 17h14"/><path d="m7 17 1-9-2-4h12l-2 4 1 9"/></svg>
+          </button>
+        </div>
+        <button class="rail-btn active" data-tab="tasks" aria-selected="true" title="Task 管理">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
+          <span>Task 管理</span>
+        </button>
+        <button class="rail-btn" data-tab="blockers" aria-selected="false" title="待處理">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.6 2.9 18a2 2 0 0 0 1.8 3h14.6a2 2 0 0 0 1.8-3L13.7 3.6a2 2 0 0 0-3.4 0Z"/></svg>
+          <span>待處理</span>
+        </button>
+        <button class="rail-btn" data-tab="projects" aria-selected="false" title="專案">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M3 11h18"/></svg>
+          <span>專案</span>
+        </button>
+        <button class="rail-btn" data-tab="chat" aria-selected="false" title="Chat">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>
+          <span>Chat</span>
+        </button>
+        <button class="rail-btn" data-tab="workflow" aria-selected="false" title="Workflow">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 3v6"/><path d="M18 15v6"/><path d="M6 21v-6"/><path d="M18 9V3"/><rect x="3" y="9" width="6" height="6" rx="1"/><rect x="15" y="9" width="6" height="6" rx="1"/><path d="M9 12h6"/></svg>
+          <span>Workflow</span>
+        </button>
+      </aside>
+
+      <main class="main">
+        <section class="view active" data-view="tasks" data-od-id="tasks-workbench">
+          <div class="workspace" id="taskWorkspace">
+            <div class="pane">
+              <div class="section-head">
+                <div class="section-title">
+                  <h1>任務工作台</h1>
+                  <span>從 Chat、CLI 或 issue 進來的工作先成為任務，再由 Grimo 管理定義、執行與審查</span>
+                </div>
+                <div class="toolbar">
+                  <div class="fieldline">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                    <input id="taskSearch" aria-label="搜尋任務" placeholder="搜尋任務 / 來源 / 關鍵字" />
+                  </div>
+                  <button class="btn primary" id="openCreateTask" type="button">新增 Task</button>
+                </div>
+              </div>
+              <div class="board" id="taskBoard" aria-label="Task board"></div>
+            </div>
+            <aside class="aside">
+              <div class="section-head">
+                <div class="section-title">
+                  <h2>任務詳情</h2>
+                </div>
+                <div class="section-actions">
+                  <button class="btn primary" id="quickOpenTask" type="button">在完整頁開啟</button>
+                  <button class="btn icon" id="pinDetail" type="button" aria-pressed="false" aria-label="固定任務詳情" title="固定任務詳情">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 17v5"/><path d="M5 17h14"/><path d="m7 17 1-9-2-4h12l-2 4 1 9"/></svg>
+                  </button>
+                  <button class="btn icon" id="closeDetail" aria-label="關閉 Task Detail" title="關閉 Task Detail">×</button>
+                </div>
+              </div>
+              <div class="detail" id="taskDetail"></div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" data-view="task-page" data-od-id="task-detail-page">
+          <div class="task-page" id="taskPage">
+            <div class="task-page-head">
+              <div class="task-page-toolbar">
+                <button class="btn" id="backToTasks" type="button">← 回到 Task 管理</button>
+                <div class="task-actions" id="taskPageActions"></div>
+              </div>
+              <div class="task-page-title">
+                <div class="task-page-meta" id="taskPageMeta"></div>
+                <h1 id="taskPageTitle">Task</h1>
+              </div>
+            </div>
+            <div id="taskPageBody"></div>
+          </div>
+        </section>
+
+        <section class="view" data-view="blockers" data-od-id="blocked-work">
+          <div class="projects-page">
+            <div class="section-head">
+              <div class="section-title">
+                <h1>待處理</h1>
+                <span>需要使用者補資料、補權限或做決策的任務，處理後回到原本流程</span>
+              </div>
+            </div>
+            <div class="blockers-content">
+              <div class="blocker-list" id="blockerList" aria-label="待處理任務"></div>
+              <aside class="aside">
+                <div class="side-stack">
+                  <div class="panel">
+                    <h3>處理方式</h3>
+                    <div class="panel-body blocker-summary">
+                      <div class="kv"><span>補資料</span><strong>補上 acceptance criteria、來源脈絡或缺少的檔案</strong></div>
+                      <div class="kv"><span>補權限</span><strong>處理本機資料夾、repo 或工具權限問題</strong></div>
+                      <div class="kv"><span>做決策</span><strong>選擇要退回定義、重新執行或進入人工審查</strong></div>
+                    </div>
+                  </div>
+                  <div class="panel">
+                    <h3>目前範圍</h3>
+                    <div class="panel-body">
+                      <p class="muted">這裡只整理需要人介入的例外事項；主流程仍留在 Task 管理看板。</p>
+                    </div>
+                  </div>
+                </div>
+              </aside>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" data-view="projects" data-od-id="projects-management">
+          <div class="projects-page">
+            <div class="section-head">
+              <div class="section-title">
+                <h1>專案管理</h1>
+                <span>管理本機 repo / codebase，讓任務、執行紀錄與審查資料有明確歸屬</span>
+              </div>
+              <div class="toolbar">
+                <span class="pill good">本地優先</span>
+                <span class="pill">本機資料夾</span>
+              </div>
+            </div>
+            <div class="projects-content">
+              <div class="project-list" id="projectList" aria-label="Project list"></div>
+              <aside class="aside">
+                <div class="section-head">
+                  <div class="section-title">
+                    <h2>新增專案</h2>
+                    <span>建立 Grimo 管理的本機專案脈絡</span>
+                  </div>
+                </div>
+                <div class="side-stack">
+                  <form class="panel project-form" id="projectForm">
+                    <h3>專案資料</h3>
+                    <div class="panel-body project-form">
+                      <div class="form-field">
+                        <label for="projectName">名稱</label>
+                        <input class="text-control" id="projectName" name="projectName" autocomplete="off" placeholder="例如 grimo/web" required />
+                      </div>
+                      <div class="form-field">
+                        <label for="projectDescription">描述</label>
+                        <textarea class="text-control" id="projectDescription" name="projectDescription" placeholder="這個專案的產品目標、主要工作類型或目前焦點"></textarea>
+                      </div>
+                      <div class="form-field">
+                        <label for="projectFolder">對應的專案資料夾</label>
+                        <input class="text-control mono" id="projectFolder" name="projectFolder" autocomplete="off" placeholder="/Users/samzhu/workspace/grimo" required />
+                      </div>
+                      <div class="form-field">
+                        <label for="projectWorkflow">專案工作流</label>
+                        <select class="text-control" id="projectWorkflow" name="projectWorkflow">
+                          <option value="開發工作流">開發工作流</option>
+                          <option value="研究工作流">研究工作流</option>
+                          <option value="內容工作流">內容工作流</option>
+                        </select>
+                      </div>
+                      <button class="btn primary" type="submit">新增專案</button>
+                    </div>
+                  </form>
+                  <div class="panel">
+                    <h3>綁定後可管理</h3>
+                    <div class="panel-body">
+                      <div class="kv"><span>任務</span><strong>跨來源工作進入同一套任務狀態</strong></div>
+                      <div class="kv"><span>審查資料</span><strong>保存活動紀錄、diff、測試結果與審查附件</strong></div>
+                      <div class="kv"><span>執行能力</span><strong>依專案資料夾檢查可用工具與本機權限</strong></div>
+                    </div>
+                  </div>
+                </div>
+              </aside>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" data-view="chat" data-od-id="task-forming-chat">
+          <div class="chat-layout">
+            <div class="chat-thread">
+              <div class="section-head">
+                <div class="section-title">
+                  <h1>工作形成 Chat</h1>
+                  <span>從 0 討論新工作，或接續既有 Task 的後續脈絡</span>
+                </div>
+              </div>
+              <div class="messages" id="messages">
+                <article class="msg">
+                  <div class="avatar">SZ</div>
+                  <div class="bubble user">
+                    <p>把 Voice 放回 Chat composer，並檢查 Task detail 裡的審查附件是否能顯示 code evidence。</p>
+                    <div class="attachment-strip" aria-label="Attached context">
+                      <span class="attachment-badge">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
+                        <span class="mono">Linear</span>
+                        <span>GRM-184</span>
+                      </span>
+                      <span class="attachment-badge">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5z"/><path d="M14 2v6h6"/></svg>
+                        <span class="mono">Code</span>
+                        <span>apps/web/components/task-detail.tsx</span>
+                      </span>
+                      <span class="attachment-badge">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3v18"/><path d="m8 7 4-4 4 4"/><path d="m8 17 4 4 4-4"/><path d="M4 12h16"/></svg>
+                        <span class="mono">Run</span>
+                        <span>checkpoint-42</span>
+                      </span>
+                    </div>
+                  </div>
+                </article>
+                <article class="msg">
+                  <div class="avatar">GR</div>
+                  <div class="bubble">
+                    <p>已連結既有 Task，缺口集中在 Voice state 與審查附件的 acceptance criteria。</p>
+                    <button class="sources-trigger" type="button">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.1 0l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.1 0l-2 2a5 5 0 0 0 7.1 7.1l1.1-1.1"/></svg>
+                      Used 3 sources
+                    </button>
+                    <div class="draft-card">
+                      <div class="draft-head">
+                        <span>Task · GRM-219</span>
+                        <span class="pill good">Definition 73%</span>
+                      </div>
+                      <div class="draft-grid">
+                        <div><label>Task</label><strong>GRM-219</strong></div>
+                        <div><label>建議 skill</label><strong>前端 UI skill</strong></div>
+                        <div><label>目前狀態</label><strong>DEFINING</strong></div>
+                      </div>
+                      <div class="quality-gate">
+                        <div>
+                          <strong>下一步候選</strong>
+                          <p class="muted">補 Voice composer 驗收條件與審查附件的必要證據。</p>
+                        </div>
+                        <button class="btn">更新 Task</button>
+                      </div>
+                    </div>
+                    <div class="suggestion-row" aria-label="Clarification suggestions">
+                      <button type="button" class="suggestion-chip">Voice toggle 是否需要 push-to-talk state？</button>
+                      <button type="button" class="suggestion-chip">審查附件是否接受 screenshot evidence？</button>
+                      <button type="button" class="suggestion-chip">補 acceptance criteria</button>
+                    </div>
+                  </div>
+                </article>
+              </div>
+              <form class="composer" id="composer">
+                <div class="attachment-strip" aria-label="Composer attachments">
+                  <span class="attachment-badge"><span class="mono">Linear</span><span>GRM-184</span></span>
+                  <span class="attachment-badge"><span class="mono">Code</span><span>apps/web/components/task-detail.tsx</span></span>
+                  <span class="attachment-badge"><span class="mono">Run</span><span>checkpoint-42</span></span>
+                  <button type="button" class="btn" id="addContext">加入 context</button>
+                </div>
+                <div class="input-row">
+                  <button type="button" class="voice-toggle" id="voiceToggle" title="Voice">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>
+                  </button>
+                  <textarea class="chat-input" id="chatInput" aria-label="Chat input">請把這段外部 issue 轉成 Grimo 任務，先用前端 UI skill 整理 Definition，審查時要看測試與 code evidence。</textarea>
+                  <button type="button" class="btn icon" title="附件">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m21.4 11.6-8.5 8.5a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg>
+                  </button>
+                  <button class="btn primary" type="submit">送出</button>
+                </div>
+              </form>
+            </div>
+            <aside class="aside">
+              <div class="section-head">
+                <div class="section-title">
+                  <h2>對話脈絡</h2>
+                  <span>可能是新工作形成中，也可能是從既有 Task 開啟後續討論</span>
+                </div>
+              </div>
+              <div class="side-stack">
+                <div class="panel">
+                  <h3>Runtime / Provider <span class="pill info">Agent Client</span></h3>
+                  <div class="panel-body runtime-grid">
+                    <div class="runtime-field">
+                      <label>provider</label>
+                      <select class="select-control" aria-label="provider">
+                        <option selected>Codex CLI</option>
+                        <option>Claude Code</option>
+                        <option>antigravity CLI</option>
+                      </select>
+                    </div>
+                    <div class="runtime-field">
+                      <label>model</label>
+                      <select class="select-control" aria-label="model">
+                        <option selected>default</option>
+                        <option>gpt-5.3-codex</option>
+                        <option>claude-sonnet-4-5</option>
+                      </select>
+                    </div>
+                    <div class="runtime-field">
+                      <label>think</label>
+                      <select class="select-control" aria-label="think">
+                        <option>low</option>
+                        <option selected>medium</option>
+                        <option>high</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                <div class="panel">
+                  <h3>Task 摘要 <span class="pill good">已連結</span></h3>
+                  <div class="panel-body">
+                    <div class="kv"><span>任務</span><strong>GRM-219 · DEFINING</strong></div>
+                    <div class="kv"><span>目標</span><strong>重構 Voice composer 與審查附件呈現</strong></div>
+                    <div class="kv"><span>驗收</span><strong>Voice 不再是獨立頁；code evidence 在 Task detail 可展開</strong></div>
+                    <div class="kv"><span>目前進度</span><strong>整理任務內容，確認審查附件需求</strong></div>
+                  </div>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" data-view="workflow" data-od-id="workflow-system">
+          <div class="workflow-page">
+            <div class="section-head">
+              <div class="section-title">
+                <h1>Workflow 設計</h1>
+                <span>設計任務如何從定義、執行、審查到收尾，並設定哪些邊界需要人工確認</span>
+              </div>
+            </div>
+            <div class="workflow-content">
+              <div class="diagram">
+                <div class="flow" aria-label="Workflow diagram">
+                  <div class="flow-node"><strong>工作入口</strong><span>Chat · CLI · issue connector</span></div>
+                  <div class="flow-node"><strong>專案工作流 + Recipe</strong><span>開發、研究、分析、行銷、影片製作</span></div>
+                  <div class="flow-node"><strong>State Mapping</strong><span>由你定義 step 群組對應哪個 Task State</span></div>
+                  <div class="flow-node"><strong>任務狀態</strong><span>BACKLOG 到 BLOCKED 的跨領域狀態</span></div>
+                  <div class="flow-node"><strong>執行紀錄</strong><span>依 Recipe 推進，保存工作輸出與可審資料</span></div>
+                  <div class="flow-node"><strong>品質循環</strong><span>審查 -> 評分 -> 修正，通過後自動前進</span></div>
+                  <div class="flow-node"><strong>審查資料</strong><span>diff · 測試結果 · evidence · risk notes</span></div>
+                </div>
+                <div class="codebox" aria-label="Mermaid diagram">flowchart LR
+  入口[工作入口: Chat / CLI / Issue] --> 定義[Project Workflow + Workflow Recipe]
+  定義 --> 映射[State Mapping: 你定義 step -> Task State]
+  映射 --> 看板[任務狀態: BACKLOG / DEFINING / READY / RUNNING / REVIEW / DONE / BLOCKED]
+  看板 --> 執行[執行紀錄: 工作輸出 / 測試結果 / 審查資料]
+  執行 --> 品質[品質循環: 審查 -> 評分 -> 修正]
+  品質 -->|通過品質門檻| 證據[審查資料 + Learning Loop]
+  品質 -->|未通過| 執行</div>
+                <div class="panel">
+                  <h3>Recipe State Mapping <span class="pill info">你可以定義</span></h3>
+                  <div class="panel-body recipe-map" id="recipeStateMap"></div>
+                </div>
+                <div class="panel">
+                  <h3>執行證據與 Gate</h3>
+                  <div class="panel-body">
+                    <div class="run-row"><span class="mono">Ready Gate</span><span>Definition Package、來源覆蓋與風險標記已可審</span><span class="pill good">pass</span></div>
+                    <div class="run-row"><span class="mono">審查資料</span><span>測試結果、視覺證據、acceptance match</span><span class="pill warn">補證據</span></div>
+                    <div class="run-row"><span class="mono">執行紀錄</span><span>工具輸出、修正摘要與必要紀錄</span><span class="pill">linked</span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="diagram">
+                <h2 style="font-size: 18px;">開發工作流 Recipe</h2>
+                <div class="recipe" id="recipe"></div>
+                <div class="panel">
+                  <h3>Learning Loop</h3>
+                  <div class="panel-body run-list">
+                    <div class="run-row"><span class="mono">Air-style</span><span>審查資料聚合 diff、影像、測試結果，供人類 approve/reject</span><span class="pill info">review</span></div>
+                    <div class="run-row"><span class="mono">Symphony</span><span>issue queue、assignment、handoff 以 Task state 呈現</span><span class="pill">queue</span></div>
+                    <div class="run-row"><span class="mono">Nezha</span><span>本機多專案 session 與 run history 綁定 repo</span><span class="pill">local</span></div>
+                    <div class="run-row"><span class="mono">Linear agents</span><span>參考 issue 上的 AI 狀態回報與交接脈絡</span><span class="pill">handoff</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div class="task-workspace-modal" id="createTaskModal" hidden role="dialog" aria-modal="true" aria-labelledby="createTaskTitle">
+    <form class="task-workspace-dialog" id="createTaskForm">
+      <div class="task-workspace-head">
+        <div>
+          <div class="row"><span class="pill">手動建立</span><span class="pill">進入 DEFINING</span></div>
+          <h2 id="createTaskTitle">建立 Task</h2>
+        </div>
+        <button class="btn icon" type="button" data-close-create-task aria-label="關閉建立 Task">×</button>
+      </div>
+      <div class="task-workspace-body">
+        <div class="task-create-form">
+          <div class="form-field">
+            <label for="taskTitleInput">Title *</label>
+            <input class="text-control" id="taskTitleInput" name="title" autocomplete="off" placeholder="一句話說明要完成什麼" required />
+          </div>
+          <div class="form-field">
+            <label for="taskBodyInput">Description *</label>
+            <textarea class="text-control task-body-input" id="taskBodyInput" name="body" placeholder="任務描述、背景、限制、期望結果" required></textarea>
+          </div>
+          <div class="form-field">
+            <label>Labels</label>
+            <div class="label-picker" id="taskLabelPicker" aria-label="Task labels">
+              <button class="label-chip" type="button" aria-pressed="false" data-label="bug">bug</button>
+              <button class="label-chip" type="button" aria-pressed="false" data-label="documentation">documentation</button>
+              <button class="label-chip" type="button" aria-pressed="false" data-label="duplicate">duplicate</button>
+              <button class="label-chip" type="button" aria-pressed="false" data-label="enhancement">enhancement</button>
+              <button class="label-chip" type="button" aria-pressed="false" data-label="good first issue">good first issue</button>
+              <button class="label-chip" type="button" aria-pressed="false" data-label="help wanted">help wanted</button>
+              <button class="label-chip" type="button" aria-pressed="false" data-label="invalid">invalid</button>
+              <button class="label-chip" type="button" aria-pressed="false" data-label="question">question</button>
+              <button class="label-chip" type="button" aria-pressed="false" data-label="wontfix">wontfix</button>
+              <button class="label-chip" type="button" aria-pressed="false" data-label="frontend">frontend</button>
+              <button class="label-chip" type="button" aria-pressed="false" data-label="backend">backend</button>
+              <button class="label-chip" type="button" aria-pressed="false" data-label="ci/cd">ci/cd</button>
+              <button class="label-chip" type="button" aria-pressed="false" data-label="design">design</button>
+              <button class="label-chip" type="button" aria-pressed="false" data-label="research">research</button>
+            </div>
+          </div>
+          <div class="label-add">
+            <input class="text-control" id="newTaskLabel" autocomplete="off" placeholder="新增 label，例如 frontend" />
+            <button class="btn" id="addTaskLabel" type="button">+ Add label</button>
+          </div>
+        </div>
+      </div>
+      <div class="task-workspace-actions">
+        <button class="btn" type="button" data-close-create-task>Cancel</button>
+        <button class="btn primary" type="submit">Create task</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const projects = [
+      {
+        id: "PRJ-01",
+        name: "grimo/web",
+        description: "Grimo 前端工作台，管理專案任務、Chat 接續、Workflow 與審查資料。",
+        folder: "/Users/samzhu/workspace/github-samzhu/grimo/apps/web",
+        status: "已連線",
+        tasks: 7,
+        workflow: "開發工作流",
+        runtime: "Codex CLI"
+      },
+      {
+        id: "PRJ-02",
+        name: "agentworks-runtime",
+        description: "本機執行環境、能力檢查與 run history 的驗證專案。",
+        folder: "/Users/samzhu/workspace/github-samzhu/pollack-agentworks",
+        status: "需檢查",
+        tasks: 3,
+        workflow: "開發工作流",
+        runtime: "Claude Code"
+      },
+      {
+        id: "PRJ-03",
+        name: "creative-review-lab",
+        description: "測試審查資料如何承接影片、圖片與行銷工作流 evidence。",
+        folder: "/Users/samzhu/workspace/labs/creative-review",
+        status: "待綁定",
+        tasks: 0,
+        workflow: "內容工作流",
+        runtime: "unassigned"
+      }
+    ];
+
+    const tasks = [
+      {
+        id: "GRM-219",
+        state: "DEFINING",
+        title: "Voice composer 與審查附件呈現重構",
+        runtime: "Codex CLI",
+        skill: "前端 UI skill",
+        score: 7.3,
+        currentStep: "Discuss",
+        gaps: ["缺現有 voice composer 實作脈絡", "acceptance criteria 還未收斂", "screenshot evidence 的使用邊界未確認"],
+        suggestion: "要我搜尋 task-detail.tsx 與 voice composer 相關實作嗎？",
+        status: "待補 Definition",
+        blocker: "無",
+        labels: ["frontend"],
+        source: "chat",
+        updatedAt: "updated 2h ago",
+        comments: 3,
+        context: "Linear GRM-184、task-detail.tsx、Run checkpoint-42",
+        description: "Voice 應是 Chat composer 的能力，不是獨立頁；Task detail 需要能整理 code evidence 與 screenshot evidence。",
+        acceptance: "Voice toggle 有明確狀態；審查附件可展開 code evidence；Chat 能從此任務繼續討論。",
+        steps: [["Discuss", 100], ["Explore", 82], ["Prototype", 44], ["Spec", 20], ["Usage", 0], ["Tkt", 0], ["Dev", 0], ["Review", 0], ["Wrap", 0]],
+        history: [["10:18", "審查回饋", "缺少 screenshot evidence policy"], ["10:22", "評分", "審查分數 7.3"], ["10:31", "修正", "補 Voice toggle state"]]
+      },
+      {
+        id: "GRM-207",
+        state: "RUNNING",
+        title: "將 external issue 匯入 Task List State abstraction",
+        runtime: "Codex CLI",
+        skill: "流程建模 skill",
+        score: 8.8,
+        currentStep: "Dev",
+        gaps: ["Jira field mapping 還需要一個 fallback 規則"],
+        suggestion: "要我整理 external issue adapter 的欄位對照嗎？",
+        status: "執行中",
+        blocker: "無",
+        labels: ["github", "workflow"],
+        source: "github_issue",
+        updatedAt: "updated 45m ago",
+        comments: 2,
+        context: "GitHub issue fixture、Linear webhook sample",
+        description: "外部 issue、CLI request、chat intent 需要進入同一套 Task List State，不暴露為不同任務系統。",
+        acceptance: "GitHub / Linear / Chat 來源都能形成 Task；原始來源保留在 context；Task state 不受來源類型影響。",
+        steps: [["Discuss", 100], ["Explore", 100], ["Prototype", 100], ["Spec", 90], ["Usage", 70], ["Tkt", 60], ["Dev", 42], ["Review", 0], ["Wrap", 0]],
+        history: [["09:02", "審查回饋", "schema 對 Jira field 過窄"], ["09:14", "評分", "審查分數 8.1"], ["09:28", "修正", "加入 source adapter boundary"], ["10:05", "評分", "審查分數 8.8"]]
+      },
+      {
+        id: "GRM-201",
+        state: "READY",
+        title: "執行前設定與本機能力檢查",
+        runtime: "Codex CLI",
+        skill: "執行規劃 skill",
+        score: 9.1,
+        currentStep: "Ready boundary",
+        gaps: [],
+        suggestion: "可以開始執行；開始前由系統檢查 repo binding 與工具可用性。",
+        status: "ready for run",
+        blocker: "無",
+        labels: ["runtime"],
+        source: "codex",
+        updatedAt: "updated 1h ago",
+        comments: 1,
+        context: "routing policy draft、本機能力檢查",
+        description: "在開始執行前檢查 repo binding、tool availability 與 risk level；前端只呈現結果，不直接處理 provider orchestration。",
+        acceptance: "READY 任務可開始執行；缺工具或權限時能轉為待處理阻塞；本機能力由系統在執行前檢查。",
+        steps: [["Discuss", 100], ["Explore", 100], ["Prototype", 100], ["Spec", 100], ["Usage", 92], ["Tkt", 80], ["Dev", 0], ["Review", 0], ["Wrap", 0]],
+        history: [["08:12", "審查回饋", "runtime fallback 需明確"], ["08:22", "評分", "審查分數 9.1"], ["08:24", "修正", "補 Claude Code fallback"]]
+      },
+      {
+        id: "GRM-188",
+        state: "REVIEW",
+        title: "Task detail 顯示審查附件與人工核准",
+        runtime: "Claude Code",
+        skill: "審查整理 skill",
+        score: 9.4,
+        currentStep: "Review",
+        gaps: [],
+        suggestion: "請檢查審查附件；可核准或退回並留下原因。",
+        status: "等待 human approval",
+        blocker: "無",
+        labels: ["review", "frontend"],
+        source: "codex",
+        updatedAt: "updated 12m ago",
+        comments: 5,
+        context: "Codex request、GRM-188 run",
+        reviewSummary: {
+          status: "等待人工審查",
+          focus: "審查附件已整理完成，包含測試結果、截圖與風險說明。",
+          next: "使用者可以核准，或退回並補充原因。"
+        },
+        evidence: [
+          ["Playwright screenshot", "已附上 UI 驗證截圖"],
+          ["typecheck", "已通過"],
+          ["review evidence", "審查附件已產生"]
+        ],
+        description: "Task detail 需要把執行結果、測試、截圖與風險整理成可審查附件，供使用者核准或退回。",
+        acceptance: "REVIEW 狀態才顯示 Approve / Reject；審查附件包含測試、截圖與風險；退回時可回到 Chat 補上下文。",
+        steps: [["Discuss", 100], ["Explore", 100], ["Prototype", 100], ["Spec", 100], ["Usage", 100], ["Tkt", 100], ["Dev", 100], ["Review", 96], ["Wrap", 20]],
+        history: [["11:20", "審查回饋", "button state 已可鍵盤操作"], ["11:26", "評分", "審查分數 9.4"], ["11:29", "修正", "補 reject reason capture"]]
+      },
+      {
+        id: "GRM-176",
+        state: "BLOCKED",
+        title: "本機 daemon repo binding 與多專案 session index",
+        runtime: "antigravity CLI",
+        skill: "本機環境檢查 skill",
+        score: 6.6,
+        currentStep: "Prototype",
+        gaps: ["repo permission probe 失敗", "需要使用者確認 monorepo 權限與路徑"],
+        suggestion: "請補充 repo 權限或指定可讀寫的專案資料夾。",
+        status: "blocked",
+        blocker: "repo permission probe 在 monorepo workspace 失敗",
+        labels: ["local-first", "blocked"],
+        source: "codex",
+        updatedAt: "updated 3h ago",
+        comments: 4,
+        context: "local runner log、多專案 session map、repo probe result",
+        description: "本機 runner 需要以專案資料夾做 repo binding，不能假設全域權限或全域 session 可用。",
+        acceptance: "權限 probe 失敗時任務進入 BLOCKED；使用者能看到待處理原因；修復後可回到原流程。",
+        steps: [["Discuss", 100], ["Explore", 100], ["Prototype", 64], ["Spec", 50], ["Usage", 0], ["Tkt", 0], ["Dev", 0], ["Review", 0], ["Wrap", 0]],
+        history: [["13:11", "審查回饋", "monorepo root 判定錯誤"], ["13:19", "評分", "審查分數 6.6"], ["13:27", "修正", "等待 daemon capability patch"]]
+      },
+      {
+        id: "GRM-160",
+        state: "DONE",
+        title: "Board-facing states 對齊 BACKLOG 到 BLOCKED",
+        runtime: "Codex CLI",
+        skill: "流程建模 skill",
+        score: 9.8,
+        currentStep: "Wrap",
+        gaps: [],
+        suggestion: "可查看收尾摘要與 learning proposal。",
+        status: "done",
+        blocker: "無",
+        labels: ["workflow", "done"],
+        source: "manual",
+        updatedAt: "updated yesterday",
+        comments: 0,
+        context: "domain model test、migration note",
+        description: "Board 只保留 Task List State，recipe step 不作為看板欄位。",
+        acceptance: "Board 顯示 BACKLOG / DEFINING / READY / RUNNING / REVIEW / DONE；BLOCKED 不硬塞在主畫面；recipe step 只在 detail 或 Workflow 呈現。",
+        steps: [["Discuss", 100], ["Explore", 100], ["Prototype", 100], ["Spec", 100], ["Usage", 100], ["Tkt", 100], ["Dev", 100], ["Review", 100], ["Wrap", 100]],
+        history: [["16:00", "審查回饋", "state mapping clean"], ["16:05", "評分", "審查分數 9.8"], ["16:08", "收尾", "learning loop updated"]]
+      },
+      {
+        id: "GRM-144",
+        state: "BACKLOG",
+        title: "Chat 內嵌任務候選與下一步建議",
+        runtime: "unassigned",
+        skill: "任務形成 skill",
+        score: 0,
+        currentStep: "Discuss",
+        gaps: ["缺任務背景", "缺期望結果"],
+        suggestion: "從 Chat 補充背景，讓 Grimo 整理任務描述與驗收草稿。",
+        status: "待定義",
+        blocker: "無",
+        labels: ["chat", "task-forming"],
+        source: "chat",
+        updatedAt: "updated 4h ago",
+        comments: 1,
+        context: "AI Elements concept map",
+        description: "Chat 回覆需要能 inline 顯示任務候選、Definition 補齊項與下一步，而非純文字。",
+        acceptance: "已連結 Task 時顯示更新 Task；從 0 討論時才顯示建立 Task；attachments/source chips 在 message 內。",
+        steps: [["Discuss", 0], ["Explore", 0], ["Prototype", 0], ["Spec", 0], ["Usage", 0], ["Tkt", 0], ["Dev", 0], ["Review", 0], ["Wrap", 0]],
+        history: [["--", "Backlog", "等待 task forming chat 補齊 context"]]
+      }
+    ];
+
+    const states = ["BACKLOG", "DEFINING", "READY", "RUNNING", "REVIEW", "DONE", "BLOCKED"];
+    const mainBoardStates = ["BACKLOG", "DEFINING", "READY", "RUNNING", "REVIEW", "DONE"];
+    const recipeStateMap = [
+      { group: "Discuss / Explore / Prototype / Spec / Usage / Tkt", state: "DEFINING", gate: "Definition Package", approver: "人類確認後進 READY" },
+      { group: "Ready boundary", state: "READY", gate: "Assignment + runtime preflight", approver: "Dispatcher" },
+      { group: "Dev", state: "RUNNING", gate: "Execution evidence complete", approver: "Workflow 自動推進" },
+      { group: "Review", state: "REVIEW", gate: "審查資料 complete", approver: "人類 approve/reject" },
+      { group: "Wrap", state: "DONE", gate: "Delivery summary + learning proposal", approver: "Grimo" },
+      { group: "Any step stop condition", state: "BLOCKED", gate: "缺依賴 / 未通過品質循環", approver: "人類補 context" }
+    ];
+    let selectedProjectId = "PRJ-01";
+    let selectedTaskId = "GRM-219";
+    let detailOpen = false;
+    let detailPinned = false;
+    let navPinned = false;
+
+    const board = document.getElementById("taskBoard");
+    const projectList = document.getElementById("projectList");
+    const blockerList = document.getElementById("blockerList");
+    const activeProjectName = document.getElementById("activeProjectName");
+    const activeProjectFolder = document.getElementById("activeProjectFolder");
+    const appShell = document.getElementById("appShell");
+    const taskWorkspace = document.getElementById("taskWorkspace");
+    const detail = document.getElementById("taskDetail");
+    const navToggle = document.getElementById("navToggle");
+    const topbarNavToggle = document.getElementById("topbarNavToggle");
+    const navPin = document.getElementById("navPin");
+    const pinDetail = document.getElementById("pinDetail");
+    const taskPageMeta = document.getElementById("taskPageMeta");
+    const taskPageTitle = document.getElementById("taskPageTitle");
+    const taskPageBody = document.getElementById("taskPageBody");
+    const taskPageActions = document.getElementById("taskPageActions");
+    const createTaskModal = document.getElementById("createTaskModal");
+    const createTaskForm = document.getElementById("createTaskForm");
+    const taskLabelPicker = document.getElementById("taskLabelPicker");
+    const toast = document.getElementById("toast");
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
+    }
+
+    function projectStatusPill(project) {
+      if (project.status === "已連線") return "good";
+      if (project.status === "需檢查") return "warn";
+      return "";
+    }
+
+    function updateProjectContext() {
+      const project = projects.find(item => item.id === selectedProjectId) || projects[0];
+      activeProjectName.textContent = project.name;
+      activeProjectFolder.textContent = project.folder;
+    }
+
+    function activeProject() {
+      return projects.find(item => item.id === selectedProjectId) || projects[0];
+    }
+
+    function renderProjects() {
+      projectList.innerHTML = projects.map(project => `
+        <button class="project-card ${project.id === selectedProjectId ? "selected" : ""}" data-project="${project.id}">
+          <div class="project-card-head">
+            <div>
+              <h3>${escapeHtml(project.name)}</h3>
+              <p class="project-desc">${escapeHtml(project.description || "尚未填寫描述")}</p>
+            </div>
+            <span class="pill ${projectStatusPill(project)}">${escapeHtml(project.status)}</span>
+          </div>
+          <div class="project-folder mono">${escapeHtml(project.folder)}</div>
+          <div class="project-meta">
+            <span class="pill">任務 ${project.tasks}</span>
+            <span class="pill">${escapeHtml(project.workflow || "開發工作流")}</span>
+            <span class="pill">本地資料</span>
+          </div>
+        </button>
+      `).join("");
+      projectList.querySelectorAll(".project-card").forEach(card => {
+        card.addEventListener("click", () => {
+          selectedProjectId = card.dataset.project;
+          renderProjects();
+          updateProjectContext();
+          showToast(`${projects.find(item => item.id === selectedProjectId).name} 已設為目前專案`);
+        });
+      });
+    }
+
+    function renderBlockers() {
+      const blockedTasks = tasks.filter(task => task.state === "BLOCKED");
+      blockerList.innerHTML = blockedTasks.length ? blockedTasks.map(task => `
+        <button class="project-card blocker-card" data-task="${task.id}">
+          <div class="project-card-head">
+            <div>
+              <h3>${escapeHtml(task.title)}</h3>
+              <p class="project-desc">${escapeHtml(task.blocker)}</p>
+            </div>
+            <span class="pill bad">待處理</span>
+          </div>
+          <div class="project-folder mono">${escapeHtml(task.context || sourceLabel(task))}</div>
+          <div class="project-meta">
+            <span class="pill">${escapeHtml(task.id)}</span>
+            <span class="pill">回到 Task detail 處理</span>
+          </div>
+        </button>
+      `).join("") : `
+        <div class="detail-empty">
+          <strong>目前沒有待處理事項</strong>
+          <span>主流程任務仍在 Task 管理中。</span>
+        </div>
+      `;
+      blockerList.querySelectorAll("[data-task]").forEach(card => {
+        card.addEventListener("click", () => {
+          selectedTaskId = card.dataset.task;
+          detailOpen = true;
+          activateTab("tasks");
+          syncDetailVisibility();
+          renderBoard(document.getElementById("taskSearch").value);
+          renderDetail();
+          showToast(`${selectedTaskId} 已開啟任務詳情`);
+        });
+      });
+    }
+
+    function statusPill(task) {
+      if (task.state === "DONE") return "good";
+      if (task.state === "BLOCKED") return "bad";
+      if (task.state === "REVIEW" || task.state === "RUNNING") return "warn";
+      return "";
+    }
+
+    function stateForRecipeStep(step) {
+      if (["Discuss", "Explore", "Prototype", "Spec", "Usage", "Tkt"].includes(step)) return recipeStateMap[0];
+      if (step === "Dev") return recipeStateMap[2];
+      if (step === "Review") return recipeStateMap[3];
+      if (step === "Wrap") return recipeStateMap[4];
+      return recipeStateMap[0];
+    }
+
+    function primaryActionForTask(task) {
+      const actions = {
+        BACKLOG: { label: "", note: "從留言與討論釐清任務內容" },
+        DEFINING: { label: "", note: "先看最近討論，再決定要回到 Chat 或在完整頁整理任務內容" },
+        READY: { label: "開始執行", note: "任務內容已可執行，開始前由系統檢查本機能力" },
+        RUNNING: { label: "查看執行紀錄", note: "查看目前輸出、測試結果與必要紀錄" },
+        DONE: { label: "查看收尾摘要", note: "查看交付摘要與後續建議" },
+        BLOCKED: { label: "處理待辦", note: "這是待人處理的例外狀態；補依賴、權限或決策後回到可執行路徑" }
+      };
+      return actions[task.state] || actions.DEFINING;
+    }
+
+    function currentStepForTask(task) {
+      if (task.currentStep) return task.currentStep;
+      const active = (task.steps || []).find(([, value]) => Number(value) < 100);
+      return active ? active[0] : "Wrap";
+    }
+
+    function qualityValue(task) {
+      const score = Number(task.score || 0);
+      return score > 0 ? score.toFixed(1) : "";
+    }
+
+    function qualityBadge(task) {
+      const score = qualityValue(task);
+      if (!score) return "品質未評分";
+      return `品質 ${score}`;
+    }
+
+    function qualityState(task) {
+      const score = Number(task.score || 0);
+      if (!score) return "尚未評分";
+      if (score >= 9) return "已達通過門檻";
+      return "未達通過門檻";
+    }
+
+    function qualityGateText(task) {
+      const score = qualityValue(task);
+      if (!score) return "品質尚未評分";
+      return `品質 ${score} / 10`;
+    }
+
+    function qualityThresholdText(task) {
+      const score = Number(task.score || 0);
+      if (!score) return "通過門檻 9.0";
+      return score >= 9 ? "已達通過門檻 9.0" : "未達通過門檻 9.0";
+    }
+
+    function taskGaps(task) {
+      if (Array.isArray(task.gaps) && task.gaps.length) return task.gaps;
+      if (task.state === "REVIEW") return ["等待使用者決策"];
+      if (task.state === "DONE") return ["無待處理缺口"];
+      return ["缺任務背景"];
+    }
+
+    function taskSuggestion(task) {
+      return task.suggestion || primaryActionForTask(task).note || "回到 Chat 補充背景或討論脈絡。";
+    }
+
+    function stageNarrative(task) {
+      const score = qualityValue(task);
+      const quality = score ? `品質 ${score}/10` : "品質尚未評分";
+      return `目前在 ${currentStepForTask(task)}。${quality}，${qualityThresholdText(task)}。`;
+    }
+
+    function taskLabels(task) {
+      return Array.isArray(task.labels) && task.labels.length ? task.labels.join(", ") : "未標籤";
+    }
+
+    function taskLabelChips(task) {
+      const labels = Array.isArray(task.labels)
+        ? task.labels.filter(label => label.toLowerCase() !== "mvp").slice(0, 3)
+        : [];
+      if (!labels.length) return `<span class="task-label">unlabeled</span>`;
+      return labels.map(label => `<span class="task-label">${escapeHtml(label)}</span>`).join("");
+    }
+
+    function sourceLabel(task) {
+      const names = {
+        manual: "manual",
+        chat: "chat",
+        slack: "slack",
+        telegram: "telegram",
+        line: "line",
+        codex: "codex",
+        github_issue: "github_issue"
+      };
+      return names[task.source] || task.source || "manual";
+    }
+
+    function sourceItems(task) {
+      return (task.context || "").split("、").map(item => item.trim()).filter(Boolean);
+    }
+
+    function evidenceItems(task) {
+      if (Array.isArray(task.evidence) && task.evidence.length) return task.evidence;
+      return [];
+    }
+
+    function reviewSummaryForTask(task) {
+      return task.reviewSummary || {
+        status: "等待人工審查",
+        focus: "審查附件已整理完成，等待使用者確認結果是否可接受。",
+        next: "使用者可以核准，或退回並補充原因。"
+      };
+    }
+
+    function acceptanceItems(task) {
+      return task.acceptance.split(/[；;]/).map(item => item.trim()).filter(Boolean);
+    }
+
+    function conversationItems(task) {
+      if (Array.isArray(task.conversation) && task.conversation.length) return task.conversation;
+      if (task.id === "GRM-188") {
+        return [
+          { type: "human", author: "Sam", time: "11:18", body: "這個 Task detail 要能展開 screenshot evidence，而且要能看到退回原因。" },
+          { type: "ai", author: "Grimo", time: "11:20", body: "我會把 screenshot evidence、typecheck 與風險說明整理成可審查附件，並保留 reject reason capture。" },
+          { type: "ai", author: "Grimo", time: "11:29", body: taskSuggestion(task) },
+          { type: "reviewer", author: "Reviewer", time: "11:31", body: "審查資料已完整；請確認 Approve / Reject 只在 REVIEW 狀態出現。" }
+        ];
+      }
+      return [
+        { type: "human", author: "Sam", time: "10:18", body: task.body || task.description },
+        { type: "ai", author: "Grimo", time: "10:20", body: "已整理任務脈絡，等待使用者補充 acceptance criteria 或進一步要求。" },
+        { type: "ai", author: "Grimo", time: "10:31", body: taskSuggestion(task) }
+      ];
+    }
+
+    function conversationAvatar(item) {
+      if (item.type === "ai") return "AI";
+      if (item.type === "reviewer") return "RV";
+      if (item.type === "decision") return "OK";
+      return "SZ";
+    }
+
+    function conversationLabel(item) {
+      const labels = {
+        human: "commented",
+        ai: "replied",
+        reviewer: "left review comment",
+        decision: "left decision note"
+      };
+      return labels[item.type] || "commented";
+    }
+
+    function renderConversation(task) {
+      return conversationItems(task).map(item => `
+        <div class="conversation-item">
+          <div class="conversation-avatar" aria-hidden="true">${conversationAvatar(item)}</div>
+          <article class="conversation-card ${item.type === "decision" ? "decision" : ""}">
+            <div class="conversation-meta">
+              <strong>${escapeHtml(item.author)}</strong>
+              <span class="muted">${escapeHtml(conversationLabel(item))} · ${escapeHtml(item.time)}</span>
+            </div>
+            <p>${escapeHtml(item.body)}</p>
+          </article>
+        </div>
+      `).join("");
+    }
+
+    function renderRecentConversation(task, limit = 3) {
+      return conversationItems(task).slice(-limit).map(item => `
+        <div class="quick-row">
+          <label>${escapeHtml(item.time)} · ${escapeHtml(item.author)}</label>
+          <strong>${escapeHtml(item.body)}</strong>
+        </div>
+      `).join("");
+    }
+
+    function renderActivityLog(task) {
+      const events = task.history.map(row => ({
+        time: row[0],
+        label: activityLabel(row[1]),
+        body: row[2]
+      }));
+      const visible = events.slice(-2);
+      const hidden = events.slice(0, Math.max(0, events.length - 2));
+      const eventMarkup = item => `
+        <div class="system-event">
+          <span class="time">${escapeHtml(item.time)}</span>
+          <span>${escapeHtml(item.label)} · ${escapeHtml(item.body)}</span>
+        </div>
+      `;
+      return `
+        <div class="activity-log">
+          ${visible.map(eventMarkup).join("")}
+          ${hidden.length ? `
+            <details>
+              <summary>顯示 ${hidden.length} 則隱藏系統紀錄</summary>
+              ${hidden.map(eventMarkup).join("")}
+            </details>
+          ` : ""}
+        </div>
+      `;
+    }
+
+    function activityLabel(label) {
+      const labels = {
+        "審查回饋": "AI 回饋",
+        "評分": "自動檢查",
+        "修正": "AI 更新",
+        "收尾": "收尾",
+        "Backlog": "待整理"
+      };
+      return labels[label] || label;
+    }
+
+    function taskCardTemplate(task) {
+      const comments = Number(task.comments || 0);
+      const reviewAction = task.state === "REVIEW" ? `<span class="card-action">待審核</span>` : "";
+      const commentsMarkup = comments > 0 ? `
+        <span class="comment-count" aria-label="${comments} 則討論">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>
+          ${comments}
+        </span>
+      ` : "";
+      return `
+        <button class="task-card ${task.id === selectedTaskId ? "selected" : ""}" data-task="${task.id}">
+          <div class="task-top">
+            <span class="task-id">${escapeHtml(task.id)}</span>
+          </div>
+          <div class="task-title">${escapeHtml(task.title)}</div>
+          <div class="task-labels" aria-label="Labels">
+            ${taskLabelChips(task)}
+          </div>
+          <div class="task-footer">
+            <span>${escapeHtml(task.updatedAt || "updated now")}</span>
+            <span class="task-activity">${reviewAction}${commentsMarkup}</span>
+          </div>
+        </button>
+      `;
+    }
+
+    function renderBoard(filter = "") {
+      const query = filter.trim().toLowerCase();
+      const filteredTasks = tasks.filter(task => {
+        const haystack = [task.id, task.title, task.source, task.updatedAt, task.context, task.body, task.description, task.acceptance, task.blocker, taskLabels(task)].join(" ").toLowerCase();
+        return !query || haystack.includes(query);
+      });
+      const columns = mainBoardStates.map(state => {
+        const list = filteredTasks.filter(task => task.state === state);
+        return `
+          <div class="column">
+            <div class="column-head">
+              <span>${state}</span>
+              <span class="column-count mono" aria-label="${state} 任務數 ${list.length}">任務 <strong>${list.length}</strong></span>
+            </div>
+            <div class="column-body">
+              ${list.map(taskCardTemplate).join("")}
+            </div>
+          </div>
+        `;
+      }).join("");
+      board.innerHTML = columns;
+      board.querySelectorAll(".task-card").forEach(card => {
+        card.addEventListener("click", () => {
+          selectedTaskId = card.dataset.task;
+          detailOpen = true;
+          syncDetailVisibility();
+          renderBoard(document.getElementById("taskSearch").value);
+          renderDetail();
+        });
+      });
+    }
+
+    function syncDetailVisibility() {
+      taskWorkspace.classList.toggle("detail-closed", !detailOpen);
+      taskWorkspace.classList.toggle("detail-pinned", detailOpen && detailPinned);
+      pinDetail.setAttribute("aria-pressed", String(detailPinned));
+      pinDetail.setAttribute("aria-label", detailPinned ? "取消固定任務詳情" : "固定任務詳情");
+      pinDetail.setAttribute("title", detailPinned ? "取消固定任務詳情" : "固定任務詳情");
+    }
+
+    function syncNavState() {
+      appShell.classList.toggle("nav-pinned", navPinned);
+      navPin.setAttribute("aria-pressed", String(navPinned));
+      navPin.setAttribute("aria-label", navPinned ? "取消固定主選單" : "固定主選單");
+      navPin.setAttribute("title", navPinned ? "取消固定主選單" : "固定主選單");
+      const collapsed = appShell.classList.contains("nav-collapsed");
+      navToggle.setAttribute("aria-expanded", String(!collapsed));
+      navToggle.setAttribute("aria-label", collapsed ? "展開主選單" : "收合主選單");
+      navToggle.setAttribute("title", collapsed ? "展開主選單" : "收合主選單");
+      topbarNavToggle.setAttribute("aria-expanded", String(!collapsed));
+      topbarNavToggle.setAttribute("aria-label", collapsed ? "展開主選單" : "收合主選單");
+      topbarNavToggle.setAttribute("title", collapsed ? "展開主選單" : "收合主選單");
+    }
+
+    function renderDetail() {
+      const task = tasks.find(item => item.id === selectedTaskId) || tasks[0];
+      if (!detailOpen) {
+        detail.innerHTML = "";
+        return;
+      }
+      const primaryAction = primaryActionForTask(task);
+      const acceptance = acceptanceItems(task).slice(0, 3);
+      const evidence = evidenceItems(task);
+      const recentActivity = task.history.slice(-2);
+      const reviewSummary = reviewSummaryForTask(task);
+      const stagePanel = `
+        <div class="panel">
+          <h3>Stage & Quality</h3>
+          <div class="panel-body">
+            <div class="stage-card">
+            <div class="stage-summary">
+              <div class="stage-line"><label>目前階段</label><strong>${escapeHtml(currentStepForTask(task))}</strong></div>
+              <div class="stage-line"><label>品質狀態</label><strong>${escapeHtml(qualityGateText(task))}</strong></div>
+              <div class="stage-line"><label>通過門檻</label><strong>${escapeHtml(qualityThresholdText(task))}</strong></div>
+              <div class="stage-line"><label>主要缺口</label><strong>${escapeHtml(taskGaps(task)[0] || "無")}</strong></div>
+              <div class="stage-line"><label>下一步</label><strong>${escapeHtml(taskSuggestion(task))}</strong></div>
+            </div>
+            </div>
+          </div>
+        </div>
+      `;
+      const reviewPanel = task.state === "REVIEW" ? `
+        <div class="panel">
+          <h3>審查摘要</h3>
+          <div class="panel-body quick-list">
+            <div class="quick-row"><label>狀態</label><strong>${escapeHtml(reviewSummary.status)}</strong></div>
+            <div class="quick-row"><label>重點</label><strong>${escapeHtml(reviewSummary.focus)}</strong></div>
+            <div class="quick-row"><label>下一步</label><strong>${escapeHtml(reviewSummary.next)}</strong></div>
+          </div>
+        </div>
+      ` : "";
+      const acceptancePanel = task.state === "REVIEW" ? "" : `
+        <div class="panel">
+          <h3>${["READY", "RUNNING"].includes(task.state) ? "Acceptance Gate" : "Acceptance draft"}</h3>
+          <div class="panel-body quick-list">
+            ${acceptance.map((item, index) => `
+              <div class="quick-row"><label>${index + 1}</label><strong>${escapeHtml(item)}</strong></div>
+            `).join("")}
+          </div>
+        </div>
+      `;
+      const conversationPanel = `
+        <div class="panel">
+          <h3>最近留言</h3>
+          <div class="panel-body quick-list">
+            ${renderRecentConversation(task, 2)}
+            <button class="btn" type="button" data-task-action="open">查看全部</button>
+          </div>
+        </div>
+      `;
+      const suggestionPanel = `
+        <div class="panel">
+          <h3>Grimo suggestion</h3>
+          <div class="panel-body">
+            <div class="suggestion-card">
+              <strong>${escapeHtml(taskSuggestion(task))}</strong>
+              <p>${escapeHtml(stageNarrative(task))}</p>
+              <div class="suggestion-row">
+                <button class="suggestion-chip" type="button" data-task-action="primary">${task.state === "DEFINING" ? "搜尋研究" : primaryAction.label || "查看 Task"}</button>
+                <button class="suggestion-chip" type="button" data-task-action="chat">我來補充</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      const blockedPanel = task.state === "BLOCKED" ? `
+        <div class="panel">
+          <h3>待處理</h3>
+          <div class="panel-body">
+            <p class="task-copy">${escapeHtml(task.blocker)}</p>
+          </div>
+        </div>
+      ` : "";
+      const reviewAttachmentPanel = task.state === "REVIEW" ? `
+        <div class="panel">
+          <h3>審查附件</h3>
+          <div class="panel-body quick-list">
+            ${[
+              "測試結果已附上",
+              "Playwright screenshot 已附上",
+              "風險說明已整理",
+              "退回時可回到 Chat 補上下文"
+            ].map(item => `
+              <div class="quick-row"><label>✓</label><strong>${escapeHtml(item)}</strong></div>
+            `).join("")}
+          </div>
+        </div>
+      ` : "";
+      const evidencePanel = evidence.length ? `
+        <div class="panel">
+          <h3>Evidence</h3>
+          <div class="panel-body quick-list">
+            ${evidence.map(([name, detail]) => `
+              <div class="quick-row"><label>${escapeHtml(name)}</label><strong>${escapeHtml(detail)}</strong></div>
+            `).join("")}
+          </div>
+        </div>
+      ` : "";
+      const detailPanels = task.state === "REVIEW" ? `
+        ${stagePanel}
+        ${conversationPanel}
+        ${suggestionPanel}
+        ${reviewPanel}
+        ${reviewAttachmentPanel}
+        ${evidencePanel}
+      ` : `
+        ${stagePanel}
+        ${conversationPanel}
+        ${suggestionPanel}
+        ${blockedPanel}
+        ${acceptancePanel}
+      `;
+      detail.innerHTML = `
+        <div class="detail-title">
+          <div class="row">
+            <span class="pill">${task.id}</span>
+            <span class="pill ${statusPill(task)}">${task.state}</span>
+            <span class="pill">${escapeHtml(currentStepForTask(task))}</span>
+            <span class="pill">${escapeHtml(qualityBadge(task))}</span>
+          </div>
+          <h2>${task.title}</h2>
+          <p class="muted">${escapeHtml(task.body || task.description)}</p>
+        </div>
+        ${detailPanels}
+        <details class="advanced-record drawer-activity">
+          <summary>最近活動</summary>
+          <div class="panel-body quick-list">
+            ${recentActivity.map(row => `
+              <div class="quick-row"><label>${escapeHtml(row[0])} · ${escapeHtml(activityLabel(row[1]))}</label><strong>${escapeHtml(row[2])}</strong></div>
+            `).join("")}
+          </div>
+        </details>
+        <div class="task-actions-band" aria-label="Task actions">
+          <div>
+            <strong>${task.state === "REVIEW" ? "等待人工審查" : task.state}</strong>
+            <p>${task.state === "REVIEW" ? "請確認審查附件後核准或退回" : primaryAction.note}</p>
+          </div>
+          <div class="task-actions">
+            <button class="btn primary" data-task-action="chat">使用 Chat</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderTaskPageBody(task) {
+      const reviewPanel = ["REVIEW", "DONE"].includes(task.state) ? `
+        <div class="panel">
+          <h3>Evidence / Review Materials</h3>
+          <div class="panel-body">
+            <div class="source-item"><span class="pill">code</span><span>diff summary、typecheck result、測試輸出</span><span class="mono">ready</span></div>
+            <div class="source-item"><span class="pill">visual</span><span>screenshot evidence 與 UI 狀態說明</span><span class="mono">${task.state === "REVIEW" ? "review" : "archived"}</span></div>
+            <div class="source-item"><span class="pill">risk</span><span>剩餘風險、退回原因與 follow-up 建議</span><span class="mono">linked</span></div>
+          </div>
+        </div>
+      ` : "";
+      const acceptanceTitle = ["READY", "RUNNING", "REVIEW"].includes(task.state) ? "Acceptance Gate" : "Acceptance draft";
+      const acceptancePanel = `
+        <div class="panel">
+          <h3>${acceptanceTitle}</h3>
+          <div class="panel-body check-list">
+            ${acceptanceItems(task).map(item => `<div class="check-row"><span>${escapeHtml(item)}</span></div>`).join("")}
+          </div>
+        </div>
+      `;
+      const executionRecord = ["READY", "RUNNING", "REVIEW", "DONE"].includes(task.state) ? `
+        <details class="advanced-record">
+          <summary>Execution record</summary>
+          <div class="panel-body sidebar-list">
+            <div class="kv"><span>Run</span><strong>${task.state === "READY" ? "pending start" : "latest run linked"}</strong></div>
+            <div class="kv"><span>Worktree</span><strong>${escapeHtml(activeProject().folder)}</strong></div>
+            <div class="kv"><span>Skill</span><strong>${escapeHtml(task.skill)}</strong></div>
+          </div>
+        </details>
+      ` : "";
+      const qualityPanel = `
+        <div class="panel">
+          <h3>Current Step & Quality Gate</h3>
+          <div class="panel-body">
+            <div class="stage-card">
+              <div class="stage-summary">
+                <div class="stage-line"><label>Current step</label><strong>${escapeHtml(currentStepForTask(task))}</strong></div>
+                <div class="stage-line"><label>Quality</label><strong>${escapeHtml(qualityGateText(task))}</strong></div>
+                <div class="stage-line"><label>Gate</label><strong>${escapeHtml(qualityThresholdText(task))}</strong></div>
+              </div>
+              <div>
+                <h4 class="muted">缺口</h4>
+                <ul class="gap-list">
+                  ${taskGaps(task).map(gap => `<li>${escapeHtml(gap)}</li>`).join("")}
+                </ul>
+              </div>
+              <div class="suggestion-card">
+                <strong>建議下一步</strong>
+                <p>${escapeHtml(taskSuggestion(task))}</p>
+                <div class="suggestion-row">
+                  <button class="suggestion-chip" type="button" data-task-action="primary">${task.state === "DEFINING" ? "搜尋研究" : primaryActionForTask(task).label || "查看 Task"}</button>
+                  <button class="suggestion-chip" type="button" data-task-action="chat">我來補充</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      const blockedPanel = task.state === "BLOCKED" ? `
+        <div class="panel">
+          <h3>待處理事項</h3>
+          <div class="panel-body">
+            <p class="task-copy">${escapeHtml(task.blocker)}</p>
+            <div class="kv"><span>下一步</span><strong>補權限、補 context 或改回 Chat 釐清限制</strong></div>
+          </div>
+        </div>
+      ` : "";
+      return `
+        <div class="task-page-layout">
+          <div class="task-main-column">
+            <div class="panel">
+              <h3>Description</h3>
+              <div class="panel-body">
+                <p class="task-copy">${escapeHtml(task.body || task.description)}</p>
+              </div>
+            </div>
+            ${qualityPanel}
+            ${blockedPanel}
+            <div class="panel">
+              <h3>Conversation</h3>
+              <div class="panel-body issue-timeline">
+                ${renderConversation(task)}
+                <form class="comment-composer" data-comment-form>
+                  <textarea class="text-control" name="comment" placeholder="新增留言..." aria-label="新增留言"></textarea>
+                  <div class="composer-options">
+                    <label><input type="checkbox" name="useForDefinition" checked> 讓 AI 使用這則留言更新任務定義</label>
+                  </div>
+                  <div class="composer-actions">
+                    <button class="btn" type="submit" data-comment-mode="comment">留言</button>
+                    <button class="btn primary" type="submit" data-comment-mode="ask-ai">請 AI 更新</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+            ${acceptancePanel}
+            ${reviewPanel}
+            <div class="panel">
+              <h3>Activity log</h3>
+              <div class="panel-body">
+                ${renderActivityLog(task)}
+              </div>
+            </div>
+          </div>
+          <aside class="task-sidebar">
+            <div class="panel">
+              <h3>Details</h3>
+              <div class="panel-body sidebar-list">
+                <div class="kv"><span>Status</span><strong>${escapeHtml(task.state)}</strong></div>
+                <div class="kv"><span>Labels</span><strong>${escapeHtml(taskLabels(task))}</strong></div>
+                <div class="kv"><span>Source</span><strong>${escapeHtml(sourceLabel(task))}</strong></div>
+                <div class="kv"><span>Project</span><strong>${escapeHtml(activeProject().name)}</strong></div>
+                <div class="kv"><span>Created</span><strong>created today</strong></div>
+                <div class="kv"><span>Updated</span><strong>${escapeHtml(task.updatedAt || "updated now")}</strong></div>
+                <div class="kv"><span>Comments</span><strong>${Number(task.comments || 0)}</strong></div>
+                <div class="kv"><span>Project workflow</span><strong>${escapeHtml(activeProject().workflow || "開發工作流")}</strong></div>
+                <div class="kv"><span>Skills</span><strong>${escapeHtml(task.skill)}</strong></div>
+              </div>
+            </div>
+            <div class="panel">
+              <h3>Linked items</h3>
+              <div class="panel-body">
+                <div class="source-item"><span class="pill">source</span><span>${escapeHtml(sourceLabel(task))}</span><span class="mono">metadata</span></div>
+                ${sourceItems(task).map(item => `
+                  <div class="source-item"><span class="pill">context</span><span>${escapeHtml(item)}</span><span class="mono">linked</span></div>
+                `).join("")}
+              </div>
+            </div>
+            ${executionRecord}
+            <details class="advanced-record">
+              <summary>Quality loop history</summary>
+              <div class="panel-body steps">
+                ${task.steps.map(([name, value]) => `
+                  <div class="step">
+                    <span class="mono">${name}</span>
+                    <span class="pill state-tag">${stateForRecipeStep(name).state}</span>
+                    <div class="bar" aria-label="${name} ${value}%"><span style="--value:${value}%"></span></div>
+                    <span class="mono">${value}%</span>
+                  </div>
+                `).join("")}
+              </div>
+            </details>
+          </aside>
+        </div>
+      `;
+    }
+
+    function renderTaskPage(task) {
+      taskPageMeta.innerHTML = `
+        <span class="pill">${task.id}</span>
+        <span class="pill ${statusPill(task)}">${task.state}</span>
+        <span class="pill">${escapeHtml(currentStepForTask(task))}</span>
+        <span class="pill">${escapeHtml(qualityBadge(task))}</span>
+      `;
+      taskPageTitle.textContent = task.title;
+      taskPageBody.innerHTML = renderTaskPageBody(task);
+      const primaryAction = primaryActionForTask(task);
+      const primaryButton = primaryAction.label ? `<button class="btn primary" data-task-action="primary">${primaryAction.label}</button>` : "";
+      taskPageActions.innerHTML = task.state === "REVIEW" ? `
+        <button class="btn" data-task-action="chat">Chat</button>
+        <button class="btn" data-task-action="reject">Reject</button>
+        <button class="btn primary" data-task-action="approve">Approve</button>
+      ` : `
+        <button class="btn" data-task-action="chat">Chat</button>
+        ${primaryButton}
+      `;
+    }
+
+    function openTaskPage(task) {
+      selectedTaskId = task.id;
+      renderTaskPage(task);
+      activateTab("task-page");
+    }
+
+    function openCreateTask() {
+      createTaskModal.hidden = false;
+      document.getElementById("taskTitleInput").focus();
+    }
+
+    function closeCreateTask() {
+      createTaskModal.hidden = true;
+    }
+
+    function nextTaskId() {
+      const next = tasks.reduce((max, task) => {
+        const number = Number(String(task.id).replace(/\D/g, ""));
+        return Number.isFinite(number) ? Math.max(max, number) : max;
+      }, 0) + 1;
+      return `GRM-${next}`;
+    }
+
+    function selectedLabels() {
+      return [...taskLabelPicker.querySelectorAll(".label-chip[aria-pressed='true']")].map(item => item.dataset.label);
+    }
+
+    function resetCreateTaskForm() {
+      createTaskForm.reset();
+      taskLabelPicker.querySelectorAll(".label-chip").forEach(chip => chip.setAttribute("aria-pressed", "false"));
+    }
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add("show");
+      window.clearTimeout(showToast.timer);
+      showToast.timer = window.setTimeout(() => toast.classList.remove("show"), 1800);
+    }
+
+    function activateTab(tab) {
+      document.querySelectorAll(".rail-btn[data-tab]").forEach(item => {
+        const selected = item.dataset.tab === (tab === "task-page" ? "tasks" : tab);
+        item.setAttribute("aria-selected", String(selected));
+        item.classList.toggle("active", selected);
+      });
+      document.querySelectorAll(".view").forEach(view => view.classList.toggle("active", view.dataset.view === tab));
+    }
+
+    document.querySelectorAll(".rail-btn[data-tab]").forEach(button => {
+      button.addEventListener("click", () => {
+        activateTab(button.dataset.tab);
+        if (!navPinned) {
+          appShell.classList.add("nav-collapsed");
+          syncNavState();
+        }
+      });
+    });
+
+    document.getElementById("projectForm").addEventListener("submit", event => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const name = document.getElementById("projectName").value.trim();
+      const description = document.getElementById("projectDescription").value.trim();
+      const folder = document.getElementById("projectFolder").value.trim();
+      const workflow = document.getElementById("projectWorkflow").value;
+      if (!name || !folder) {
+        showToast("請填寫專案名稱與對應資料夾");
+        return;
+      }
+      const project = {
+        id: `PRJ-${String(projects.length + 1).padStart(2, "0")}`,
+        name,
+        description,
+        folder,
+        status: "待檢查",
+        tasks: 0,
+        workflow,
+        runtime: "unassigned"
+      };
+      projects.unshift(project);
+      selectedProjectId = project.id;
+      form.reset();
+      renderProjects();
+      updateProjectContext();
+      showToast(`${name} 已新增並設為目前專案`);
+    });
+
+    navToggle.addEventListener("click", () => {
+      appShell.classList.toggle("nav-collapsed");
+      syncNavState();
+    });
+    topbarNavToggle.addEventListener("click", () => {
+      if (navPinned) {
+        navPinned = false;
+      }
+      appShell.classList.toggle("nav-collapsed");
+      syncNavState();
+    });
+    navPin.addEventListener("click", () => {
+      navPinned = !navPinned;
+      if (navPinned) appShell.classList.remove("nav-collapsed");
+      syncNavState();
+    });
+
+    document.getElementById("taskSearch").addEventListener("input", event => renderBoard(event.target.value));
+    document.getElementById("openCreateTask").addEventListener("click", openCreateTask);
+    taskLabelPicker.addEventListener("click", event => {
+      const chip = event.target.closest(".label-chip");
+      if (!chip) return;
+      chip.setAttribute("aria-pressed", chip.getAttribute("aria-pressed") === "true" ? "false" : "true");
+    });
+    document.getElementById("addTaskLabel").addEventListener("click", () => {
+      const input = document.getElementById("newTaskLabel");
+      const label = input.value.trim().replace(/\s+/g, " ").toLowerCase();
+      if (!label) return;
+      const exists = [...taskLabelPicker.querySelectorAll(".label-chip")].some(chip => chip.dataset.label === label);
+      if (!exists) {
+        taskLabelPicker.insertAdjacentHTML("beforeend", `<button class="label-chip" type="button" aria-pressed="true" data-label="${escapeHtml(label)}">${escapeHtml(label)}</button>`);
+      }
+      input.value = "";
+    });
+    createTaskModal.addEventListener("click", event => {
+      if (event.target === createTaskModal || event.target.closest("[data-close-create-task]")) {
+        closeCreateTask();
+      }
+    });
+    createTaskForm.addEventListener("submit", event => {
+      event.preventDefault();
+      const title = document.getElementById("taskTitleInput").value.trim();
+      const body = document.getElementById("taskBodyInput").value.trim();
+      const labels = selectedLabels();
+      if (!title || !body) {
+        showToast("請填寫 Title 與 Description");
+        return;
+      }
+      const task = {
+        id: nextTaskId(),
+        state: "DEFINING",
+        title,
+        runtime: "unassigned",
+        skill: "未選擇 skill",
+        score: 0,
+        currentStep: "Discuss",
+        gaps: ["缺任務背景", "缺驗收條件"],
+        suggestion: "回到 Chat 補充背景，或在完整頁整理 Description 與 Acceptance draft。",
+        status: "待補 Definition",
+        blocker: "無",
+        labels,
+        source: "manual",
+        updatedAt: "updated now",
+        comments: 0,
+        context: "手動建立",
+        body,
+        description: body,
+        acceptance: "待補 acceptance criteria",
+        steps: [["Discuss", 0], ["Explore", 0], ["Prototype", 0], ["Spec", 0], ["Usage", 0], ["Tkt", 0], ["Dev", 0], ["Review", 0], ["Wrap", 0]],
+        history: [["now", "Backlog", "使用者手動建立 Task"]]
+      };
+      tasks.unshift(task);
+      const project = projects.find(item => item.id === selectedProjectId);
+      if (project) project.tasks += 1;
+      selectedTaskId = task.id;
+      detailOpen = true;
+      closeCreateTask();
+      resetCreateTaskForm();
+      renderProjects();
+      renderBoard(document.getElementById("taskSearch").value);
+      syncDetailVisibility();
+      renderDetail();
+      showToast(`${task.id} 已建立並進入 DEFINING`);
+    });
+    document.getElementById("closeDetail").addEventListener("click", () => {
+      detailOpen = false;
+      syncDetailVisibility();
+      renderDetail();
+    });
+    pinDetail.addEventListener("click", () => {
+      detailPinned = !detailPinned;
+      if (!detailOpen) detailOpen = true;
+      syncDetailVisibility();
+      renderDetail();
+    });
+    document.getElementById("quickOpenTask").addEventListener("click", () => {
+      const task = tasks.find(item => item.id === selectedTaskId) || tasks[0];
+      openTaskPage(task);
+    });
+    document.getElementById("backToTasks").addEventListener("click", () => {
+      activateTab("tasks");
+      syncDetailVisibility();
+      renderBoard(document.getElementById("taskSearch").value);
+      renderDetail();
+    });
+    detail.addEventListener("click", event => {
+      const button = event.target.closest("[data-task-action]");
+      if (!button) return;
+      const task = tasks.find(item => item.id === selectedTaskId) || tasks[0];
+      const action = button.dataset.taskAction;
+      if (action === "chat") {
+        activateTab("chat");
+        showToast(`${task.id} 已帶入 Chat conversation context`);
+        return;
+      }
+      if (action === "open") {
+        openTaskPage(task);
+        return;
+      }
+      if (action === "approve" || action === "reject") {
+        showToast(`${task.id} ${action === "approve" ? "approved" : "rejected"} · 審查資料已記錄`);
+        return;
+      }
+      showToast(`${task.id} · ${primaryActionForTask(task).label}`);
+    });
+
+    document.getElementById("taskPage").addEventListener("click", event => {
+      const button = event.target.closest("[data-task-action]");
+      if (!button) return;
+      const task = tasks.find(item => item.id === selectedTaskId) || tasks[0];
+      const action = button.dataset.taskAction;
+      if (action === "chat") {
+        activateTab("chat");
+        showToast(`${task.id} 已帶入 Chat conversation context`);
+        return;
+      }
+      if (action === "approve" || action === "reject") {
+        showToast(`${task.id} ${action === "approve" ? "approved" : "rejected"} · 審查資料已記錄`);
+        return;
+      }
+      showToast(`${task.id} · ${primaryActionForTask(task).label}`);
+    });
+
+    document.getElementById("taskPage").addEventListener("submit", event => {
+      const form = event.target.closest("[data-comment-form]");
+      if (!form) return;
+      event.preventDefault();
+      const task = tasks.find(item => item.id === selectedTaskId) || tasks[0];
+      const textarea = form.querySelector("textarea[name='comment']");
+      const text = textarea.value.trim();
+      if (!text) return;
+      if (!Array.isArray(task.conversation)) task.conversation = conversationItems(task).slice();
+      const mode = event.submitter?.dataset.commentMode || "comment";
+      task.conversation.push({
+        type: "human",
+        author: "Sam",
+        time: "now",
+        body: text
+      });
+      task.comments = Number(task.comments || 0) + 1;
+      task.updatedAt = "updated now";
+      task.history.push(["now", "留言", mode === "ask-ai" ? "使用者留言並要求 AI 更新任務脈絡" : "使用者新增留言"]);
+      if (mode === "ask-ai") {
+        task.conversation.push({
+          type: "ai",
+          author: "Grimo",
+          time: "now",
+          body: "我會把這則留言納入任務脈絡，更新 Definition / acceptance criteria，並保留原始討論紀錄。"
+        });
+        task.comments += 1;
+      }
+      renderTaskPage(task);
+      renderBoard(document.getElementById("taskSearch").value);
+      renderDetail();
+      showToast(mode === "ask-ai" ? "留言已送出並交給 AI 更新任務" : "留言已新增");
+    });
+
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && !createTaskModal.hidden) closeCreateTask();
+    });
+
+    document.getElementById("voiceToggle").addEventListener("click", event => {
+      event.currentTarget.classList.toggle("active");
+      showToast(event.currentTarget.classList.contains("active") ? "Voice 已啟用於 Chat composer" : "Voice 已關閉");
+    });
+    document.getElementById("addContext").addEventListener("click", () => showToast("已加入 current repo、selected trace、active issue context"));
+    document.getElementById("composer").addEventListener("submit", event => {
+      event.preventDefault();
+      const input = document.getElementById("chatInput");
+      const text = input.value.trim();
+      if (!text) return;
+      const messages = document.getElementById("messages");
+      messages.insertAdjacentHTML("beforeend", `
+        <article class="msg">
+          <div class="avatar">SZ</div>
+          <div class="bubble user">
+            <p>${escapeHtml(text)}</p>
+            <div class="attachment-strip" aria-label="Attached context">
+              <span class="attachment-badge"><span class="mono">Linear</span><span>GRM-184</span></span>
+              <span class="attachment-badge"><span class="mono">Code</span><span>apps/web/components/task-detail.tsx</span></span>
+              <span class="attachment-badge"><span class="mono">Run</span><span>checkpoint-42</span></span>
+            </div>
+          </div>
+        </article>
+        <article class="msg">
+          <div class="avatar">GR</div>
+          <div class="bubble">
+            <p>已從輸入形成新的 Task 草稿，等待 Definition Package gate 檢查。</p>
+            <button class="sources-trigger" type="button">Used 3 sources</button>
+            <div class="draft-card">
+              <div class="draft-head"><span>新 Task 草稿 · GRM-220</span><span class="pill warn">Definition 58%</span></div>
+              <div class="draft-grid">
+                <div><label>Task</label><strong>GRM-220</strong></div>
+                <div><label>建議 skill</label><strong>前端 UI skill</strong></div>
+                <div><label>目前狀態</label><strong>DEFINING</strong></div>
+              </div>
+              <div class="quality-gate"><div><strong>下一步候選</strong><p class="muted">補 evidence context、定義驗收條件、建立審查附件欄位。</p></div><button class="btn">建立 Task</button></div>
+            </div>
+            <div class="suggestion-row" aria-label="Clarification suggestions">
+              <button type="button" class="suggestion-chip">Voice toggle 是否需要 push-to-talk state？</button>
+              <button type="button" class="suggestion-chip">審查附件是否接受 screenshot evidence？</button>
+              <button type="button" class="suggestion-chip">補 acceptance criteria</button>
+            </div>
+          </div>
+        </article>
+      `);
+      input.value = "";
+      messages.scrollTop = messages.scrollHeight;
+      showToast("Task 草稿已產生");
+    });
+
+    const recipeSteps = ["Discuss", "Explore", "Prototype", "Spec", "Usage", "Tkt", "Dev", "Review", "Wrap"];
+    document.getElementById("recipeStateMap").innerHTML = recipeStateMap.map(item => `
+      <div class="map-row">
+        <div>
+          <label>step 群組</label>
+          <strong>${item.group}</strong>
+        </div>
+        <div>
+          <label>對應狀態</label>
+          <div class="select-like">${item.state}</div>
+        </div>
+        <div>
+          <label>門檻</label>
+          <span>${item.gate}</span>
+        </div>
+        <div>
+          <label>推進方式</label>
+          <span>${item.approver}</span>
+        </div>
+      </div>
+    `).join("");
+    document.getElementById("recipe").innerHTML = recipeSteps.map((step, index) => `
+      <div class="recipe-step">
+        <div>
+          <span class="pill">${String(index + 1).padStart(2, "0")}</span>
+          <h3 style="font-size: 14px; margin-top: 8px;">${step}</h3>
+        </div>
+        <span class="pill state-tag">${stateForRecipeStep(step).state}</span>
+        <div class="loop">
+          <span>審查</span>
+          <span>評分</span>
+          <span>修正</span>
+          <strong class="mono">quality_score &gt; 9</strong>
+        </div>
+      </div>
+    `).join("");
+
+    renderProjects();
+    renderBlockers();
+    updateProjectContext();
+    renderBoard();
+    syncNavState();
+    syncDetailVisibility();
+    renderDetail();
+  </script>
+</body>
+</html>
