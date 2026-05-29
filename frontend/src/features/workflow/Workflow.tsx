@@ -19,7 +19,9 @@ export function Workflow() {
             {workflowRows.map(([step, state, gate]) => (
               <div className="mapping-row" key={step}>
                 <strong>{step}</strong>
-                <Badge tone={stateTone(state as TaskState)}>{state}</Badge>
+                <Badge kind="state" tone={stateTone(state as TaskState)}>
+                  {state}
+                </Badge>
                 <span>{gate}</span>
               </div>
             ))}
@@ -39,4 +41,3 @@ export function Workflow() {
     </section>
   );
 }
-

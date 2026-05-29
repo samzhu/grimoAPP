@@ -68,9 +68,15 @@ export function Blockers({
               <article className="attention-task" key={task.id}>
                 <div className="attention-task-head">
                   <div className="badge-row">
-                    <Badge>{task.id}</Badge>
-                    <Badge tone={stateTone(task.state)}>{task.state}</Badge>
-                    <Badge>{task.step}</Badge>
+                    <Badge kind="task-id">{task.id}</Badge>
+                    <Badge kind="state" tone={stateTone(task.state)}>
+                      {task.state}
+                    </Badge>
+                    {task.labels.slice(0, 2).map((label) => (
+                      <Badge key={label} kind="label">
+                        {label}
+                      </Badge>
+                    ))}
                   </div>
                   <strong>{task.score > 0 ? task.score.toFixed(1) : "未評分"}</strong>
                 </div>
@@ -116,7 +122,7 @@ export function Blockers({
               {definitionGaps.map((task) => (
                 <div className="attention-mini-item" key={task.id}>
                   <div>
-                    <Badge>{task.id}</Badge>
+                    <Badge kind="task-id">{task.id}</Badge>
                     <strong>{task.title}</strong>
                   </div>
                   <span>{task.gaps.join(" / ")}</span>

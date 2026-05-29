@@ -1,3 +1,5 @@
+import type { TaskLabel } from "./task-labels";
+
 export type TaskState =
   | "BACKLOG"
   | "DEFINING"
@@ -20,7 +22,6 @@ export type Task = {
   acceptance: string[];
   gaps: string[];
   evidence: string[];
-  labels: string[];
+  labels: TaskLabel[];
   comments: number;
 };
-

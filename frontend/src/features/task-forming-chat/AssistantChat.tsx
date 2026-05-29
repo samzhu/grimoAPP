@@ -46,7 +46,7 @@ export function AssistantChat({ selectedTask }: { selectedTask: Task | null }) {
               <div className="context-strip">
                 {selectedTask ? (
                   <>
-                    <Badge>{selectedTask.id}</Badge>
+                    <Badge kind="task-id">{selectedTask.id}</Badge>
                     <span>{selectedTask.title}</span>
                   </>
                 ) : (

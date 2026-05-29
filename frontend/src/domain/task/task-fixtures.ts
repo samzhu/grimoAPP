@@ -14,7 +14,7 @@ export const tasks: Task[] = [
     acceptance: ["已連結 Task 時顯示更新 Task", "attachments/source chips 在 message 內"],
     gaps: ["缺任務背景", "缺期望結果"],
     evidence: ["AI Elements concept map"],
-    labels: ["chat", "task-forming"],
+    labels: ["frontend", "enhancement"],
     comments: 1,
   },
   {
@@ -35,7 +35,7 @@ export const tasks: Task[] = [
     ],
     gaps: ["補 voice state 邊界", "確認 screenshot evidence policy"],
     evidence: ["task-detail.tsx", "checkpoint-42", "Linear GRM-184"],
-    labels: ["frontend"],
+    labels: ["frontend", "design"],
     comments: 3,
   },
   {
@@ -56,7 +56,7 @@ export const tasks: Task[] = [
     ],
     gaps: ["Jira field mapping 需要 fallback"],
     evidence: ["GitHub fixture", "Linear webhook sample"],
-    labels: ["github", "workflow"],
+    labels: ["backend", "enhancement"],
     comments: 2,
   },
   {
@@ -76,7 +76,7 @@ export const tasks: Task[] = [
     ],
     gaps: [],
     evidence: ["routing policy draft", "capability probe"],
-    labels: ["runtime"],
+    labels: ["backend"],
     comments: 1,
   },
   {
@@ -97,7 +97,7 @@ export const tasks: Task[] = [
     ],
     gaps: [],
     evidence: ["Playwright screenshot", "typecheck", "risk note"],
-    labels: ["review", "frontend"],
+    labels: ["frontend", "documentation"],
     comments: 5,
   },
   {
@@ -114,7 +114,7 @@ export const tasks: Task[] = [
     acceptance: ["權限 probe 失敗時任務進入 BLOCKED", "修復後可回到原流程"],
     gaps: ["repo permission probe 失敗", "需要確認 monorepo 權限與路徑"],
     evidence: ["local runner log", "repo probe result"],
-    labels: ["local-first", "blocked"],
+    labels: ["backend", "question"],
     comments: 4,
   },
   {
@@ -134,7 +134,7 @@ export const tasks: Task[] = [
     ],
     gaps: [],
     evidence: ["domain model test", "migration note"],
-    labels: ["workflow", "done"],
+    labels: ["documentation", "enhancement"],
     comments: 0,
   },
 ];

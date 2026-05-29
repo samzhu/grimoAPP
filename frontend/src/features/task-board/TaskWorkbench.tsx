@@ -165,7 +165,9 @@ export function TaskWorkbench({
                       </div>
                       <div className="task-card-foot">
                         {task.labels.slice(0, 2).map((label) => (
-                          <Badge key={label}>{label}</Badge>
+                          <Badge key={label} kind="label">
+                            {label}
+                          </Badge>
                         ))}
                       </div>
                     </button>
@@ -213,7 +215,9 @@ export function TaskWorkbench({
                       <strong>{task.title}</strong>
                       <div className="task-card-foot">
                         {task.labels.slice(0, 2).map((label) => (
-                          <Badge key={label}>{label}</Badge>
+                          <Badge key={label} kind="label">
+                            {label}
+                          </Badge>
                         ))}
                       </div>
                       <div className="task-meta-row">
@@ -272,7 +276,9 @@ export function TaskWorkbench({
                       <strong>{task.title}</strong>
                       <div className="task-card-foot">
                         {task.labels.slice(0, 2).map((label) => (
-                          <Badge key={label}>{label}</Badge>
+                          <Badge key={label} kind="label">
+                            {label}
+                          </Badge>
                         ))}
                       </div>
                       <div className="mobile-task-meta">

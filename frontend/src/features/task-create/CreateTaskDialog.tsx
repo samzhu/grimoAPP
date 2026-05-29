@@ -1,4 +1,5 @@
 import { X } from "@phosphor-icons/react";
+import { taskLabelOptions } from "../../domain/task/task-labels";
 
 export function CreateTaskDialog({ onClose }: { onClose: () => void }) {
   return (
@@ -56,8 +57,14 @@ export function CreateTaskDialog({ onClose }: { onClose: () => void }) {
                     className="text-control"
                     id="task-labels"
                     name="labels"
-                    placeholder="frontend, review"
+                    list="task-label-options"
+                    placeholder="frontend, enhancement"
                   />
+                  <datalist id="task-label-options">
+                    {taskLabelOptions.map((label) => (
+                      <option key={label} value={label} />
+                    ))}
+                  </datalist>
                 </div>
                 <div className="form-field">
                   <label htmlFor="task-skill">建議 skill</label>

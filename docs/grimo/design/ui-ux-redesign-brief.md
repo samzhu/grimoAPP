@@ -166,7 +166,7 @@ Current task fields in the frontend POC:
 | `acceptance` | Acceptance gate or review material bullets. |
 | `gaps` | Missing detail, missing tool, or unresolved issue. |
 | `evidence` | Evidence chips, e.g. screenshot, typecheck, risk note. |
-| `labels` | Task labels shown on cards. |
+| `labels` | User-facing task labels shown on cards. Use the prototype-defined label taxonomy; do not duplicate `source`, workflow recipe steps, or skill/workflow capability names here. |
 | `comments` | Discussion or comment count. |
 
 ### Board-Facing Task States
@@ -208,6 +208,24 @@ Discuss -> Explore -> Prototype -> Spec -> Usage -> Tkt -> Dev -> Review -> Wrap
 Each main step has an automatic `Review -> Rating -> Fix` quality loop until `quality_score > 9`.
 
 These are internal workflow semantics. They should be inspectable, but the main product surface should stay task-oriented.
+
+Do not style recipe steps, source values, or skill/workflow capability names as task labels in board, list, focus, attention cards, or detail headers. `Prototype`, `Spec`, `Review`, `chat`, and `task-forming` belong in their own semantic fields, not generic card chips. List-level chips should use only user-facing task labels from the existing prototype taxonomy.
+
+Current prototype label taxonomy:
+
+```text
+bug, documentation, duplicate, enhancement, good first issue, help wanted,
+invalid, question, wontfix, frontend, backend, ci/cd, design, research
+```
+
+Badge styling must make identity, state, and labels distinguishable at a glance:
+
+| Badge role | Meaning | Visual direction |
+| --- | --- | --- |
+| Task id | Stable task identity such as `GRM-144` | Rectangular mono token, not a soft label pill. |
+| Task List State | Board-facing state such as `BACKLOG` or `REVIEW` | Semantic state badge with stronger weight and status color. |
+| Task label | User-facing categorization such as `frontend` | Softer category chip with a small marker and sans-serif text. |
+| Metric | Compact value such as quality score | Neutral compact badge, distinct from labels. |
 
 ### Quality Score
 
@@ -549,6 +567,7 @@ Design notes:
 - This is likely an important operational inbox.
 - Blockers should show owner, type, urgency, exact failing capability, repair path, and whether task can retry automatically.
 - `Chat` is the user-facing return path for continued exploration or planning; do not introduce a separate context-filling action.
+- Attention cards should show real task labels, not workflow recipe steps.
 
 ### 8.7 Projects View
 

@@ -1,4 +1,14 @@
 import { expect, test } from "@playwright/test";
+import { taskLabelOptions } from "../src/domain/task/task-labels";
+import { tasks } from "../src/domain/task/task-fixtures";
+
+test("task fixtures use prototype-defined labels", () => {
+  for (const task of tasks) {
+    for (const label of task.labels) {
+      expect(taskLabelOptions).toContain(label);
+    }
+  }
+});
 
 const viewports = [
   { name: "desktop-1366", width: 1366, height: 768 },
@@ -15,7 +25,13 @@ test.describe("Task workbench visual gate", () => {
       await expect(page.getByRole("heading", { name: "任務工作台" })).toBeVisible();
       await expect(page.getByRole("button", { name: "新增 Task" })).toBeVisible();
       await expect(page.getByPlaceholder("搜尋任務 / 關鍵字")).toBeVisible();
+      if (viewport.width > 920) {
+        await expect(page.locator(".topbar")).toHaveJSProperty("offsetHeight", 52);
+        await expect(page.locator(".brand-mark img")).toHaveJSProperty("offsetHeight", 38);
+      }
       await expect(page.locator(".task-card.selected")).toHaveCount(0);
+      await expect(page.locator(".task-card", { hasText: "GRM-144" }).getByText("task-forming", { exact: true })).toHaveCount(0);
+      await expect(page.locator(".task-card", { hasText: "GRM-144" }).locator(".badge.label").first()).toHaveText("frontend");
       await expect(page).toHaveScreenshot(`task-workbench-${viewport.name}.png`, {
         fullPage: true,
       });
@@ -87,6 +103,9 @@ test.describe("Task workbench visual gate", () => {
     await expect(page.getByRole("heading", { name: "任務詳情" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "執行前設定與本機能力檢查" })).toBeVisible();
     await expect(page.getByText("來源", { exact: true })).toBeVisible();
+    await expect(page.locator(".detail-head .badge.task-id")).toHaveText("GRM-201");
+    await expect(page.locator(".detail-head .badge.state")).toHaveText("READY");
+    await expect(page.locator(".detail-head .badge-row").getByText("Ready boundary", { exact: true })).toHaveCount(0);
     await expect(page).toHaveScreenshot("task-detail-drawer.png", {
       fullPage: true,
     });
@@ -115,6 +134,7 @@ test.describe("Task workbench visual gate", () => {
     await expect(page.getByRole("button", { name: "查看缺口" })).toHaveCount(0);
     await expect(page.locator(".attention-task").first().getByRole("button", { name: "Chat", exact: true })).toBeVisible();
     await expect(page.getByText("來源", { exact: true })).toHaveCount(0);
+    await expect(page.locator(".attention-task").getByText("Prototype", { exact: true })).toHaveCount(0);
     await expect(page).toHaveScreenshot("attention-page.png", {
       fullPage: true,
     });
@@ -130,6 +150,7 @@ test.describe("Task workbench visual gate", () => {
     await expect(page.getByRole("heading", { name: "審查結論" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Approve" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Reject" })).toBeVisible();
+    await expect(page.locator(".task-page-meta").getByText("Review", { exact: true })).toHaveCount(0);
     await expect(page).toHaveScreenshot("task-detail-full-page.png", {
       fullPage: true,
     });

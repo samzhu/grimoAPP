@@ -48,9 +48,10 @@ export function TaskDetail({
       </div>
       <div className="detail-head">
         <div className="badge-row">
-          <Badge>{task.id}</Badge>
-          <Badge tone={stateTone(task.state)}>{task.state}</Badge>
-          <Badge>{task.step}</Badge>
+          <Badge kind="task-id">{task.id}</Badge>
+          <Badge kind="state" tone={stateTone(task.state)}>
+            {task.state}
+          </Badge>
         </div>
         <h2>{task.title}</h2>
         <p>{task.description}</p>

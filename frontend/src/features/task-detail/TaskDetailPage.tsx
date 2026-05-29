@@ -53,10 +53,11 @@ export function TaskDetailPage({
         </div>
         <div className="task-page-title">
           <div className="task-page-meta">
-            <Badge>{task.id}</Badge>
-            <Badge tone={stateTone(task.state)}>{task.state}</Badge>
-            <Badge>{task.step}</Badge>
-            <Badge>品質 {task.score}</Badge>
+            <Badge kind="task-id">{task.id}</Badge>
+            <Badge kind="state" tone={stateTone(task.state)}>
+              {task.state}
+            </Badge>
+            <Badge kind="metric">品質 {task.score}</Badge>
           </div>
           <h1>{task.title}</h1>
           <p>{task.description}</p>

@@ -124,11 +124,12 @@ svg {
   height: 34px;
   flex: 0 0 34px;
   place-items: center;
+  overflow: visible;
 }
 
 .brand-mark img {
-  width: 34px;
-  height: 34px;
+  width: 38px;
+  height: 38px;
   display: block;
   object-fit: contain;
 }
@@ -674,7 +675,12 @@ svg {
 }
 
 .task-id {
+  display: inline-flex;
+  width: fit-content;
+  color: color-mix(in oklch, var(--fg) 74%, var(--muted));
   font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .task-card-foot,
@@ -907,6 +913,48 @@ svg {
   padding: 3px 7px;
   font-family: var(--font-mono);
   font-size: 11px;
+}
+
+.badge.task-id {
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: color-mix(in oklch, var(--fg) 78%, var(--muted));
+  font-weight: 700;
+  box-shadow: inset 0 -1px 0 color-mix(in oklch, var(--fg) 11%, transparent);
+}
+
+.badge.state {
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.badge.label {
+  gap: 5px;
+  border-color: transparent;
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklch, var(--surface-soft) 74%, var(--surface));
+  color: color-mix(in oklch, var(--muted) 82%, var(--fg));
+  font-family: var(--font-sans);
+  font-size: 11px;
+}
+
+.badge.label::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--accent) 44%, var(--muted));
+}
+
+.badge.metric {
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklch, var(--surface-soft) 70%, var(--surface));
+  color: color-mix(in oklch, var(--fg) 72%, var(--muted));
+  font-family: var(--font-sans);
+  font-weight: 600;
 }
 
 .badge.good {

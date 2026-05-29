@@ -58,6 +58,7 @@ Grimo frontend design work should leave a durable context trail. When requiremen
 - Desktop: focus tray plus horizontal Kanban board.
 - Tablet/mobile breakpoint: board is hidden and replaced with a grouped task list.
 - Mobile list rows show state, task id, title, labels, updated time, score, and comments. Task source is not shown outside detail.
+- Card labels must be user-facing categorization only and must come from the prototype-defined task label taxonomy. Do not place `source` values such as `chat` or skill/workflow capability names such as `task-forming` into list-level label chips.
 
 **Component notes:**
 
@@ -84,6 +85,7 @@ Grimo frontend design work should leave a durable context trail. When requiremen
 - Full-page detail is the REVIEW work surface. It must show a human gate summary, approve/reject controls for REVIEW tasks, review materials, evidence package, timeline, risk notes, and linked work in the first desktop viewport.
 - Task source is shown in task detail only. It should not be promoted in board cards, mobile rows, attention cards, search placeholder text, or create-task copy.
 - Task detail is one of the only user input surfaces, alongside Chat. User-facing copy should describe returning to `Chat` to continue exploration or planning, not doing a separate context-repair job.
+- Detail headers show task identity and Task List State only. Workflow recipe steps such as `Discuss` remain in `Stage & Quality`, not in header chips.
 
 **Responsive behavior:**
 
@@ -103,6 +105,7 @@ Grimo frontend design work should leave a durable context trail. When requiremen
 - The page is not a second Kanban board. It summarizes action counts, then lists REVIEW and BLOCKED tasks as the priority queue.
 - REVIEW and BLOCKED share the main queue because both stop progress: REVIEW blocks WRAP, BLOCKED blocks dispatcher or workflow recovery.
 - Definition gaps are secondary decision material in the right column, so users can scan incomplete tasks without mixing them into the urgent queue.
+- Attention cards show real task labels, not recipe steps. `Prototype`, `Spec`, `Review`, and other recipe steps belong in Task detail / Workflow evidence, not list-level label chips.
 
 **Responsive behavior:**
 
@@ -121,7 +124,8 @@ Grimo frontend design work should leave a durable context trail. When requiremen
 
 - **Decision:** Use `frontend/src/assets/grimo-logo.png` in the topbar brand mark, with transparent outside corners and a 34px visual box matching `.topbar-menu`.
 - **Why:** User supplied the logo, requested background removal, and asked for it to be the same size as the menu button.
-- **Do not:** Fall back to the old text-only `G` mark, add a separate `.brand-mark` border/background, or shrink the logo below the menu button size unless the asset is removed.
+- **Refinement:** The logo image may render slightly larger than the 34px brand box, but the topbar row must remain 52px tall on desktop.
+- **Do not:** Fall back to the old text-only `G` mark, add a separate `.brand-mark` border/background, or let the logo resize the topbar row.
 - **Verification:** `npm run build`, `npm run test:visual`.
 
 ### Create Task Button
@@ -158,6 +162,22 @@ Grimo frontend design work should leave a durable context trail. When requiremen
 - **Why:** User feedback on 2026-05-28: knowing where a task came from does not help list-level triage. Source remains provenance metadata, but it should not compete with state, gap, quality score, evidence, or next action.
 - **Do not:** Display `source` in board cards, mobile list rows, the `待處理` page, search placeholder text, or create-task explanatory copy.
 - **Verification:** `npm run build`, `npm run test:visual`.
+
+### Task Labels
+
+- **Decision:** Board, mobile, focus, and attention card chips show only user-facing task labels.
+- **Why:** User feedback on 2026-05-29: `chat task-forming` on `GRM-144` was unclear because `chat` is source and `task-forming` is a skill/workflow capability, not a label.
+- **Source:** Label options come from `docs/grimo/ui/prototype/index.html` `taskLabelPicker`: `bug`, `documentation`, `duplicate`, `enhancement`, `good first issue`, `help wanted`, `invalid`, `question`, `wontfix`, `frontend`, `backend`, `ci/cd`, `design`, `research`.
+- **Do not:** Use `source`, workflow recipe steps, skill names, or ad hoc labels as card label chips.
+- **Verification:** Playwright board baseline asserts `task-forming` is absent from `GRM-144` card; `task fixtures use prototype-defined labels` asserts fixture labels are all in the prototype taxonomy.
+
+### Badge Semantics
+
+- **Decision:** Task id, Task List State, task label, and metric badges must use distinct visual treatments.
+- **Why:** User feedback on 2026-05-29: `GRM-144`, `BACKLOG`, and `frontend` looked too similar, making it unclear which chip was identity, state, or label.
+- **Do not:** Render task id, state, and labels with the same neutral pill style.
+- **Implementation:** `Badge` supports `kind="task-id"`, `kind="state"`, `kind="label"`, and `kind="metric"`; board card labels use `.badge.label`, detail headers use `.badge.task-id` and `.badge.state`.
+- **Verification:** Playwright asserts `GRM-144` card labels use `.badge.label`, and task detail headers expose task id/state through `.badge.task-id` and `.badge.state`.
 
 ### Chat Return Path
 
@@ -220,6 +240,54 @@ Grimo frontend design work should leave a durable context trail. When requiremen
 - **Snapshots changed:** task workbench desktop/tablet/mobile, task detail drawer, create task dialog, and attention page snapshots.
 - **Reason:** User clarified that `審查材料` and `查看缺口` should not appear as list-level action buttons. Focus and attention cards now route to `Chat` for discussion and clarification.
 - **Snapshot summary:** Current summary reports 8 changed baselines in git status and local evidence artifacts in `frontend/test-results/.last-run.json` plus `frontend/playwright-report/index.html`.
+
+### 2026-05-29 — Attention Cards Use Labels, Not Recipe Steps
+
+- **Commands:** `npm run build`, `npm run test:visual:update`, `npm run test:visual`, `python3 scripts/visual-snapshot-summary.py --repo-root .`
+- **Result:** passed; `attention page baseline` now asserts `Prototype` is absent from attention task cards.
+- **Snapshots changed:** `frontend/e2e/task-workbench.visual.spec.ts-snapshots/attention-page-chromium-darwin.png`
+- **Reason:** User clarified that labels are already defined and `Prototype` appearing as a chip looked like a task label. Attention cards now render `task.labels`; workflow recipe steps remain in Task detail / Workflow evidence.
+- **Snapshot summary:** Current summary reports 1 changed baseline and local evidence artifacts in `frontend/test-results/.last-run.json` plus `frontend/playwright-report/index.html`.
+
+### 2026-05-29 — Detail Header Separates State From Step
+
+- **Commands:** `npm run build`, `npm run test:visual:update`, `npm run test:visual`, `python3 scripts/visual-snapshot-summary.py --repo-root .`
+- **Result:** passed; detail visual tests now assert recipe steps are absent from detail header chip rows.
+- **Snapshots changed:** `frontend/e2e/task-workbench.visual.spec.ts-snapshots/task-detail-drawer-chromium-darwin.png`, `frontend/e2e/task-workbench.visual.spec.ts-snapshots/task-detail-full-page-chromium-darwin.png`
+- **Reason:** User selected `BACKLOG Discuss` and noted the design language was mixed. Detail headers now show task id and Task List State; workflow recipe steps remain in `Stage & Quality`.
+- **Snapshot summary:** Current summary reports 3 changed baselines and local evidence artifacts in `frontend/test-results/.last-run.json` plus `frontend/playwright-report/index.html`.
+
+### 2026-05-29 — Card Chips Use User Labels Only
+
+- **Commands:** `npm run build`, `npm run test:visual`, `npm run test:visual:update`, `npm run test:visual`, `python3 scripts/visual-snapshot-summary.py --repo-root .`
+- **Result:** passed; board visual tests now assert `task-forming` is absent from the `GRM-144` card.
+- **Snapshots changed:** task workbench desktop/tablet/mobile, task detail drawer, create task dialog, task detail full page, and attention page snapshots.
+- **Reason:** User asked what `chat task-forming` meant on the `GRM-144` card. `chat` is task source and `task-forming` is a skill/workflow capability, so neither belongs in card label chips. Card fixtures now use only labels from the prototype-defined label taxonomy; source stays in task detail.
+- **Snapshot summary:** Current summary reports 8 changed baselines and local evidence artifacts in `frontend/test-results/.last-run.json` plus `frontend/playwright-report/index.html`.
+
+### 2026-05-29 — Mock Labels Follow Prototype Taxonomy
+
+- **Commands:** `npm run build`, `npm run test:visual`, `npm run test:visual:update`, `npm run test:visual`, `python3 scripts/visual-snapshot-summary.py --repo-root .`
+- **Result:** passed; visual gate now has 13 Playwright checks including `task fixtures use prototype-defined labels`.
+- **Snapshots changed:** task workbench desktop/tablet/mobile, task detail drawer, create task dialog, task detail full page, and attention page snapshots.
+- **Reason:** User clarified that labels were already defined and mock data should use those definitions instead of invented examples. React task fixtures now use `frontend/src/domain/task/task-labels.ts`, sourced from the prototype label picker, and the create-task label input offers the same options.
+- **Snapshot summary:** Current summary reports 8 changed baselines and local evidence artifacts in `frontend/test-results/.last-run.json` plus `frontend/playwright-report/index.html`.
+
+### 2026-05-29 — Badge Semantics Are Visually Distinct
+
+- **Commands:** `npm run build`, `npm run test:visual`, `npm run test:visual:update`, `npm run test:visual`, `python3 scripts/visual-snapshot-summary.py --repo-root .`
+- **Result:** passed; visual gate remains 13/13 with semantic badge assertions.
+- **Snapshots changed:** task workbench desktop/tablet/mobile, task detail drawer, create task dialog, task detail full page, and attention page snapshots.
+- **Reason:** User noted that labels, task ids such as `GRM-144`, and states such as `BACKLOG` looked too similar. Task id badges are now rectangular mono tokens, Task List State badges use semantic state styling, task labels use softer category chips with a small marker, and metrics use a neutral compact style.
+- **Snapshot summary:** Current summary reports 8 changed baselines and local evidence artifacts in `frontend/test-results/.last-run.json` plus `frontend/playwright-report/index.html`.
+
+### 2026-05-29 — Logo Slightly Larger Without Topbar Growth
+
+- **Commands:** `npm run build`, `npm run test:visual`, `npm run test:visual:update`, `npm run test:visual`, `python3 scripts/visual-snapshot-summary.py --repo-root .`
+- **Result:** passed; visual gate remains 13/13 and desktop board tests assert `.topbar` height stays 52px while `.brand-mark img` renders at 38px.
+- **Snapshots changed:** task workbench desktop/tablet/mobile, task detail drawer, create task dialog, task detail full page, and attention page snapshots.
+- **Reason:** Browser comment requested the topbar logo be slightly larger without increasing the row height. The brand box remains 34px; the image renders at 38px with visible overflow, so the row stays fixed.
+- **Snapshot summary:** Current summary reports 8 changed baselines and local evidence artifacts in `frontend/test-results/.last-run.json` plus `frontend/playwright-report/index.html`.
 
 ### 2026-05-28 — Topbar Logo Background And Size
 
