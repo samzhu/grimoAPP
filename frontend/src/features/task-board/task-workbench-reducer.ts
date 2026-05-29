@@ -2,9 +2,11 @@ import type { View } from "../../app/view-types";
 
 export type TaskWorkbenchState = {
   view: View;
-  selectedTaskId: string;
+  selectedTaskId: string | null;
   query: string;
   isNavOpen: boolean;
+  isNavPinned: boolean;
+  isFocusCollapsed: boolean;
   isDetailOpen: boolean;
   isDetailPinned: boolean;
   isCreateTaskOpen: boolean;
@@ -14,6 +16,8 @@ export type TaskWorkbenchState = {
 export type TaskWorkbenchAction =
   | { type: "nav.toggled" }
   | { type: "nav.closed" }
+  | { type: "nav.pinToggled" }
+  | { type: "focus.toggled" }
   | { type: "view.selected"; view: View }
   | { type: "query.changed"; query: string }
   | { type: "task.selected"; taskId: string }
@@ -24,14 +28,14 @@ export type TaskWorkbenchAction =
   | { type: "createTask.opened" }
   | { type: "createTask.closed" };
 
-export function createInitialTaskWorkbenchState(
-  selectedTaskId: string,
-): TaskWorkbenchState {
+export function createInitialTaskWorkbenchState(): TaskWorkbenchState {
   return {
     view: "tasks",
-    selectedTaskId,
+    selectedTaskId: null,
     query: "",
     isNavOpen: false,
+    isNavPinned: false,
+    isFocusCollapsed: false,
     isDetailOpen: false,
     isDetailPinned: false,
     isCreateTaskOpen: false,
@@ -53,11 +57,24 @@ export function taskWorkbenchReducer(
       return {
         ...state,
         isNavOpen: false,
+        isNavPinned: false,
+      };
+    case "nav.pinToggled":
+      return {
+        ...state,
+        isNavOpen: true,
+        isNavPinned: !state.isNavPinned,
+      };
+    case "focus.toggled":
+      return {
+        ...state,
+        isFocusCollapsed: !state.isFocusCollapsed,
       };
     case "view.selected":
       return {
         ...state,
         view: action.view,
+        isNavOpen: state.isNavPinned,
         isDetailOpen: false,
         isTaskPageOpen: false,
       };
@@ -76,6 +93,7 @@ export function taskWorkbenchReducer(
       return {
         ...state,
         isDetailOpen: false,
+        selectedTaskId: null,
       };
     case "detail.pinToggled":
       return {

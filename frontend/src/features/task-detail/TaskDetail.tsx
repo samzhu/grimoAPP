@@ -17,12 +17,14 @@ export function TaskDetail({
   onClose,
   onOpenFullPage,
   onTogglePin,
+  onOpenChat,
 }: {
   task: Task;
   isPinned: boolean;
   onClose: () => void;
   onOpenFullPage: () => void;
   onTogglePin: () => void;
+  onOpenChat: () => void;
 }) {
   return (
     <aside className="detail-pane">
@@ -61,6 +63,7 @@ export function TaskDetail({
           label="狀態"
           value={task.score >= 9 ? "已達通過門檻" : "需要補齊證據"}
         />
+        <Metric label="來源" value={task.source} />
       </Panel>
 
       <Panel title={task.state === "REVIEW" ? "Review Materials" : "Acceptance Gate"}>
@@ -98,12 +101,16 @@ export function TaskDetail({
           <span>
             {task.state === "READY"
               ? "開始前執行本機能力檢查"
-              : "回到 Chat 補上下文或查看完整頁"}
+              : "回到 Chat 繼續探索、規劃或查看完整頁"}
           </span>
         </div>
-        <button type="button" className="primary-button">
+        <button
+          type="button"
+          className="primary-button"
+          onClick={task.state === "READY" ? undefined : onOpenChat}
+        >
           {task.state === "READY" ? <Play /> : <ChatCenteredText />}
-          {task.state === "READY" ? "開始執行" : "使用 Chat"}
+          {task.state === "READY" ? "開始執行" : "Chat"}
         </button>
       </div>
     </aside>

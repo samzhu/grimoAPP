@@ -5,8 +5,10 @@ description: >
   without context loss. Writes a single HANDOVER.md with two layers: a portable
   summary (Layer 1) and environment details (Layer 2).
   Use when the user says "handover", "交班", "換手", "shift change", "save progress",
-  "wrap up session", "I need to switch", "pass the baton", "先到這裡", "存檔",
+  "wrap up session", "switch sessions", "pass the baton", "先到這裡", "存檔",
   "context is getting long", or before closing a long session.
+  Don't use for ordinary status updates, release notes, changelogs, PR
+  descriptions, or documentation that does not preserve session continuity.
   Pair with /takeover to resume in a new session.
 allowed-tools:
   - Read
@@ -74,6 +76,8 @@ fabricate — if you don't have data for a field, write `(none)`.
 - `blockers`: Each with `description`, `attempted` approaches (with results), and `hypothesis`
 - `next_steps`: Ordered list — specific enough to act on immediately
 - `lessons_learned`: Non-obvious discoveries that save the next person time
+- `artifact_references`: Paths or URLs to authoritative artifacts instead of duplicating their contents
+- `suggested_skills`: Skills the next agent should invoke, each with a short reason
 - `conversation_summary`: 3-5 sentence narrative of the session arc
 
 **Layer 2 — Environment-specific (same machine / same repo):**
@@ -106,7 +110,23 @@ contracts, test behavior, performance characteristics. Add under
 **planning**: Focus on `decisions`. The `why` and `alternatives_rejected`
 are more valuable than the decision itself.
 
-## Step 4: Write the handover note
+## Step 4: Apply safety and deduplication rules
+
+Before writing, inspect the note for the following:
+
+1. Do not duplicate content already captured in PRDs, plans, ADRs, issues,
+   commits, diffs, specs, task files, or test reports. Reference the artifact
+   by path, commit hash, issue URL, PR URL, or command instead. Summarize only
+   the session-specific delta needed to resume.
+2. Redact sensitive information, including API keys, tokens, passwords,
+   secrets, private URLs, personal contact details, addresses, and other
+   personally identifiable information. Replace values with `[REDACTED]` and
+   keep only the non-sensitive identifier needed to find the source later.
+3. In `suggested_skills`, list only skills that are likely useful for the next
+   action. Include the exact skill name and why to invoke it. Write `(none)` if
+   no skill applies.
+
+## Step 5: Write the handover note
 
 Read the template at `${CLAUDE_SKILL_DIR}/template.md`.
 
@@ -117,7 +137,7 @@ Write to: `docs/grimo/handovers/HANDOVER.md`
 Create the directory if it doesn't exist. If `HANDOVER.md` already exists,
 overwrite it (the previous one was not consumed — this is intentional).
 
-## Step 5: Confirm
+## Step 6: Confirm
 
 Print:
 
@@ -135,6 +155,8 @@ Layer 2 (environment details) is for this repo/machine.
 ## Anti-Patterns
 
 - Do NOT dump the entire conversation — summarize, don't transcribe
+- Do NOT copy long content from PRDs, plans, ADRs, issues, commits, diffs, specs, or test reports — reference them by path or URL
+- Do NOT include secrets, credentials, API keys, tokens, passwords, private personal data, or PII — redact them
 - Do NOT include code blocks longer than 10 lines — reference file paths instead
 - Do NOT invent information — if uncertain, mark with `(unverified)`
 - Do NOT skip Layer 2 — environment context saves real time on resume

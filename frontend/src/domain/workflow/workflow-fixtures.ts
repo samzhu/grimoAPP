@@ -4,6 +4,5 @@ export const workflowRows = [
   ["Dev", "RUNNING", "Execution evidence complete"],
   ["Review", "REVIEW", "Human approve / reject"],
   ["Wrap", "DONE", "Delivery summary + learning proposal"],
-  ["Any stop condition", "BLOCKED", "補依賴、權限或 context"],
+  ["Any stop condition", "BLOCKED", "補依賴、權限或回到 Chat"],
 ] as const;
-

@@ -12,7 +12,7 @@ export function CreateTaskDialog({ onClose }: { onClose: () => void }) {
         <div className="task-workspace-head">
           <div>
             <h2 id="create-task-title">新增 Task</h2>
-            <p>先建立可進入 DEFINING 的工作草稿；來源由系統依入口保存。</p>
+            <p>先建立可進入 DEFINING 的工作草稿；後續再補 acceptance 與缺口。</p>
           </div>
           <button className="icon-button" type="button" aria-label="關閉新增 Task" onClick={onClose}>
             <X />

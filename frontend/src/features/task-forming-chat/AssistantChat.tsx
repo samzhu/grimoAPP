@@ -10,7 +10,7 @@ import { Badge } from "../../shared/ui/Badge";
 import { Metric } from "../../shared/ui/Metric";
 import { Panel } from "../../shared/ui/Panel";
 
-export function AssistantChat({ selectedTask }: { selectedTask: Task }) {
+export function AssistantChat({ selectedTask }: { selectedTask: Task | null }) {
   return (
     <section className="chat-view">
       <div className="chat-main">
@@ -44,8 +44,17 @@ export function AssistantChat({ selectedTask }: { selectedTask: Task }) {
 
             <ThreadPrimitive.ViewportFooter className="thread-footer">
               <div className="context-strip">
-                <Badge>{selectedTask.id}</Badge>
-                <span>{selectedTask.title}</span>
+                {selectedTask ? (
+                  <>
+                    <Badge>{selectedTask.id}</Badge>
+                    <span>{selectedTask.title}</span>
+                  </>
+                ) : (
+                  <>
+                    <Badge>未連結</Badge>
+                    <span>可從空白討論形成新 Task</span>
+                  </>
+                )}
               </div>
               <ComposerPrimitive.Root className="assistant-composer">
                 <ComposerPrimitive.Input
@@ -67,9 +76,19 @@ export function AssistantChat({ selectedTask }: { selectedTask: Task }) {
 
       <aside className="chat-side">
         <Panel title="目前連結 Task">
-          <Metric label="任務" value={`${selectedTask.id} · ${selectedTask.state}`} />
-          <Metric label="Skill" value={selectedTask.skill} />
-          <Metric label="品質" value={`${selectedTask.score} / 10`} />
+          {selectedTask ? (
+            <>
+              <Metric label="任務" value={`${selectedTask.id} · ${selectedTask.state}`} />
+              <Metric label="Skill" value={selectedTask.skill} />
+              <Metric label="品質" value={`${selectedTask.score} / 10`} />
+            </>
+          ) : (
+            <>
+              <Metric label="任務" value="尚未連結" />
+              <Metric label="入口" value="Discuss / Task forming" />
+              <Metric label="下一步" value="補足背景後建立 Task" />
+            </>
+          )}
         </Panel>
         <Panel title="Runtime 策略">
           <p className="panel-copy">
@@ -80,4 +99,3 @@ export function AssistantChat({ selectedTask }: { selectedTask: Task }) {
     </section>
   );
 }
-

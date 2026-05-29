@@ -45,6 +45,14 @@ Current hypothesis: {best guess for resolution}
 - {Non-obvious discovery that saves the next person time}
 - {Framework quirk, undocumented behavior, etc.}
 
+### Artifact References
+
+- `{path/or/url}` — {what authoritative content lives there; do not duplicate it here}
+
+### Suggested Skills
+
+- `{skill-name}` — {why the next agent should invoke it}
+
 ### Session Summary
 
 {3-5 sentence narrative: what the session set out to do, key turning

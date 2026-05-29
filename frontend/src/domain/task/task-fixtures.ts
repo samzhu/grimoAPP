@@ -51,7 +51,7 @@ export const tasks: Task[] = [
       "外部 issue、CLI request、chat intent 需要進入同一套 Task List State。",
     acceptance: [
       "GitHub / Linear / Chat 來源都能形成 Task",
-      "原始來源保留在 context",
+      "原始來源保留在任務明細",
       "Task state 不受來源類型影響",
     ],
     gaps: ["Jira field mapping 需要 fallback"],
@@ -93,7 +93,7 @@ export const tasks: Task[] = [
     acceptance: [
       "REVIEW 狀態才顯示 approve / reject",
       "審查附件包含測試、截圖與風險",
-      "退回時可回到 Chat 補上下文",
+      "退回時可回到 Chat 繼續探索或規劃",
     ],
     gaps: [],
     evidence: ["Playwright screenshot", "typecheck", "risk note"],
@@ -147,4 +147,3 @@ export const stateColumns: TaskState[] = [
   "REVIEW",
   "DONE",
 ];
-

@@ -12,12 +12,16 @@ import type { View } from "./view-types";
 
 export function Navigation({
   active,
+  isPinned,
   onSelect,
   onClose,
+  onTogglePin,
 }: {
   active: View;
+  isPinned: boolean;
   onSelect: (view: View) => void;
   onClose: () => void;
+  onTogglePin: () => void;
 }) {
   const items: Array<[View, string, ReactNode]> = [
     ["tasks", "Task 管理", <Rows key="tasks" />],
@@ -34,14 +38,16 @@ export function Navigation({
           <span>主選單</span>
           <CaretLeft />
         </button>
-        <button className="rail-pin" type="button" aria-label="固定主選單">
-          <PushPinSimple />
+        <button
+          className={isPinned ? "rail-pin active" : "rail-pin"}
+          type="button"
+          aria-label={isPinned ? "取消固定主選單" : "固定主選單"}
+          aria-pressed={isPinned}
+          onClick={onTogglePin}
+        >
+          <PushPinSimple weight={isPinned ? "fill" : "regular"} />
         </button>
       </div>
-      <button className="rail-item active rail-section" type="button">
-        <PushPinSimple />
-        <span>固定</span>
-      </button>
       {items.map(([key, label, icon]) => (
         <button
           key={key}
@@ -56,4 +62,3 @@ export function Navigation({
     </nav>
   );
 }
-

@@ -2,6 +2,7 @@ import { useMemo, useReducer } from "react";
 import { List } from "@phosphor-icons/react";
 import { Navigation } from "./app/Navigation";
 import { RuntimeProvider } from "./app/RuntimeProvider";
+import grimoLogoUrl from "./assets/grimo-logo.png";
 import { tasks } from "./domain/task/task-fixtures";
 import { taskMatchesQuery } from "./domain/task/task-selectors";
 import { Blockers } from "./features/blockers/Blockers";
@@ -17,8 +18,7 @@ import { Workflow } from "./features/workflow/Workflow";
 export function App() {
   const [workbench, dispatch] = useReducer(
     taskWorkbenchReducer,
-    tasks[0].id,
-    createInitialTaskWorkbenchState,
+    createInitialTaskWorkbenchState(),
   );
 
   const filteredTasks = useMemo(
@@ -26,8 +26,20 @@ export function App() {
     [workbench.query],
   );
 
-  const selectedTask =
-    tasks.find((task) => task.id === workbench.selectedTaskId) ?? tasks[0];
+  const selectedTask = workbench.selectedTaskId
+    ? tasks.find((task) => task.id === workbench.selectedTaskId) ?? null
+    : null;
+  const workspaceClassName = [
+    "workspace-shell",
+    workbench.isNavOpen ? "nav-open" : "",
+    workbench.isNavOpen && workbench.isNavPinned ? "nav-pinned" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const openTaskChat = (taskId: string) => {
+    dispatch({ type: "task.selected", taskId });
+    dispatch({ type: "view.selected", view: "chat" });
+  };
 
   return (
     <RuntimeProvider>
@@ -42,7 +54,9 @@ export function App() {
           >
             <List />
           </button>
-          <div className="brand-mark">G</div>
+          <div className="brand-mark" aria-hidden="true">
+            <img src={grimoLogoUrl} alt="" />
+          </div>
           <div className="brand-copy">
             <strong>Grimo</strong>
           </div>
@@ -53,14 +67,16 @@ export function App() {
           </div>
         </header>
 
-        <div className={workbench.isNavOpen ? "workspace-shell nav-open" : "workspace-shell"}>
+        <div className={workspaceClassName}>
           {workbench.isNavOpen && (
             <Navigation
               active={workbench.view}
+              isPinned={workbench.isNavPinned}
               onSelect={(nextView) => {
                 dispatch({ type: "view.selected", view: nextView });
               }}
               onClose={() => dispatch({ type: "nav.closed" })}
+              onTogglePin={() => dispatch({ type: "nav.pinToggled" })}
             />
           )}
           <main className="main-surface">
@@ -71,6 +87,7 @@ export function App() {
                 selectedTask={selectedTask}
                 isDetailOpen={workbench.isDetailOpen}
                 isDetailPinned={workbench.isDetailPinned}
+                isFocusCollapsed={workbench.isFocusCollapsed}
                 isCreateTaskOpen={workbench.isCreateTaskOpen}
                 isTaskPageOpen={workbench.isTaskPageOpen}
                 onQueryChange={(query) => dispatch({ type: "query.changed", query })}
@@ -79,13 +96,15 @@ export function App() {
                 }}
                 onCloseDetail={() => dispatch({ type: "detail.closed" })}
                 onToggleDetailPin={() => dispatch({ type: "detail.pinToggled" })}
+                onToggleFocus={() => dispatch({ type: "focus.toggled" })}
                 onOpenTaskPage={() => dispatch({ type: "taskPage.opened" })}
                 onCloseTaskPage={() => dispatch({ type: "taskPage.closed" })}
                 onOpenCreateTask={() => dispatch({ type: "createTask.opened" })}
                 onCloseCreateTask={() => dispatch({ type: "createTask.closed" })}
+                onOpenChat={openTaskChat}
               />
             )}
-            {workbench.view === "blockers" && <Blockers tasks={tasks} />}
+            {workbench.view === "blockers" && <Blockers tasks={tasks} onOpenChat={openTaskChat} />}
             {workbench.view === "projects" && <Projects />}
             {workbench.view === "chat" && <AssistantChat selectedTask={selectedTask} />}
             {workbench.view === "workflow" && <Workflow />}

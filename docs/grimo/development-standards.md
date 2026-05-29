@@ -8,6 +8,9 @@
 
 - 產品語言與行為以 `docs/grimo/PRD.md` 為準。
 - UI layout、spacing、component states 以 `docs/grimo/ui/prototype/index.html` 和 `docs/grimo/ui/prototype/DESIGN-HANDOFF.md` 為準。
+- 前端 UI/UX 作業流程與設計語言保存規則以 `docs/grimo/design/ui-ux-workflow.md` 為準。
+- 可命名的設計決策先放進 `docs/grimo/design/tokens.json`，再映射到 CSS custom properties。
+- 可重複的 Webwright review prompt 放在 `docs/grimo/design/webwright-prompts.md`；prompt 必須對應已命名的產品或設計規則。
 - 目前前端只可把 prototype 轉成 product UI；不要加入 prototype 沒有、PRD 也沒要求的新產品功能。
 
 ## Frontend Architecture
@@ -38,6 +41,7 @@
 - 每次改 layout 前先對照 prototype 的實際 CSS 尺寸，不用目測重設 spacing。
 - Topbar、rail、section head、board column、task card、detail drawer 的尺寸要能追溯到 prototype token 或明確 override 原因。
 - selected task 提示應優先使用 prototype 的 subtle border / inset accent；不要加入會破壞 metadata 對齊的大型 badge，除非設計稿更新。
+- Task board 初始進入時不得預選任何 task；selection 只能來自使用者點選或明確 deep link。
 - `新增 Task` 必須對應 prototype 的 create task modal，不只是空按鈕。
 - `在完整頁開啟` 必須有 task detail full page 行為，不是無作用按鈕。
 
@@ -57,6 +61,7 @@
 - Webwright 用於 agent-assisted visual QA：把瀏覽器檢查流程產生為可重跑的 Playwright-backed script，並保存 `plan.md`、action log、screenshots、final run output。
 - Webwright 不取代 deterministic Playwright assertions；它是 layout review 與長流程 UI 檢查的第二層 evidence。
 - Webwright 安裝在 repo-local `.venv-webwright`，透過 `scripts/setup-webwright.sh` 建置，透過 `scripts/run-webwright-visual-qa.sh` 執行。
+- Webwright prompt 不是臨場自由發揮；layout/prototype parity task 應先使用或更新 `docs/grimo/design/webwright-prompts.md`。
 - Layout 或 prototype parity task 的 evidence 必須包含：
   - deterministic screenshot comparison 或固定 viewport screenshot set
   - Webwright run artifact：`final_script.py`、`final_script_log.txt`、`screenshots/`、self-reflection 或人工 review 結果
