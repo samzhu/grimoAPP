@@ -71,7 +71,7 @@ Grimo frontend design work should leave a durable context trail. When requiremen
 **Open questions:**
 
 - Whether focus collapse state should persist across reloads once user preferences exist.
-- Whether attention tasks should include `READY` in addition to `REVIEW` and `BLOCKED`.
+- Whether attention tasks should include `READY` in addition to `REVIEW` and `BLOCKED`, especially when a user-started dispatch window is active.
 
 ### Task Detail
 
@@ -103,7 +103,7 @@ Grimo frontend design work should leave a durable context trail. When requiremen
 **Current layout decisions:**
 
 - The page is not a second Kanban board. It summarizes action counts, then lists REVIEW and BLOCKED tasks as the priority queue.
-- REVIEW and BLOCKED share the main queue because both stop progress: REVIEW blocks WRAP, BLOCKED blocks dispatcher or workflow recovery.
+- REVIEW and BLOCKED share the main queue because both stop progress: REVIEW blocks DONE or optional WRAP, BLOCKED blocks dispatcher or workflow recovery.
 - Definition gaps are secondary decision material in the right column, so users can scan incomplete tasks without mixing them into the urgent queue.
 - Attention cards show real task labels, not recipe steps. `Prototype`, `Spec`, `Review`, and other recipe steps belong in Task detail / Workflow evidence, not list-level label chips.
 

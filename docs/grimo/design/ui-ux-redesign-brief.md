@@ -104,19 +104,19 @@ Provider names such as Codex, Claude, Gemini, and OpenClaw are runtime choices, 
 
 Chat is a work-entry surface. It can form or refine tasks, but it must not make write actions feel automatic.
 
-Task execution requires a human-confirmed `READY` state plus dispatcher checks.
+Task execution requires a human-confirmed `READY` state, a user-started dispatch window or manual task start, and dispatcher checks.
 
 ### P3. Task Is User-Level Work
 
 A Task means one piece of user-visible work. It is not the same as an internal workflow step.
 
-Internal steps such as `Discuss`, `Explore`, `Prototype`, `Spec`, `Usage`, `Tkt`, `Dev`, `Review`, and `Wrap` belong in task detail, workflow detail, or evidence views, not as top-level board columns.
+Internal steps such as `Discuss`, `Explore`, `Prototype`, `Spec`, `Usage`, `Tkt`, `Dev`, `Review`, and optional `Wrap` belong in task detail, workflow detail, or evidence views, not as top-level board columns.
 
 ### P4. Review Owns Approval
 
 The product state `REVIEW` means the AI's self-review, quality loop, tests or non-applicability explanation, and review materials are ready for the human.
 
-Human approval happens in `REVIEW`, not after `WRAP`.
+Human approval happens in `REVIEW`, not after `WRAP`; tasks without cleanup or delivery-summary work can move from approved `REVIEW` directly to `DONE`.
 
 ### P5. Local-First Ownership
 
@@ -189,10 +189,10 @@ Design meaning:
 | --- | --- | --- |
 | `BACKLOG` | Work exists but is not yet actively defined or ready. | Low urgency; should not look actionable like `READY`. |
 | `DEFINING` | Task is being clarified into a definition package. | Needs conversation, research, gaps, or acceptance criteria. |
-| `READY` | Definition package and quality gate were accepted; execution can be dispatched if checks pass. | Strong action affordance, but still gated by dispatcher/preflight. |
+| `READY` | Definition package and quality gate were accepted; work is schedulable but not automatically running. | Show dispatch-window state, manual start affordance, and dispatcher/preflight readiness. |
 | `RUNNING` | Agent work is active or claimed. | Show progress, active execution, worker log, and recoverability. |
 | `REVIEW` | Human must approve or reject completed evidence. | This is a human inbox state. Review materials must be prominent. |
-| `DONE` | Work completed and wrapped. | Completed record, summary, evidence, learnings. |
+| `DONE` | Work completed; optional wrap evidence may exist. | Completed record, summary, evidence, learnings when available. |
 | `BLOCKED` | Needs human, environment, permission, dependency, or missing detail. | Should surface repair guidance and next best action. |
 
 Important: `BLOCKED` is not currently a board column in the POC board; it appears in the `待處理` view. A redesign can keep that split or make blockers more visible, but blocked work must not disappear.
@@ -202,7 +202,7 @@ Important: `BLOCKED` is not currently a board column in the POC board; it appear
 For coding tasks, the first recipe is:
 
 ```text
-Discuss -> Explore -> Prototype -> Spec -> Usage -> Tkt -> Dev -> Review -> Wrap
+Discuss -> Explore -> Prototype -> Spec -> Usage -> Tkt -> Dev -> Review -> optional Wrap
 ```
 
 Each main step has an automatic `Review -> Rating -> Fix` quality loop until `quality_score > 9`.
@@ -277,25 +277,32 @@ Design needs:
 2. Human reviews scope, acceptance gate, and quality gate.
 3. Human moves task to `READY`.
 4. User assigns a thin Agent Profile, e.g. Backend Engineer, Architect, Code Reviewer.
+5. Task waits for a user-started dispatch window or manual task start.
 
 Design needs:
 
 - `READY` must feel like a deliberate confirmation.
-- Show what will happen after readiness.
+- Show that `READY` work is schedulable, not automatically running.
+- Show whether a dispatch window is active, when it ends, and how to start or stop it.
+- Dispatch window controls should be time-boxed choices such as `執行 1 小時`, `執行到明早 8 點`, or `只跑選取任務`, with a concurrency setting, not a permanent automation toggle.
 - Show what still blocks dispatcher from claiming the task.
 - Do not let external clients directly create `READY` work.
 
 ### Flow D. Dispatcher And Execution
 
-1. Dispatcher checks assignment, dependencies, runtime availability, repo binding, permissions, and risk level.
-2. If all pass, an Agent Claim is created.
-3. Task enters `RUNNING`.
-4. Agent runs recipe steps in a worktree/sandbox and reports evidence.
-5. If checks fail, task becomes `BLOCKED / NEEDS_HUMAN`.
+1. User manually starts a dispatch window or starts a single `READY` task.
+2. Dispatcher checks assignment, dependencies, runtime availability, repo binding, permissions, and risk level.
+3. If all pass, an Agent Claim is created.
+4. Task enters `RUNNING`.
+5. Agent runs recipe steps in a worktree/sandbox and reports evidence.
+6. If checks fail, task becomes `BLOCKED / NEEDS_HUMAN`.
 
 Design needs:
 
 - Distinguish `READY` from actively executing.
+- Avoid implying a 24/7 background auto-run loop.
+- Show remaining dispatch-window time, configured concurrency, queued READY count, current claims, and a stop-new-claims control.
+- When a dispatch window expires, show that no new tasks will start while already `RUNNING` tasks continue to completion.
 - Show preflight checks and failures.
 - Show worker log, run history, current step, and recovery options.
 - Make blocked repair actions concrete.
@@ -315,11 +322,11 @@ Design needs:
 - Approval/rejection should be visually distinct from internal AI review.
 - If rejected, the path back to Chat or Definition/Execution repair should be obvious.
 
-### Flow F. Wrap And Learning Loop
+### Flow F. Optional Wrap And Learning Loop
 
-1. Approved work enters `WRAP`.
-2. System performs cleanup, delivery summary, and short retro.
-3. Learning Loop may propose skill or recipe improvements.
+1. Approved work enters `WRAP` only when cleanup, delivery summary, or short retro is needed.
+2. If no wrap work is needed, the task can move directly from approved `REVIEW` to `DONE`.
+3. Learning Loop may propose skill or recipe improvements from wrap evidence or accumulated task history.
 4. Task becomes `DONE`.
 
 Design needs:
@@ -785,7 +792,8 @@ Current `READY` task shows action `開始執行`.
 Why it matters:
 
 - `READY` does not mean execution can skip dispatcher checks.
-- The UI should show assignment, dependencies, capability checks, risk, and whether claim is allowed.
+- `READY` does not mean Grimo is running a 24/7 background auto-dispatch loop.
+- The UI should show assignment, dependencies, capability checks, risk, whether claim is allowed, whether a dispatch window is active, and when that window ends.
 
 ### Issue 7. `BLOCKED` Is Separate From Main Board
 
@@ -1122,7 +1130,7 @@ These are intentionally left open for the designer:
 - Task source belongs in task detail only; list, board, attention, and creation surfaces should prioritize state, gaps, quality, evidence, and next action instead.
 - Workflow recipe is Project-level, not selected per task at creation time.
 - `REVIEW` is for human approval after evidence is ready.
-- `WRAP` is cleanup and summary after approval.
+- `WRAP` is optional cleanup and summary after approval, not a guaranteed board state.
 - Follow-up tasks are proposals, not automatic scope expansion.
 - Local store is source of truth.
 - Provider/runtime is adapter detail, not product identity.

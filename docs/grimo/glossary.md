@@ -61,7 +61,7 @@ Task List State 中等待人類 approve 或 reject 的狀態；Task 必須先完
 _Avoid_: AI reviewer still running, internal Quality Loop review
 
 **Workflow Step**:
-Grimo 在 Task 底下自動推進工作的內部階段；具體步驟由 Task Type / Workflow Recipe 決定，例如 coding recipe 會有 Discuss、Explore、Prototype、Spec、Usage、Tkt、Dev、Review 和 Wrap。
+Grimo 在 Task 底下自動推進工作的內部階段；具體步驟由 Task Type / Workflow Recipe 決定，例如 coding recipe 會有 Discuss、Explore、Prototype、Spec、Usage、Tkt、Dev、Review，並在需要收尾時才出現 optional Wrap。
 _Avoid_: User-level Task
 
 **Quality Loop**:
@@ -117,7 +117,7 @@ _Avoid_: Discuss, Explore, Prototype, Spec, Usage, Tkt, or domain-specific steps
 _Avoid_: Work that is already being actively clarified
 
 **Task Detail Evidence**:
-Task detail 中用來建立信任和除錯的詳細證據，例如 CLAIMED、DEV、WRAP、Workflow Step、Quality Loop、quality_score、fix history、worker log、run history、diff、測試輸出或其他 Task Type 的領域 evidence。
+Task detail 中用來建立信任和除錯的詳細證據，例如 CLAIMED、DEV、optional WRAP、Workflow Step、Quality Loop、quality_score、fix history、worker log、run history、diff、測試輸出或其他 Task Type 的領域 evidence。
 _Avoid_: Hiding evidence in raw chat transcript only
 
 **Task-Forming Chat**:
@@ -131,6 +131,10 @@ _Avoid_: Separate task system, provider-owned source of truth
 **Ready Gate**:
 人類在 Grimo Task Management Interface 中確認 Definition Package 後，Task 才能進入 READY 的產品關卡。
 _Avoid_: External client directly marking work READY
+
+**Dispatch Window**:
+使用者手動開啟的一段有期限自動派工時間；READY 任務只有在 active Dispatch Window 內，或使用者手動開始單一 Task 時，才會被 Dispatcher 檢查並轉成 Agent Claim。MVP UI 應提供像「執行 1 小時」「執行到明早 8 點」「只跑選取任務」這類有邊界選項，可設定並行數，並可停止 claim 新任務。Dispatch Window 到期或停止後不硬殺已 RUNNING 任務，已開始的任務會執行到結束。
+_Avoid_: 24/7 background auto-run, permanent auto toggle, killing running tasks when the window expires, READY means execute immediately
 
 **Follow-up Task**:
 Agent 在執行或審查時發現的新工作，會帶著來源 Task、理由和建議 priority 進入 DEFINING 或 BACKLOG，等待人類確認。
@@ -150,6 +154,7 @@ _Avoid_: Agent-created work that starts execution automatically
 - **Primary Product Flow** starts from Project, continues in **Task Management Interface**, and uses **Task-Forming Chat** to create or advance work.
 - **External Work Entry Client** can create or advance the same **Task** records that the **Task Management Interface** shows.
 - **External Work Entry Client** may create or advance a defining Task, but only the **Ready Gate** can move it to READY.
+- **READY** means schedulable work; a **Dispatch Window** or manual task start is still required before Dispatcher can create an Agent Claim.
 - **Task List State** is the shared outer progress abstraction across Task Types; **Task Detail Evidence** contains recipe steps, Quality Loop details and domain evidence for trust and debugging.
 - A **Follow-up Task** may be proposed by an agent, but it still requires human confirmation before READY.
 - **BACKLOG** holds low-commitment work before Grimo actively defines it.
@@ -196,11 +201,14 @@ _Avoid_: Agent-created work that starts execution automatically
 > **Dev:** "Codex 建好任務後可以直接 READY 給 agent 做嗎？"
 > **Domain expert:** "不行。Codex 可以建立或推進 defining Task，但 READY 必須由人回到 Grimo 的 Ready Gate 確認。"
 >
+> **Dev:** "READY 任務會 24 小時被 AI 自動拉去做嗎？"
+> **Domain expert:** "不會。READY 代表可排程；使用者要手動開啟 Dispatch Window 或手動開始單一 Task，Dispatcher 才會建立 Agent Claim。Window 到期後不再 claim 新任務，但已 RUNNING 的任務不硬殺。"
+>
 > **Dev:** "Task board 要把 Discuss、Explore、Spec、Dev、Review 全部攤開嗎？"
 > **Domain expert:** "不要。Task board 顯示簡化 Task List State；細節頁才展開 Workflow Step、Quality Loop 和執行證據。"
 >
 > **Dev:** "Board 要顯示 CLAIMED、DEV、WRAP 嗎？"
-> **Domain expert:** "不要。Board 顯示 RUNNING；CLAIMED、DEV、WRAP 是細節頁的執行證據。"
+> **Domain expert:** "不要。Board 顯示 RUNNING；CLAIMED、DEV、optional WRAP 是細節頁的執行證據，而且 WRAP 不是每筆任務都會出現。"
 >
 > **Dev:** "AI reviewer 還在跑時，Task 要放 REVIEW 嗎？"
 > **Domain expert:** "不要。REVIEW 代表等人類 approve；AI 自審、單元測試和 E2E 等證據要先完成。"
@@ -243,8 +251,9 @@ _Avoid_: Agent-created work that starts execution automatically
 - "MVP 成功" 曾可能只代表產生 **Definition Package**。Resolved: MVP can start its story from definition, but the core promise is fulfilled only when **Review Materials** are produced after agent execution.
 - "第一屏入口" 曾在 chat 和 task list 之間搖擺。Resolved: MVP primary flow is Project first, then **Task Management Interface**; **Task-Forming Chat** is used when creating or advancing a Task.
 - "外部入口權限" 曾可能讓 Codex 直接把工作送到 READY。Resolved: external clients can create or advance defining work only; **Ready Gate** is human-confirmed inside Grimo.
+- "READY 自動執行" 曾可能代表 24/7 background auto-run。Resolved: **READY** means schedulable; execution requires a user-started **Dispatch Window** or manual single-task start.
 - "Task 進度呈現" 曾可能把 SDD 階段或其他領域步驟直接當 board columns。Resolved: board/list uses shared **Task List State**; recipe steps and Quality Loop live in **Task Detail Evidence**.
-- "RUNNING" 曾可能被拆成 CLAIMED / DEV / WRAP board columns。Resolved: board uses **RUNNING**; finer execution states live in **Task Detail Evidence**.
+- "RUNNING" 曾可能被拆成 CLAIMED / DEV / WRAP board columns。Resolved: board uses **RUNNING**; finer execution states live in **Task Detail Evidence**, and WRAP is optional rather than a guaranteed board state.
 - "REVIEW" 曾可能同時代表 AI review 和 human review。Resolved: **Human Review State** means AI review/testing/evidence are complete and the task is waiting for human approval.
 - "測試與驗收門檻" 曾可能在每次 run 中臨場判斷或套固定 checklist。Resolved: **Project Quality Gate** is defined during Project design; **Task/Spec Acceptance Gate** adapts it for each Task.
 - "planning-project" 曾可能只被理解成手動 workflow command。Resolved: project planning can be represented as a **Project Planning Task** assigned to an architect-like **Agent Profile**.
