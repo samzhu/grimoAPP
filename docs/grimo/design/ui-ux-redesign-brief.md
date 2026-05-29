@@ -150,7 +150,7 @@ Project owns:
 
 A Task represents one user-level piece of work.
 
-Current task fields in the frontend POC:
+Task fields designers must preserve or introduce:
 
 | Field | Meaning |
 | --- | --- |
@@ -168,6 +168,9 @@ Current task fields in the frontend POC:
 | `evidence` | Evidence chips, e.g. screenshot, typecheck, risk note. |
 | `labels` | User-facing task labels shown on cards. Use the prototype-defined label taxonomy; do not duplicate `source`, workflow recipe steps, or skill/workflow capability names here. |
 | `comments` | Discussion or comment count. |
+| `conversationThread` | Complete task-owned discussion history: messages, attached files, referenced files, external links, clarifications, and system event summaries. Opens from task `Chat`. |
+| `conversationPreview` | Lightweight card/detail/collapsed-chat summary: recent messages, key summary, open questions, and attachment count. It is not the full record. |
+| `attachments` | Files, screenshots, videos, logs, docs, or links attached to the task conversation or task detail. List surfaces show count or compact hints only. |
 
 ### Board-Facing Task States
 
@@ -217,6 +220,25 @@ Current prototype label taxonomy:
 bug, documentation, duplicate, enhancement, good first issue, help wanted,
 invalid, question, wontfix, frontend, backend, ci/cd, design, research
 ```
+
+### Task Conversation And Attachments
+
+Each Task owns a durable Task Conversation Thread. Opening `Chat` from a task must show the full thread for that task, including historical user messages, agent replies, attached files, referenced files, external links, clarifications, and important system event summaries.
+
+Collapsed and list-level surfaces should show a Task Conversation Preview instead of the raw transcript:
+
+- Recent few messages.
+- Key summary.
+- Open questions.
+- Attachment count or compact attachment hint.
+
+Design rules:
+
+- Do not start a blank chat session when the user opens `Chat` from a task.
+- Do not render the full raw transcript on board cards, attention cards, or mobile rows.
+- Do not use attachments as task labels or source chips.
+- Attachments can become review evidence when promoted or linked, but ordinary attached files live in task conversation/detail first.
+- The mental model is closer to issue comments attached to work than a standalone chat app, while Grimo adds workflow state, quality gates, evidence, and summaries.
 
 Badge styling must make identity, state, and labels distinguishable at a glance:
 
@@ -270,6 +292,8 @@ Design needs:
 - A task candidate should be visible when chat identifies one.
 - Missing details and open questions should be explicit.
 - User should see when a task is created versus just discussed.
+- Once work becomes a Task, task `Chat` should preserve the full conversation and attachments for that Task.
+- Board, list, and collapsed Chat surfaces should expose only preview information: recent messages, key summary, unresolved questions, and attachment count.
 
 ### Flow C. Confirm Ready
 
@@ -428,6 +452,7 @@ Current card content:
 - Up to two labels.
 - Updated time.
 - Comment count.
+- Optional conversation preview hint: recent discussion summary, open question count, or attachment count.
 - Selected state accent after click.
 
 Current behavior:
@@ -475,6 +500,8 @@ Design notes:
 - Review materials need more hierarchy in redesign: evidence type, source, pass/fail, timestamp, command, screenshot, risk.
 - Quality score needs more explanation and confidence than a numeric chip alone.
 - For `REVIEW`, human approval/rejection controls should probably become primary, once implemented.
+- The `Chat` action should open the task's existing Task Conversation Thread, not a generic global chat.
+- The drawer may show Task Conversation Preview, but full message history and attachments belong in `Chat` or full task detail.
 
 ### 8.3 Full Task Detail Page
 
@@ -556,6 +583,9 @@ Design notes:
 - Replace implementation-facing copy with product-facing copy.
 - Chat should show extracted task candidates, definition gaps, suggested next questions, and links to created/updated tasks.
 - Chat should not visually imply that the system will execute code immediately.
+- When opened from an existing Task, Chat is a durable Task Conversation Thread with complete message history, attached files, referenced files, external links, and follow-up clarifications.
+- When Chat is collapsed or represented from a card/detail summary, show only recent messages, key summary, open questions, and attachment count.
+- Attachments are not labels, source metadata, or board-level chips. Keep them in Chat/detail, and promote them to Review Materials only when they are evidence for approval.
 
 ### 8.6 Blockers / Needs-Human View
 
@@ -831,6 +861,7 @@ The redesign should answer these questions better than the current POC:
 10. How did this task get here, and what source does it sync with?
 11. What workflow recipe governs this task?
 12. What did the AI learn, and what workflow improvements are proposed?
+13. What was the recent conversation context, and where can I open the full task conversation and attachments?
 
 ---
 
@@ -845,6 +876,8 @@ Keep for Round 1:
 - Larger review cards for tasks that are waiting on human approval, especially `REVIEW` tasks with quality score and evidence readiness.
 - A compact board or list below the focus area so the user can still understand the full workflow state.
 - List-level action buttons should route to `Chat` for discussion and clarification; do not add separate `審查材料` or `查看缺口` buttons in attention/focus cards.
+- Task cards and collapsed Chat should show Task Conversation Preview only: recent messages, key summary, open questions, and attachment count.
+- Opening `Chat` from a Task should reveal the complete Task Conversation Thread with attachments and links.
 
 Do not copy for Round 1:
 
@@ -902,8 +935,10 @@ Needs states:
 - Running.
 - Review waiting.
 - Done.
-- External-source marker.
+- External sync-conflict indicator, only when it requires human attention.
 - Has unread comments.
+- Has attachments.
+- Has open questions.
 - Has missing details or open questions.
 
 ### Task Detail
@@ -949,7 +984,8 @@ Needs states:
 - Creating new task candidate.
 - Updating existing task.
 - Open question prompts.
-- Attach evidence/source.
+- Attach files, screenshots, logs, docs, or links.
+- Promote an attachment to evidence when it becomes review material.
 
 ### Primary Actions
 
@@ -1004,7 +1040,7 @@ Good user-facing wording examples:
 | typecheck | TypeScript check passed |
 | risk note | Remaining risk |
 | capability probe | Local capability check |
-| source chips | Work source |
+| source chips | Work origin in task detail only |
 
 Designer should define final terminology and tone, but product semantics must remain intact.
 
@@ -1074,6 +1110,8 @@ A proposed redesign should be considered incomplete unless it covers:
 - Project context.
 - Task management as the main product surface.
 - Task-forming chat as a work-entry surface.
+- Task Conversation Thread as the complete task-owned discussion and attachment record.
+- Task Conversation Preview on cards, detail summaries, and collapsed Chat states.
 - Board-facing task states or an equivalent progress model.
 - A focus view or attention band that surfaces tasks requiring human action before the full board.
 - A single primary create-task CTA per viewport, avoiding duplicate `新增 Task` buttons with the same scope.
@@ -1092,9 +1130,9 @@ Minimum view coverage:
 | View | Required redesign coverage |
 | --- | --- |
 | Task workbench | Main work tracking, filtering/searching, state overview, attention cues. |
-| Task detail | Summary, gates, evidence, workflow, quality, actions. |
+| Task detail | Summary, gates, conversation preview, attachments, evidence, workflow, quality, actions. |
 | Review workspace | Approval/rejection, evidence comparison, risk, fix history. |
-| Task-forming chat | Conversation to structured task, open questions, task candidate. |
+| Task-forming chat | Conversation to structured task, full task thread when linked, attachments, open questions, task candidate. |
 | Create task | Manual draft creation without workflow or source overexposure. |
 | Blockers | Needs-human repair queue. |
 | Projects | Local repo/codebase binding and readiness. |
@@ -1118,6 +1156,7 @@ These are intentionally left open for the designer:
 10. How should external work item sync conflicts be represented?
 11. How should Learning Loop proposals appear after wrap?
 12. How much personality should Grimo have while staying credible for engineering work?
+13. How much of Task Conversation Preview belongs on a card before it becomes too dense?
 
 ---
 

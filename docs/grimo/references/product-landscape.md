@@ -11,6 +11,7 @@
 5. Grimo should present simplified Task states in list/board views, while keeping SDD workflow steps and Quality Loop evidence in Task detail.
 6. Grimo should treat chat as a Task-forming surface, not the main product object; the product object is the Project/Task and its reviewable evidence.
 7. Grimo's differentiator should be local-first evidence ownership plus quality-gated workflow, not generic AI coworker branding.
+8. Task conversation should behave like work-item discussion: the full thread and attachments belong to the Task, while list/card views show only summary cues, counts and unresolved questions.
 
 ## 2026 Trend Analysis
 
@@ -145,6 +146,26 @@ Product signal:
 Grimo implication:
 
 - Grimo should treat GitHub as a future work-item connector, not as the only task system.
+
+### Work-Item Comments And Attachments
+
+Sources:
+
+- GitHub attaching files: <https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/attaching-files>
+- Jira Cloud issue attachments: <https://support.atlassian.com/jira-software-cloud/docs/add-files-images-and-other-content-to-describe-an-issue/>
+- Linear search: <https://linear.app/docs/search>
+
+Product signal:
+
+- GitHub keeps attachment flow inside issue, pull request and discussion comments; files can be attached through the comment box.
+- Jira treats attachments, linked files, comments and rich description content as part of the work item context.
+- Linear search indexes issue comments in addition to issue ID, title and description, reinforcing that discussion belongs to the issue/work item.
+
+Grimo implication:
+
+- Each Grimo Task should own a durable Task Conversation Thread with messages, attachments, external links and clarifications.
+- Cards, lists and collapsed chat should show Task Conversation Preview only: recent messages, key summary, open questions and attachment count.
+- Attachments are neither task labels nor source chips. They live in conversation/detail first and become Review Materials only when promoted as evidence.
 
 ### Claude Code
 

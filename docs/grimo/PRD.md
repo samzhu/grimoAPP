@@ -24,20 +24,20 @@
 
 Grimo 對使用者說是 **AI 開發工作台（AI Development Workbench）**；工程定義是 **本地 agent control plane（Local Agent Control Plane）**。
 
-Grimo 在本機管理 Project、Task、Session、Skills、MCP servers、Workflow Recipes、Subagent Execution、Review Materials、Wrap Summary 和 Learning Loop。MVP 中 Project 代表一個本機 repo / codebase；Task 代表使用者想完成的一件工作，而不是 workflow 拆出的內部 step。Grimo 讓使用者把聊天、local tasks、未來的 GitHub Issues / Linear / Jira 工作項目統一成 Grimo Task；人類確認後進入 Ready Task；使用者手動啟動 dispatch window 後，AI agent 才能在該窗口內領走 READY 任務執行；最後在 REVIEW 階段交回完整審查資料給人類 approve/reject。
+Grimo 在本機管理 Project、Task、Task Conversation Threads、Attachments、Session、Skills、MCP servers、Workflow Recipes、Subagent Execution、Review Materials、Wrap Summary 和 Learning Loop。MVP 中 Project 代表一個本機 repo / codebase；Task 代表使用者想完成的一件工作，而不是 workflow 拆出的內部 step。每個 Task 都擁有完整可回放的 Task Conversation Thread：點開 `Chat` 會看到完整對話紀錄、附加檔案、外部連結與後續澄清；收合 Chat 或只看卡片時，只顯示最近幾則對話、重點摘要、未決問題和附件數。Grimo 讓使用者把聊天、local tasks、未來的 GitHub Issues / Linear / Jira 工作項目統一成 Grimo Task；人類確認後進入 Ready Task；使用者手動啟動 dispatch window 後，AI agent 才能在該窗口內領走 READY 任務執行；最後在 REVIEW 階段交回完整審查資料給人類 approve/reject。
 
 Grimo 也可以扮演像 Linear 一樣的任務編排系統，提供 Agent-Facing Task API 給 Codex、Claude Code 或其他 coding agent runtime 來 claim 任務、取得 Definition Package、回報 execution step output、review result 與 wrap summary。即使任務是外部 agent 領走，Grimo 仍是流程與狀態控制面：Ready 邊界、Agent Assignment、Workflow Recipe、Quality Loop、Learning Loop 和 connector sync 都由 Grimo 管。
 
-主要產品流程是：建立或選擇 Project，進入 Task Management Interface 追蹤 Task，需要建立或推進工作時才打開 task-forming chat。Chat 是工作入口，不是產品本體；Task Management Interface 才是使用者追蹤狀態、驗收 evidence 和做 approve/reject 的主介面。
+主要產品流程是：建立或選擇 Project，進入 Task Management Interface 追蹤 Task，需要建立或推進工作時才打開 task-forming chat。Chat 是工作入口，不是產品本體；Task Management Interface 才是使用者追蹤狀態、驗收 evidence 和做 approve/reject 的主介面。Chat 也不是一次性 provider transcript：它是 Task 的完整討論 thread，類似 GitHub issue 留言串的產品角色，但 Grimo 會額外產生重點摘要、定義缺口、附件提示與 workflow evidence 連結。
 
 系統視圖分成兩種：
 
 1. **工作入口（Work Entry Clients）**：Codex、Claude Code、Grimo Chat 都可以把對話、指令或 issue link 接到 Grimo Workflow，形成 Task 或推進 Task。
 2. **任務管理介面（Task Management Interface）**：Grimo 自帶的任務管理介面顯示 Project、Task 狀態、dependencies、assignment、dispatcher、worker log、run history、Review Materials、Wrap Summary 與 connector sync。
 
-Grimo Workflow Task Management 是兩種視圖背後的核心。Project 層級選擇開發工作流；MVP Project 預設使用 Coding Task Recipe。Task 建立時不要求使用者選 Task Type 或 Workflow Recipe，只保存 title、body、source、labels、status 與後續討論脈絡；其中 source 是系統依入口自動標註的 provenance，手動建立固定為 `manual`，不出現在 Create Task 表單。執行與定義階段繼承 Project 的 workflow 設定，再由 Ready Gate / Dispatcher 決定 Agent Profile / runtime、skills 與 MCP servers。Task List State 是跨領域的大抽象狀態；開發、研究、分析、行銷、影片製作等未來 Project workflow 都可使用同一組 board-facing 狀態，但在 DEFINING / RUNNING / REVIEW 等狀態中執行的專業步驟由 Project 選定的 Workflow Recipe 定義。
+Grimo Workflow Task Management 是兩種視圖背後的核心。Project 層級選擇開發工作流；MVP Project 預設使用 Coding Task Recipe。Task 建立時不要求使用者選 Task Type 或 Workflow Recipe，只保存 title、body、source、labels、status、conversation summary、recent messages、attachments metadata 與後續討論脈絡；其中 source 是系統依入口自動標註的 provenance，手動建立固定為 `manual`，不出現在 Create Task 表單。執行與定義階段繼承 Project 的 workflow 設定，再由 Ready Gate / Dispatcher 決定 Agent Profile / runtime、skills 與 MCP servers。Task List State 是跨領域的大抽象狀態；開發、研究、分析、行銷、影片製作等未來 Project workflow 都可使用同一組 board-facing 狀態，但在 DEFINING / RUNNING / REVIEW 等狀態中執行的專業步驟由 Project 選定的 Workflow Recipe 定義。
 
-Grimo 的產品語言維持 Task 工作台：一般使用者在 list / board 上看到簡化 Task List State，例如 BACKLOG、DEFINING、READY、RUNNING、REVIEW、DONE、BLOCKED，不需要理解底層 agent workflow 實作。CLAIMED、DEV、optional WRAP、recipe steps、Quality Loop、quality_score、fix history、worker log、run history、diff、測試輸出或其他領域 evidence，都屬於 Task detail evidence。內部 execution substrate 則以 Pollack AI Lab `Agent Workflow` 為主：Workflow Recipe 映射成 `Workflow`；每個 recipe step 底下都跑自動 `Review -> Rating -> Fix` 的 Quality Loop，直到 `quality_score > 9` 才能進下一個主要 step。Quality Loop 是每個主要 step 的自動子流程，不是頂層 workflow step。Coding Task Recipe 是 MVP 的第一個具體 recipe，涵蓋 Discuss / Explore / Prototype / Spec / Usage / Tkt / Dev / Review，並在需要 merge、cleanup、delivery summary 或 learning proposal 時進入 optional Wrap；這套 SDD 開發流程適合軟體開發，不是所有 Project workflow 的固定流程。流程控制、品質門檻與可恢復執行分別透過 `Step`、`Gate`、`StepRunner`、checkpoint、trace 與 sandbox / judge 相關套件落地。
+Grimo 的產品語言維持 Task 工作台：一般使用者在 list / board 上看到簡化 Task List State，例如 BACKLOG、DEFINING、READY、RUNNING、REVIEW、DONE、BLOCKED，不需要理解底層 agent workflow 實作。卡片可以顯示留言數、附件數、最近對話提示或重點摘要，但不顯示完整 raw transcript。完整 Task Conversation Thread、Task Attachments、CLAIMED、DEV、optional WRAP、recipe steps、Quality Loop、quality_score、fix history、worker log、run history、diff、測試輸出或其他領域 evidence，都屬於 Task detail evidence。內部 execution substrate 則以 Pollack AI Lab `Agent Workflow` 為主：Workflow Recipe 映射成 `Workflow`；每個 recipe step 底下都跑自動 `Review -> Rating -> Fix` 的 Quality Loop，直到 `quality_score > 9` 才能進下一個主要 step。Quality Loop 是每個主要 step 的自動子流程，不是頂層 workflow step。Coding Task Recipe 是 MVP 的第一個具體 recipe，涵蓋 Discuss / Explore / Prototype / Spec / Usage / Tkt / Dev / Review，並在需要 merge、cleanup、delivery summary 或 learning proposal 時進入 optional Wrap；這套 SDD 開發流程適合軟體開發，不是所有 Project workflow 的固定流程。流程控制、品質門檻與可恢復執行分別透過 `Step`、`Gate`、`StepRunner`、checkpoint、trace 與 sandbox / judge 相關套件落地。
 
 核心流程：
 
@@ -257,6 +257,7 @@ graph TD
 
 - **Project 先定義方向，再設計架構。** 使用者建立 Project 後，Grimo 先透過 Product Definition Task 釐清要做什麼；若 repo 已有 PRD，這個 Task 會改成 Product Definition Review，檢查、更新和補齊既有方向。方向明確後，才由 Project Planning Task 產出 architecture、development standards、QA strategy 和 Project Quality Gate。
 - **Discuss 靠 chat 頻繁互動。** 使用者在 `POST /api/chat` 說「幫我把 session branch 支援補完」後，主代理先在 chat 裡追問目標、限制、成功條件與風險；必要時也在 chat 中觸發研究分析，將外部資料、現有程式與競品/框架資訊帶回對話。這段互動仍屬於 Coding Task Recipe 的 Discuss step，收斂後產生可被 Quality Loop 審查的 Discuss output。
+- **Task Chat 保存完整討論。** 使用者在 Task detail 點 `Chat` 會進入該 Task 的完整 Task Conversation Thread，能看到所有歷史訊息、agent 回覆、附件、引用檔案、外部連結與後續澄清；收合 Chat 或只看卡片時，Grimo 只顯示最近幾則對話、重點摘要、附件數與未決問題，像 issue 留言摘要一樣幫人快速回到上下文。
 - **多種工作入口接同一個 workflow。** 使用者可以從 Grimo Chat、Codex 或 Claude Code 發起工作；不管入口是哪一個，最後都進同一套 Grimo Workflow Task Management，產生相同的 Task、狀態、Review Materials 與 Wrap Summary。外部入口可以建立或推進 defining work，但不能直接把 Task 移到 READY。
 - **需求定義落成文件。** Discuss step 透過 chat 與研究分析產出的 task title/body/source/labels/acceptance hints 會進入 Project 選定的開發工作流；MVP 依 Coding Task Recipe 執行 Explore、Prototype（必要時）、Spec、Usage、Tkt，並讓每個主要 step 的自動 Quality Loop 通過後才前進，最後形成 Definition Package。
 - **人類確認 Ready Task。** 使用者確認 Definition Package 與該 Task 採用的 Quality Gate 後，才把 Task 移到「待執行」狀態，指定「Backend Engineer」這個薄 Agent Profile。
@@ -276,7 +277,7 @@ graph TD
 
 ### P2 — Chat creates work; execution needs confirmation
 
-Task-forming chat 是 Discuss step 的入口：主代理透過多輪 chat 把原始想法問清楚，必要時觸發研究分析，沉澱成 Task，但不直接改檔。Task 接著由 Pollack Agent Workflow 驅動 Explore / Prototype / Spec / Usage / Tkt 等主要 steps，將需求落成 Definition Package，並選用或補充 Task/Spec Acceptance Gate。各主要 step 的自動 Quality Loop 通過後會自動前進；人類把 Definition Package 和 Quality Gate 確認為 Ready Task 後，Task 進入可排程狀態，直到使用者手動啟動 dispatch window 或手動開始單一 Task，AI 才能正式領走執行。
+Task-forming chat 是 Discuss step 的入口：主代理透過多輪 chat 把原始想法問清楚，必要時觸發研究分析，沉澱成 Task，但不直接改檔。每個 Task 的 chat 都保存為 durable Task Conversation Thread，包含完整歷史訊息和附件；收合狀態只顯示 preview，例如最近幾則、重點摘要、未決問題和附件數。Task 接著由 Pollack Agent Workflow 驅動 Explore / Prototype / Spec / Usage / Tkt 等主要 steps，將需求落成 Definition Package，並選用或補充 Task/Spec Acceptance Gate。各主要 step 的自動 Quality Loop 通過後會自動前進；人類把 Definition Package 和 Quality Gate 確認為 Ready Task 後，Task 進入可排程狀態，直到使用者手動啟動 dispatch window 或手動開始單一 Task，AI 才能正式領走執行。
 
 ### P3 — Thin Agent Profile, real capability in skills and recipes
 
@@ -344,6 +345,20 @@ And    Task 狀態是 TRIAGE 或 DEFINING
 And    Task body 保存 Discuss phase 的摘要與待確認欄位
 And    沒有建立 worktree
 And    沒有啟動 subagent execution
+```
+
+### AC1.0 — Task Chat 保存完整對話與附件，收合時顯示摘要
+
+```gherkin
+Given  Task #42 是從 Grimo Chat、Codex 或手動建立而來
+And    Task #42 已有 12 則對話訊息、2 個附件和 1 個外部連結
+When   使用者在 Task detail 點擊 Chat
+Then   Grimo 顯示 Task #42 的完整 Task Conversation Thread
+And    使用者可以看到所有歷史訊息、附件、外部連結與後續澄清
+When   使用者收合 Chat 或回到 Task list / board
+Then   Grimo 只顯示最近幾則對話、重點摘要、未決問題和附件數
+And    卡片不顯示完整 raw transcript
+And    附件不被當成 label 或 source 顯示
 ```
 
 ### AC1.1 — 多種工作入口接同一套 Grimo Workflow
@@ -501,7 +516,7 @@ And    Task 狀態與執行結果仍透過 Work Item Connector 同步
    方向明確後建立 Project Planning Task，由架構師類 Agent Profile 依 project-planning Workflow Recipe 產出 architecture、development standards、QA strategy 和 Project Quality Gate。Project Quality Gate 依 repo/codebase 型態與最佳實踐定義 baseline，不讓每個 Task 從零決定合格線。
 
 4. **Chat Discuss to Task**
-   主代理透過 chat 和使用者頻繁互動，將原始想法問清楚並沉澱成 Task；不直接執行。新增 Task 的可見表單欄位對齊 GitHub issue style：title、body、labels；source 由系統依入口自動標註，手動建立固定為 `manual`，不給使用者選。status 由系統設定，workflow 由 Project 繼承。
+   主代理透過 chat 和使用者頻繁互動，將原始想法問清楚並沉澱成 Task；不直接執行。每個 Task 都保存完整 Task Conversation Thread 與 Task Attachments；點開 Chat 看到完整紀錄，收合時顯示最近幾則與重點摘要。新增 Task 的可見表單欄位對齊 GitHub issue style：title、body、labels；source 由系統依入口自動標註，手動建立固定為 `manual`，不給使用者選。status 由系統設定，workflow 由 Project 繼承。
 
 5. **SDD Definition Steps**
    將 Discuss 結果交給 Pollack Agent Workflow 繼續跑 Explore / Prototype（必要時）/ Spec / Usage / Tkt；每個主要 step 都先通過自動 Quality Loop，最後形成可審查的 Definition Package 和 Task/Spec Acceptance Gate。
@@ -523,7 +538,7 @@ And    Task 狀態與執行結果仍透過 Work Item Connector 同步
 - 本地優先單使用者部署；預設 bind `127.0.0.1`。
 - 本地環境不可預設完整；必須有 runtime preflight checks、capability detection、diagnostics、fallback 與可理解的 blocked state。缺 Docker、缺 CLI login、缺 native access、port 被占用、filesystem 不可寫、SQLite driver/native library 載入失敗，都應回報成使用者能修復的狀態，而不是靜默失敗。
 - Local-first 資料所有權：Grimo local database / workspace evidence 是正本，external issue trackers、cloud sync、agent provider sessions 都只是同步或執行投影。即使離線或外部帳號失效，使用者仍應能讀取既有 Project、Task、Definition Package、workflow trace、review materials 與 wrap summary。
-- SQLite-first local database POC 保存 Project、Task、Task dependencies、Task events、Worker logs、Run history、Session、Execution、Credential、Workflow step outputs、quality scores、fix history；production-ready path 保留 Postgres。Pollack `workflow-batch` checkpoint / trace 已驗證可用 SQLite；Agent Journal / Agent Memory 目前採 file-backed storage，若要集中進 SQLite 需另實作 adapter。
+- SQLite-first local database POC 保存 Project、Task、Task Conversation Thread、Task attachments metadata、Task dependencies、Task events、Worker logs、Run history、Session、Execution、Credential、Workflow step outputs、quality scores、fix history；production-ready path 保留 Postgres。Pollack `workflow-batch` checkpoint / trace 已驗證可用 SQLite；Agent Journal / Agent Memory 目前採 file-backed storage，若要集中進 SQLite 需另實作 adapter。
 - Spring Modulith + 六角架構守住 module boundaries。
 - 既有 CLI provider / runtime 可替換；Claude/Codex/Gemini/Antigravity 只是 adapter。
 - Skills 投影到 worktree / CLI 原生路徑。
@@ -532,7 +547,7 @@ And    Task 狀態與執行結果仍透過 Work Item Connector 同步
 - MCP / Skill provisioning：Grimo 依 Project 選定的 Workflow Recipe、Task context 與 Agent Profile 決定需要的 MCP servers / skills，並在 worker 執行前準備或提示安裝。
 - Credential pool 與 CLI native auth fallback。
 - Dispatcher：在使用者手動啟動的 dispatch window 或單一 Task 手動開始時掃描 Ready Task，檢查 assignee/profile、Task dependencies、runtime availability，依 dispatch window 並行數建立 Agent Claim；不 24 小時常駐自動領任務。Window 到期或停止後不再 claim 新任務，已 RUNNING 任務執行到結束。
-- Task execution evidence：Task detail 需要能查 events、worker log、run history、dependencies，不只顯示 final status。
+- Task conversation and execution evidence：Task detail 需要能查完整 Task Conversation Thread、attachments、events、worker log、run history、dependencies，不只顯示 final status 或聊天摘要。
 - 內部 Agent Claim port 對齊 Agent-Facing Task API shape；公開給 Codex / Claude Code 類外部 coding agent 的 connector 放入 Backlog。
 - Learning Loop Proposal：定時 agent CLI 檢視 execution history、step outputs、quality scores 與 fix patterns，提案更新 skills / workflow recipes；不自動套用。
 
@@ -593,6 +608,8 @@ Outbound adapters
 POST /api/chat
   -> Main Agent starts Discuss phase with user
   -> Discuss step captures goal, constraints, acceptance hints, risks
+  -> Task Conversation Thread stores full messages, attachments, links
+  -> Task Conversation Preview stores recent messages, key summary, open questions
   -> Pollack Agent Workflow runs automatic Quality Loop for Discuss
   -> Task created through Grimo Local Connector with title / body / source / labels / discussion context
   -> Task inherits the Project-level Workflow Recipe
@@ -620,6 +637,7 @@ POST /api/chat
 | --- | --- | --- | --- |
 | D1 | 對使用者定位為 **AI 開發工作台**，工程定義為 **Local Agent Control Plane** | 現有程式已有 Project / Task / Session / Subagent / Credential / Execution tables；市場也從 chat 轉向 issue/task 指派給 AI agents。 | 繼續稱「CLI user harness」作為主定位；太窄且不符合現有產品形狀。 |
 | D2 | Chat 是 Discuss phase；建 Task，不直接執行 | 主代理硬性唯讀很難完整做到；先透過 chat 把原始想法問清楚，再把寫入工作沉澱成 Task，最後由人類確認 Ready，是更可驗收的行為。 | Chat 直接改檔；安全與責任邊界不清。 |
+| D2.1 | 每個 Task 保存完整 Task Conversation Thread，列表只顯示 preview | 使用者點開 Task 的 Chat 應能回看完整討論、附件、引用檔案和外部連結；但 board/list 需要快速掃描，所以只顯示最近幾則、重點摘要、未決問題和附件數。這接近 GitHub issue comments 的心智模型，但 Grimo 仍以 Task 狀態、Definition Package、Quality Gate 和 Review Materials 管理 AI 工作。 | 只保存 provider chat transcript；會失去本地正本與跨入口一致性。列表直接顯示完整對話；會讓 Task Management Interface 變成聊天紀錄牆。只保存摘要；會讓使用者無法回溯決策與附件。 |
 | D3 | MVP 以人類確認 Ready Task 加手動 dispatch window 作為 AI 可執行邊界 | 保留 AI 自主領任務的效率，同時避免未確認想法或背景常駐自動改 repo；READY 表示可排程，真正自動派工要由使用者手動啟動一段 dispatch window。 | 每個 action 都問；回到 approval fatigue。READY 後 24 小時常駐自動執行；太早且信任邊界不清。 |
 | D4 | MVP 人工指定 Agent Profile 為主 | 指派給「Backend Engineer」「Code Reviewer」比指派給 provider 更符合工作台語言；MVP 先人工指定降低錯派風險。 | 全自動排程；需要成熟 skill matching / complexity routing。 |
 | D5 | Agent Profile 必須薄 | 對 AI 有用的是 skills、recipe、task context、project docs；profile 主要給人類理解和指派。 | 厚 AI coworker profile（獨立 inbox、日程、長期人格）；太像 Helio workforce，超出 MVP。 |
@@ -640,7 +658,7 @@ POST /api/chat
 | D21 | 主要 workflow step 通過品質門檻後自動前進 | 每個 Workflow Recipe 定義的主要 step 都由 workflow 控制；當該 step 的 Quality Loop 通過 `quality_score > 9` 後，自動進下一個主要 step。人類確認只保留在產品 gate，例如 Definition Package 轉 READY、REVIEW approve/reject，或高風險操作。 | 每個 step 都要求人類按確認；會造成 approval fatigue，也破壞 workflow 自動化價值。完全取消人工 gate；會讓 READY 與 Review approval 的責任邊界不清。 |
 | D22 | Pollack storage surface 以 SQLite POC 分層處理 | Grimo 需要 local-first workflow evidence；ADR-001 已接受 SQLite 作為 MVP local persistence path，並確認 Pollack `workflow-batch` 的 checkpoint / trace 可走 SQLite。 | 把整個 Pollack stack 都當成 DB framework；會製造不必要的實作量。只用 H2；無法符合 local-first 方向。 |
 | D23 | 使用者電腦環境不可預設滿足所有 runtime 要求 | Grimo 是本地產品，必須把 Java / Docker / git / CLI provider / model login / native library / filesystem / port 等環境差異視為產品設計輸入。MVP 需要 capability detection、preflight diagnostics、fallback 與 `BLOCKED / NEEDS_HUMAN` 狀態，讓使用者知道缺什麼、怎麼補、哪些任務仍可繼續。 | 把完整環境列為硬性安裝前提；會讓產品在真實使用者電腦上脆弱。全部包進 heavy VM/container；會增加安裝、認證、效能與本地 CLI 整合成本。 |
-| D24 | Grimo local store 是 workflow evidence 的正本 | Local-first 案例強調速度、離線、可持續性、隱私與所有權；Grimo 應把 Task、Definition Package、workflow trace、quality scores、review materials、fix history、wrap summary 與 learning proposals 保存在使用者可掌握的本地 store。外部 issue tracker、雲端同步和 agent provider session 都應視為 projection / execution channel。 | 以雲端 SaaS 或外部 issue tracker 作正本；會讓使用者在斷網、帳號停權、服務關閉或 provider session 遺失時失去自己的 workflow history。只存 provider chat transcript；無法形成可審查、可備份、可遷移的產品資料。 |
+| D24 | Grimo local store 是 workflow evidence 的正本 | Local-first 案例強調速度、離線、可持續性、隱私與所有權；Grimo 應把 Task、Task Conversation Thread、attachments metadata、Definition Package、workflow trace、quality scores、review materials、fix history、wrap summary 與 learning proposals 保存在使用者可掌握的本地 store。外部 issue tracker、雲端同步和 agent provider session 都應視為 projection / execution channel。 | 以雲端 SaaS 或外部 issue tracker 作正本；會讓使用者在斷網、帳號停權、服務關閉或 provider session 遺失時失去自己的 workflow history。只存 provider chat transcript；無法形成可審查、可備份、可遷移的產品資料。 |
 | D25 | MVP 不承諾 full local-first sync engine | Grimo MVP 先把 single-user local store、workflow evidence、export/backup、connector projection 做穩；跨裝置或多人即時協作放入後續 spec。 | 一開始就做 CRDT / OT 多端同步；風險高且會拖慢核心 Task Workflow。假裝只要加一個 sync library 就完成；會低估 domain-specific conflict 與權限問題。 |
 | D26 | MVP Project 代表一個本機 repo / codebase | Worktree、sandbox、test commands、Project Quality Gate 和 evidence path 都天然綁定 repo；MVP 先讓 Project 邊界清楚。 | Project 代表多 repo product workspace；未來可做，但會讓第一版 execution path 和品質門檻複雜化。 |
 | D27 | Task 是使用者層級的一件工作 | 使用者追蹤的是「這件工作完成了沒」；底層 recipe steps、Quality Loop、CLAIMED / DEV / optional WRAP 和 evidence 是 Task detail evidence。新增 Task 的可見表單只捕捉 title、body、labels；source 由系統自動標註，workflow 由 Project 層級設定繼承。 | 把 workflow step 也稱為 Task；會讓 board 變成 workflow console，使用者需要理解太多內部環節。讓 Task 建立時選 workflow；會把記錄工作變成流程配置。讓使用者在手動建立時選 source；會暴露系統 provenance 細節。 |

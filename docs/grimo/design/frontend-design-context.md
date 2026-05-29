@@ -59,6 +59,7 @@ Grimo frontend design work should leave a durable context trail. When requiremen
 - Tablet/mobile breakpoint: board is hidden and replaced with a grouped task list.
 - Mobile list rows show state, task id, title, labels, updated time, score, and comments. Task source is not shown outside detail.
 - Card labels must be user-facing categorization only and must come from the prototype-defined task label taxonomy. Do not place `source` values such as `chat` or skill/workflow capability names such as `task-forming` into list-level label chips.
+- Cards and mobile rows may show Task Conversation Preview cues such as recent discussion summary, open question count, comment count, or attachment count, but they must not render the full raw transcript.
 
 **Component notes:**
 
@@ -86,6 +87,7 @@ Grimo frontend design work should leave a durable context trail. When requiremen
 - Task source is shown in task detail only. It should not be promoted in board cards, mobile rows, attention cards, search placeholder text, or create-task copy.
 - Task detail is one of the only user input surfaces, alongside Chat. User-facing copy should describe returning to `Chat` to continue exploration or planning, not doing a separate context-repair job.
 - Detail headers show task identity and Task List State only. Workflow recipe steps such as `Discuss` remain in `Stage & Quality`, not in header chips.
+- Task detail may show Task Conversation Preview and attachment summaries. Full message history and attached files open through task `Chat` or full detail evidence surfaces.
 
 **Responsive behavior:**
 
@@ -186,6 +188,22 @@ Grimo frontend design work should leave a durable context trail. When requiremen
 - **Do not:** Present standalone list-level actions such as review-material or gap-view buttons. Attention cards and focus cards should route to `Chat` for discussion and clarification.
 - **Input surfaces:** The places where users can type are Task detail and Chat. Other surfaces should route to one of those instead of implying a third input workflow.
 - **Verification:** `npm run build`; visual snapshots need update because task detail, attention page, and workbench focus action copy changed.
+
+### Task Conversation Thread And Preview
+
+- **Decision:** Every Task owns a durable Task Conversation Thread. Opening task `Chat` shows the complete task thread: historical user messages, agent replies, attached files, referenced files, external links, clarifications, and important system event summaries.
+- **Why:** User clarified that every task should open to complete conversation history and attachments, while collapsed Chat should show only recent messages and a key summary, similar to issue comments attached to work.
+- **Preview rule:** Board cards, mobile rows, attention cards, detail summaries, and collapsed Chat may show Task Conversation Preview: recent messages, key summary, unresolved questions, comment count, and attachment count.
+- **Do not:** Start a blank generic chat from a task, hide task attachments outside provider transcripts, render raw transcripts on list surfaces, or treat attachments as labels/source chips.
+- **Input surfaces:** Chat is the main conversation surface; Task detail can accept structured task edits or review decisions. Other list-level surfaces should route back to one of these.
+- **Verification:** Documentation-only decision for this update; future UI implementation should add Playwright assertions that task `Chat` is linked to the selected task and that cards show preview metadata rather than full transcripts.
+
+### Task Attachments
+
+- **Decision:** Attachments belong to Task Conversation Thread and Task detail first. They can be promoted or linked into Review Materials when they become evidence for approval.
+- **Why:** Attachments help preserve context and discussion history, but list-level triage should stay focused on state, labels, quality, and next action.
+- **Do not:** Display attachments as task labels, source metadata, or standalone board chips. Use attachment count or compact hints outside detail/chat.
+- **Verification:** Documentation-only decision for this update.
 
 ### Attention Queue
 

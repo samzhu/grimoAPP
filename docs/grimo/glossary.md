@@ -124,6 +124,18 @@ _Avoid_: Hiding evidence in raw chat transcript only
 Grimo 用來建立或推進 Task 的對話入口，目標是問清楚工作並收斂成可管理的 Task。
 _Avoid_: General assistant chat, loose prompt history
 
+**Task Conversation Thread**:
+Task 底下完整、可回放的對話紀錄，包含使用者與 agent 討論、系統事件摘要、附件、引用檔案、外部連結與後續澄清；使用者從 Task 打開 `Chat` 時看到的是這條完整 thread。
+_Avoid_: Ephemeral chat session, provider transcript as source of truth, board-level comment preview only
+
+**Task Conversation Preview**:
+Task 卡片、detail 摘要或 Chat 收合狀態中顯示的輕量摘要，包含最近幾則對話、重點摘要、未決問題與附件數；它幫使用者快速判斷上下文，但不取代完整 Task Conversation Thread。
+_Avoid_: Hiding full conversation, showing raw transcript everywhere, confusing preview with Review Materials
+
+**Task Attachment**:
+附在 Task Conversation Thread、Task detail 或 Review Materials 上的檔案、截圖、錄影、log、文件或外部連結。附件可輔助討論、定義、審查或執行 evidence，但清單層只顯示數量或簡短提示。
+_Avoid_: List-level source chip, generic label, only storing attachment in provider chat
+
 **External Work Entry Client**:
 Codex、Claude Code 或未來 connector 用來把外部對話、指令或 issue 類工作送進 Grimo Task system 的入口。
 _Avoid_: Separate task system, provider-owned source of truth
@@ -152,6 +164,7 @@ _Avoid_: Agent-created work that starts execution automatically
 - **Workflow Recipe**, **Skill**, **Quality Gate** and **Review Materials** turn repeatable professional practice into an executable product workflow.
 - The **MVP Core Promise** starts from a **Definition Package**, but is only fulfilled when the user receives **Review Materials** after agent execution.
 - **Primary Product Flow** starts from Project, continues in **Task Management Interface**, and uses **Task-Forming Chat** to create or advance work.
+- A **Task** owns a **Task Conversation Thread**. Cards and collapsed chat surfaces may show a **Task Conversation Preview**, but full conversation and attachments remain accessible from Task detail or Chat.
 - **External Work Entry Client** can create or advance the same **Task** records that the **Task Management Interface** shows.
 - **External Work Entry Client** may create or advance a defining Task, but only the **Ready Gate** can move it to READY.
 - **READY** means schedulable work; a **Dispatch Window** or manual task start is still required before Dispatcher can create an Agent Claim.
@@ -194,6 +207,9 @@ _Avoid_: Agent-created work that starts execution automatically
 >
 > **Dev:** "第一版打開 Grimo 要先看到 chat 嗎？"
 > **Domain expert:** "先建立或選擇 Project，進入 Task Management Interface；建立任務時再從 chat 開始。"
+>
+> **Dev:** "Task 點開 Chat 是新的空對話嗎？"
+> **Domain expert:** "不是。每個 Task 都有自己的 Task Conversation Thread；點開 Chat 會看到完整對話、附件與後續澄清。收合時只顯示最近幾則和重點摘要。"
 >
 > **Dev:** "Codex 裡說一句話建立任務，跟 Linear 建 issue 類似嗎？"
 > **Domain expert:** "類似。Codex 是 External Work Entry Client；它可以幫使用者建立 Grimo Task，但 Task 狀態和證據仍回到 Grimo 管。"
@@ -250,6 +266,7 @@ _Avoid_: Agent-created work that starts execution automatically
 - "專業工作實務工程化" 曾可能被命名成新的產品方法論。Resolved: do not add a new product term; express it through **Workflow Recipe**, **Skill**, **Quality Gate** and **Review Materials**.
 - "MVP 成功" 曾可能只代表產生 **Definition Package**。Resolved: MVP can start its story from definition, but the core promise is fulfilled only when **Review Materials** are produced after agent execution.
 - "第一屏入口" 曾在 chat 和 task list 之間搖擺。Resolved: MVP primary flow is Project first, then **Task Management Interface**; **Task-Forming Chat** is used when creating or advancing a Task.
+- "Task Chat" 曾可能被理解成一次性 provider session。Resolved: every **Task** owns a durable **Task Conversation Thread** with messages and attachments; collapsed surfaces show a **Task Conversation Preview** only.
 - "外部入口權限" 曾可能讓 Codex 直接把工作送到 READY。Resolved: external clients can create or advance defining work only; **Ready Gate** is human-confirmed inside Grimo.
 - "READY 自動執行" 曾可能代表 24/7 background auto-run。Resolved: **READY** means schedulable; execution requires a user-started **Dispatch Window** or manual single-task start.
 - "Task 進度呈現" 曾可能把 SDD 階段或其他領域步驟直接當 board columns。Resolved: board/list uses shared **Task List State**; recipe steps and Quality Loop live in **Task Detail Evidence**.
