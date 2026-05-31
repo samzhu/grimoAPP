@@ -1,3 +1,9 @@
 spring:
   application:
     name: grimo
+  datasource:
+    url: ${GRIMO_DATASOURCE_URL:jdbc:sqlite:../temp/grimo-dev.db}
+    driver-class-name: org.sqlite.JDBC
+  sql:
+    init:
+      mode: always

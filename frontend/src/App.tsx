@@ -1,8 +1,9 @@
-import { useMemo, useReducer } from "react";
+import { useMemo, useReducer, useState } from "react";
 import { List } from "@phosphor-icons/react";
 import { Navigation } from "./app/Navigation";
 import { RuntimeProvider } from "./app/RuntimeProvider";
 import grimoLogoUrl from "./assets/grimo-logo.png";
+import type { Project } from "./domain/project/project-types";
 import { tasks } from "./domain/task/task-fixtures";
 import { taskMatchesQuery } from "./domain/task/task-selectors";
 import { Blockers } from "./features/blockers/Blockers";
@@ -16,6 +17,7 @@ import { AssistantChat } from "./features/task-forming-chat/AssistantChat";
 import { Workflow } from "./features/workflow/Workflow";
 
 export function App() {
+  const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [workbench, dispatch] = useReducer(
     taskWorkbenchReducer,
     createInitialTaskWorkbenchState(),
@@ -62,8 +64,8 @@ export function App() {
           </div>
           <div className="project-context">
             <span>目前專案</span>
-            <strong>grimo/web</strong>
-            <code>/Users/samzhu/workspace/github-samzhu/grimo/apps/web</code>
+            <strong>{currentProject?.name ?? "grimo/web"}</strong>
+            <code>{currentProject?.folderPath ?? "/Users/samzhu/workspace/github-samzhu/grimo/apps/web"}</code>
           </div>
         </header>
 
@@ -105,7 +107,7 @@ export function App() {
               />
             )}
             {workbench.view === "blockers" && <Blockers tasks={tasks} onOpenChat={openTaskChat} />}
-            {workbench.view === "projects" && <Projects />}
+            {workbench.view === "projects" && <Projects onCurrentProjectChange={setCurrentProject} />}
             {workbench.view === "chat" && <AssistantChat selectedTask={selectedTask} />}
             {workbench.view === "workflow" && <Workflow />}
           </main>

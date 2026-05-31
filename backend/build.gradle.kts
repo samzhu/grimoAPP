@@ -26,6 +26,10 @@ dependencyManagement {
 
 dependencies {
 	implementation("org.springframework.boot:spring-boot-starter")
+	implementation("org.springframework.boot:spring-boot-starter-webmvc")
+	implementation("org.springframework.boot:spring-boot-starter-validation")
+	implementation("org.springframework.boot:spring-boot-starter-jdbc")
+	runtimeOnly("org.xerial:sqlite-jdbc")
 
 	testImplementation("io.github.markpollack:workflow-batch")
 	testImplementation("io.github.markpollack:workflow-temporal")
@@ -45,6 +49,7 @@ dependencies {
 	testRuntimeOnly("org.xerial:sqlite-jdbc")
 
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
+	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

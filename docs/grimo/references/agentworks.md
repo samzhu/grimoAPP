@@ -86,3 +86,7 @@ Grimo implication:
 ## ADR Links
 
 - `docs/grimo/adr/ADR-001-pollack-workflow-sqlite-poc.md` — Pollack AgentWorks SQLite selection and verification.
+
+## Workflow Definition Links
+
+- `docs/grimo/references/grimo-agent-workflow-definition.md` — Grimo workflow / sub-workflow diagrams mapped to Pollack Agent Workflow concepts.

@@ -4,6 +4,18 @@
 
 這份標準目前先約束 `frontend/` React + Vite POC。它的目標是讓 OpenDesign prototype 能穩定轉成產品 UI，而不是讓 `frontend/src/App.tsx` 繼續膨脹。
 
+## Backend Scope
+
+`backend/` 是 Spring Boot API surface。S001 起，production code 以 domain package 分區，例如 `io.github.samzhu.grimo.project`，同一 package 內保留 controller / service / repository / domain type 的近距離可讀性；不要在第一個功能先拆出泛用 framework layer。
+
+Backend rule：
+
+- REST API 放在 `/api/*`，request / response 使用明確 record，不直接暴露 persistence row / entity。
+- Controller 只處理 HTTP mapping、validation 和 response status；Project 建立規則放在 service。
+- 本地持久化以 architecture / ADR-001 的 SQLite path 為準；S001 優先使用 Spring JDBC stack，只有在 POC 驗證 SQLite `JdbcDialect` 後才使用 Spring Data JDBC repository；測試必須使用 temporary database，不碰使用者真資料。
+- Spring Security 在 MVP 功能開發階段維持 permit-all，不因第一個 API 加入認證阻擋開發流程。
+- 新增 backend API 時，至少補 controller/service/repository 對應測試；frontend 呼叫該 API 時，還要補 full-stack browser path。
+
 ## Source Of Truth
 
 - 產品語言與行為以 `docs/grimo/PRD.md` 為準。
@@ -18,6 +30,7 @@
 - `App.tsx` 只保留 app shell、providers、route/view composition。
 - Domain type、fixture、selector 放到 `src/domain/*`。
 - 產品 surface 放到 `src/features/*`，以 PRD/prototype 語言命名，例如 `task-board`、`task-detail`、`task-create`、`task-forming-chat`、`projects`、`blockers`、`workflow`。
+- API client 放到 `src/shared/api` 或 feature-local client；第一個使用點可保持 feature-local，重複三次以上再抽 shared helper。
 - Shared UI 只在同一元件重複使用三次以上時抽出；不要先做泛用 component library。
 - CSS 先保留 native CSS + CSS custom properties；拆成 token、layout、feature CSS 時要保留 prototype token 名稱或清楚映射。
 

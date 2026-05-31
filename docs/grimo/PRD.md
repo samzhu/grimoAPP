@@ -1,7 +1,184 @@
 # Grimo — 產品需求文件（PRD）
 
-**狀態：** v0.4 Project-level workflow 草稿 · **負責人：** samzhu · **日期：** 2026-05-26
+**狀態：** v0.5 圖解導讀草稿 · **負責人：** samzhu · **日期：** 2026-05-30
 **下一步交接：** `/planning-project`
+
+---
+
+## 0. 圖解導讀
+
+這份 PRD 的一句話版本：
+
+> Grimo 是本地優先的 AI 開發工作台，把聊天、issue、CLI agent 工作收斂成可定義、可排程、可執行、可審查、可學習的 Task。
+
+先看本節就能理解產品骨架；後面的章節保留問題、原則、驗收、範圍、決策紀錄和風險。
+
+### 0.1 產品全貌
+
+Grimo 的核心不是聊天視窗，而是 Project 底下的 Task 工作台。Chat、Codex、Claude Code、issue 都只是工作入口；進來後都變成同一種 Grimo Task。
+
+```mermaid
+flowchart TD
+  User["Developer"] --> Project["Project"]
+  Project --> Workbench["Task Management Interface"]
+
+  Chat["Grimo Chat"] --> Task["Grimo Task"]
+  Codex["Codex / Claude Code"] --> Task
+  Issue["GitHub / Linear / Jira"] --> Task
+  Manual["Manual Task"] --> Task
+
+  Task --> Workbench
+  Workbench --> Detail["Task Detail"]
+  Detail --> Thread["Task Conversation Thread"]
+  Detail --> Evidence["Review Materials"]
+  Detail --> Dispatch["Dispatcher"]
+  Dispatch --> Agent["Agent Claim"]
+  Agent --> Review["Human Review"]
+  Review --> Done["Done"]
+```
+
+重點：
+
+- `Project` 決定工作流和品質基準。
+- `Task` 是使用者真正管理的一件工作。
+- `Chat` 是 Task 的討論入口，不是產品本體。
+- `Review Materials` 是 approve/reject 的依據。
+- `Dispatcher` 只在使用者啟動執行窗口後才派工。
+
+### 0.2 使用者每天看到的畫面
+
+使用者主要在三個地方移動：Task 工作台、Task detail、Task Chat。其他 workflow、dispatcher、quality loop 都是支撐這三個畫面的產品能力。
+
+```mermaid
+flowchart LR
+  Board["Task Workbench"] --> Card["Task Card Preview"]
+  Card --> Detail["Task Detail"]
+  Detail --> ChatThread["Chat - Full Task Thread"]
+  Detail --> ReviewPack["Review Materials"]
+  Detail --> Action["Approve / Reject / Start"]
+
+  Card --> Preview["Recent messages, summary, open questions, attachment count"]
+  ChatThread --> FullHistory["All messages, attachments, links, clarifications"]
+```
+
+畫面語義：
+
+| 畫面 | 使用者用它做什麼 | 不應該變成什麼 |
+| --- | --- | --- |
+| Task Workbench | 掃描狀態、找待處理、看 READY/RUNNING/REVIEW | workflow engine console |
+| Task Card | 看狀態、標籤、摘要、留言/附件數 | raw chat transcript |
+| Task Detail | 看定義、缺口、品質、evidence、下一步 | 只讀摘要頁 |
+| Chat | 回到該 Task 的完整討論 | 新開空白 generic chat |
+| Review Materials | approve/reject 的完整證據包 | 零散附件列表 |
+
+### 0.3 一件 Task 的生命週期
+
+看板只呈現外層 Task List State；底層開發步驟放在 Task detail 裡。
+
+```mermaid
+stateDiagram-v2
+  [*] --> BACKLOG
+  BACKLOG --> DEFINING: start discussion
+  DEFINING --> READY: Ready Gate confirmed
+  READY --> RUNNING: user starts dispatch
+  RUNNING --> REVIEW: evidence complete
+  REVIEW --> DONE: approve
+  REVIEW --> RUNNING: reject or fix
+  DEFINING --> BLOCKED: missing decision
+  READY --> BLOCKED: preflight failed
+  RUNNING --> BLOCKED: dependency or runtime stop
+  BLOCKED --> DEFINING: more discussion
+  BLOCKED --> READY: dependency fixed
+  DONE --> [*]
+```
+
+狀態翻成白話：
+
+| State | 白話意思 |
+| --- | --- |
+| `BACKLOG` | 有這件事，但還沒認真定義 |
+| `DEFINING` | 正在透過 Chat / research / spec 把需求問清楚 |
+| `READY` | 定義和品質門檻已確認，可以排程，但還沒自動跑 |
+| `RUNNING` | Agent 已 claim 任務，正在 worktree/sandbox 裡執行 |
+| `REVIEW` | AI 已交 evidence，等人 approve/reject |
+| `DONE` | 完成；可能有 optional wrap summary |
+| `BLOCKED` | 缺決策、環境、權限、依賴或資訊，需要人處理 |
+
+### 0.4 Task 裡面有哪些資料
+
+Task 不是單張卡片；它是一個本地保存的工作封包。
+
+```mermaid
+flowchart TD
+  Task["Task"]
+  Task --> Identity["Identity: id, title, labels, state"]
+  Task --> Thread["Conversation Thread"]
+  Task --> Definition["Definition Package"]
+  Task --> Workflow["Workflow Evidence"]
+  Task --> Review["Review Materials"]
+  Task --> Attachments["Attachments"]
+
+  Thread --> Preview["Preview: recent messages, summary, open questions"]
+  Thread --> Full["Full: all messages, links, clarifications"]
+  Attachments --> ChatFiles["Conversation files"]
+  Attachments --> EvidenceFiles["Promoted evidence"]
+  Workflow --> Scores["Quality scores and fix history"]
+```
+
+設計分工：
+
+- `Task Conversation Thread`：完整對話、附件、外部連結、後續澄清。
+- `Task Conversation Preview`：卡片或收合狀態只顯示最近幾則、摘要、未決問題、附件數。
+- `Definition Package`：讓 Task 進 READY 前必須看懂的需求定義。
+- `Workflow Evidence`：每個 recipe step、quality score、fix history、worker log。
+- `Review Materials`：人類 approve/reject 前看的 evidence package。
+
+### 0.5 Coding Task Recipe
+
+MVP 預設 workflow 是軟體開發工作流。每個主要 step 都有自己的 Quality Loop，通過 `quality_score > 9` 才前進。
+
+```mermaid
+flowchart LR
+  Discuss["Discuss"] --> Explore["Explore"]
+  Explore --> Prototype["Prototype"]
+  Prototype --> Spec["Spec"]
+  Spec --> Usage["Usage"]
+  Usage --> Tkt["Tkt"]
+  Tkt --> Dev["Dev"]
+  Dev --> AIReview["AI Review"]
+  AIReview --> HumanReview["Human Review"]
+  HumanReview --> Done["Done"]
+
+  Step["Any main step"] --> QReview["Review"]
+  QReview --> Rating["Rating"]
+  Rating --> Gate{"score > 9"}
+  Gate -- "no" --> Fix["Fix"]
+  Fix --> QReview
+  Gate -- "yes" --> Next["Next step"]
+```
+
+`Wrap` 不是每次都有。只有需要 merge、cleanup、delivery summary、short retro 或 learning proposal 時，REVIEW approve 後才進 optional Wrap；否則直接 DONE。
+
+### 0.6 Dispatch Window
+
+READY 代表「可排程」，不是「Grimo 會 24 小時自動跑」。使用者必須手動啟動一段 dispatch window，或手動開始單一 Task。
+
+```mermaid
+flowchart TD
+  Ready["READY tasks"] --> Start{"User starts execution?"}
+  Start -- "no" --> Stay["Stay READY"]
+  Start -- "single task" --> Preflight["Dispatcher preflight"]
+  Start -- "dispatch window" --> Window["Time-boxed Dispatch Window"]
+  Window --> Capacity{"Concurrency slot available?"}
+  Capacity -- "no" --> Queue["Wait in READY queue"]
+  Capacity -- "yes" --> Preflight
+  Preflight -- "pass" --> Claim["Agent Claim"]
+  Preflight -- "fail" --> Blocked["BLOCKED / NEEDS_HUMAN"]
+  Claim --> Running["RUNNING"]
+  Window --> Expire["Window expires"]
+  Expire --> Stop["Stop claiming new tasks"]
+  Running --> Finish["Already running tasks finish naturally"]
+```
 
 ---
 
@@ -579,56 +756,74 @@ And    Task 狀態與執行結果仍透過 Work Item Connector 同步
 
 ## 7. 架構概覽
 
-```text
-Inbound adapters
-  REST API / Agent-Facing Task API / future Web Workbench / future GitHub / Linear / Jira webhooks
+```mermaid
+flowchart LR
+  subgraph Inbound["Inbound adapters"]
+    Rest["REST API"]
+    AgentApi["Agent-Facing Task API"]
+    Web["Future Web Workbench"]
+    Webhooks["Future GitHub / Linear / Jira webhooks"]
+  end
 
-Application core
-  project
-  task
-  dispatcher
-  session
-  skills
-  workflow
-  subagent
-  learning
-  connectors
+  subgraph Core["Application core"]
+    ProjectCore["project"]
+    TaskCore["task"]
+    DispatcherCore["dispatcher"]
+    SessionCore["session"]
+    SkillsCore["skills"]
+    WorkflowCore["workflow"]
+    SubagentCore["subagent"]
+    LearningCore["learning"]
+    ConnectorCore["connectors"]
+  end
 
-Outbound adapters
-  Claude Code / Codex / Gemini-Antigravity / future providers
-  Docker sandbox
-  Git worktree
-  SQLite / future Postgres
-  GitHub / Linear / Jira connectors
+  subgraph Outbound["Outbound adapters"]
+    Providers["Claude Code / Codex / Gemini-Antigravity"]
+    Sandbox["Docker sandbox"]
+    Worktree["Git worktree"]
+    Store["SQLite / future Postgres"]
+    IssueConnectors["GitHub / Linear / Jira connectors"]
+  end
+
+  Rest --> ProjectCore
+  AgentApi --> TaskCore
+  Web --> TaskCore
+  Webhooks --> ConnectorCore
+
+  ProjectCore --> Store
+  TaskCore --> Store
+  DispatcherCore --> Providers
+  WorkflowCore --> Sandbox
+  SubagentCore --> Worktree
+  ConnectorCore --> IssueConnectors
 ```
 
 關鍵資料流：
 
-```text
-POST /api/chat
-  -> Main Agent starts Discuss phase with user
-  -> Discuss step captures goal, constraints, acceptance hints, risks
-  -> Task Conversation Thread stores full messages, attachments, links
-  -> Task Conversation Preview stores recent messages, key summary, open questions
-  -> Pollack Agent Workflow runs automatic Quality Loop for Discuss
-  -> Task created through Grimo Local Connector with title / body / source / labels / discussion context
-  -> Task inherits the Project-level Workflow Recipe
-  -> Pollack Agent Workflow runs Explore / Prototype / Spec / Usage / Tkt
-       each main step runs automatic Review -> Rating -> Fix until quality_score > 9
-  -> Definition Package + Task/Spec Acceptance Gate produced
-  -> human marks READY + assigns thin Agent Profile
-  -> user manually opens dispatch window or starts one task
-  -> Dispatcher checks dependencies + runtime availability
-  -> agent claims task
-  -> board shows RUNNING
-  -> worktree + sandbox + skills
-  -> Pollack Agent Workflow continues Dev / Review / optional Wrap
-       Dev -> implementation + Project/Task Quality Gate evidence complete
-       Review -> AI self-review + Review Materials + quality_score > 9
-       Human Review State -> human approve/reject
-       optional Wrap -> merge/cleanup + delivery summary + short retro + improvement invitation when needed
-  -> done
-  -> Learning Loop proposal later
+```mermaid
+flowchart TD
+  ChatApi["POST /api/chat"] --> Discuss["Main Agent starts Discuss"]
+  Discuss --> Capture["Capture goal, constraints, acceptance hints, risks"]
+  Capture --> Thread["Store Task Conversation Thread"]
+  Capture --> Preview["Store Task Conversation Preview"]
+  Capture --> DiscussQL["Discuss Quality Loop"]
+  DiscussQL --> LocalTask["Create Task through Grimo Local Connector"]
+  LocalTask --> Recipe["Inherit Project Workflow Recipe"]
+  Recipe --> DefinitionSteps["Explore / Prototype / Spec / Usage / Tkt"]
+  DefinitionSteps --> DefinitionQL["Quality Loop on each main step"]
+  DefinitionQL --> Package["Definition Package and Acceptance Gate"]
+  Package --> Ready["Human marks READY and assigns Agent Profile"]
+  Ready --> Dispatch["User starts dispatch window or one task"]
+  Dispatch --> Preflight["Dispatcher checks dependencies and runtime"]
+  Preflight --> Claim["Agent claims task"]
+  Claim --> Running["Board shows RUNNING"]
+  Running --> Workspace["Worktree + sandbox + skills"]
+  Workspace --> Dev["Dev evidence complete"]
+  Dev --> AIReview["AI self-review + Review Materials"]
+  AIReview --> HumanReview["Human approve / reject"]
+  HumanReview -- "approve" --> Done["DONE"]
+  HumanReview -- "reject" --> Dev
+  Done --> Learning["Learning Loop proposal later"]
 ```
 
 ## 8. 決策日誌
@@ -680,6 +875,7 @@ PRD 只保留產品結論；研究細節放在 reference notes，需要時再讀
 - Local-first 產品精神、sync 邊界與來源整理：`docs/grimo/references/local-first.md`
 - Pollack AgentWorks 套件角色、Workflow DSL 與 BOM 研究：`docs/grimo/references/agentworks.md`
 - 市場與產品參考：`docs/grimo/references/product-landscape.md`
+- 業務領域模型、DTO、資料表與 read model 草稿：`docs/grimo/domain-model.md`
 - SQLite 選型與 Pollack workflow-batch 驗證：`docs/grimo/adr/ADR-001-pollack-workflow-sqlite-poc.md`
 
 ## 10. 風險登錄

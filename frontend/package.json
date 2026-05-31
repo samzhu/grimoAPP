@@ -8,6 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "test:visual": "playwright test",
+    "test:fullstack": "playwright test --config playwright.fullstack.config.ts",
     "test:visual:update": "playwright test --update-snapshots"
   },
   "dependencies": {

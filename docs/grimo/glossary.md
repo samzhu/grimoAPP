@@ -32,6 +32,22 @@ _Avoid_: Main product positioning
 給使用者指派工作的薄角色入口，包含名稱、用途、runtime、skills 和 assignment rules；MVP 先服務 coding work，但角色模型可延伸到行銷、財務、營運等非開發工作。
 _Avoid_: Thick AI coworker, independent persona, separate inbox, coding-only role model
 
+**Project Creation Page**:
+使用者從功能列表按「建立專案」後進入的頁面，負責填寫專案名稱、專案描述、專案路徑、工作流下拉選單，並預覽隨工作流切換的角色列表；只有頁面上的 submit action 才真正建立 Project。
+_Avoid_: Treating the feature-list entry button as the submit action, always-visible inline Project form
+
+**Project Path**:
+Project Creation Page 送到 `POST /api/projects.folderPath` 的本機 workspace 路徑字串；Grimo backend 在本機執行，收到這個 JSON 欄位後可用它操作該 Project workspace。
+_Avoid_: Browser-only file handle as backend workspace identity, uploaded file list
+
+**Workflow Role Preview**:
+Project Creation Page 中由 Workflow Recipe 顯示的薄 Agent Profile 角色清單，幫使用者理解該工作流會用到哪些角色；它是 read-only preview，不讓使用者勾選或移除角色。
+_Avoid_: User-selected role checklist, thick persona selection, workflow execution state
+
+**Project Workflow Role Settings**:
+建立 Project 時從所選 Workflow Recipe 複製出來的角色基本設定，保存 role id、name、description、primary steps 和 enabled default，供後續 Ready Gate / Dispatcher 做 Task-level assignment 基礎。
+_Avoid_: Storing role settings as a comma-separated Project field, treating Project Creation Page as a role editor
+
 **Future General Workbench Extension**:
 Grimo 架構保留的未來方向，讓非開發角色也能透過 Agent Profile、skills 和 workflow recipes 進入同一套工作台。
 _Avoid_: MVP promise

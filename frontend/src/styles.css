@@ -1615,13 +1615,57 @@ textarea.task-body-input {
   color: var(--muted);
 }
 
-.form-stack input {
+.form-stack input,
+.form-stack select,
+.form-stack textarea {
   min-height: 36px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--fg);
   padding: 0 10px;
+}
+
+.form-stack textarea {
+  min-height: 76px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.form-note,
+.form-message {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.form-message.error {
+  color: var(--danger);
+}
+
+.form-message.success {
+  color: var(--success);
+}
+
+.project-list-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.project-list-card {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--fg);
+  padding: 10px;
+  text-align: left;
+}
+
+.project-list-card:hover {
+  border-color: color-mix(in oklch, var(--accent) 42%, var(--border));
 }
 
 .mapping-table,
