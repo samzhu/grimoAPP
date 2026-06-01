@@ -1,4 +1,10 @@
-import type { CreateProjectInput, Project, WorkflowRecipe } from "../../domain/project/project-types";
+import type {
+  CollectionResponse,
+  CreateProjectInput,
+  LocalDirectory,
+  Project,
+  WorkflowRecipe,
+} from "../../domain/project/project-types";
 
 type ApiErrorBody = {
   error?: string;
@@ -19,12 +25,19 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
-export function listProjects(): Promise<Project[]> {
-  return requestJson<Project[]>("/api/projects");
+export async function listProjects(): Promise<Project[]> {
+  const response = await requestJson<CollectionResponse<Project>>("/api/projects");
+  return response.content;
 }
 
-export function listWorkflowRecipes(): Promise<WorkflowRecipe[]> {
-  return requestJson<WorkflowRecipe[]>("/api/workflow-recipes");
+export async function listWorkflowRecipes(): Promise<WorkflowRecipe[]> {
+  const response = await requestJson<CollectionResponse<WorkflowRecipe>>("/api/workflow-recipes");
+  return response.content;
+}
+
+export function listLocalDirectories(path?: string): Promise<LocalDirectory> {
+  const query = path ? `?${new URLSearchParams({ path }).toString()}` : "";
+  return requestJson<LocalDirectory>(`/api/local-directories${query}`);
 }
 
 export function createProject(input: CreateProjectInput): Promise<Project> {

@@ -355,7 +355,7 @@ Minimum typed context keys for the MVP definition:
 | `fix_history` | `FixHistory` | fix step | review / materials |
 | `acceptance_evidence` | `AcceptanceEvidence` | execution workflow | human review |
 | `review_materials` | `ReviewMaterials` | AI review | human review |
-| `wrap_summary` | `WrapSummary` | optional wrap | done / learning |
+| `wrap_evidence` | `WrapEvidence` | DONE task evidence | done / learning / follow-up task |
 
 ## Execution Runner Decision
 

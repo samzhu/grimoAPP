@@ -61,6 +61,9 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - 對 user 的所有說明、工作進度更新、final response 都使用繁體中文。
 - 技術名詞、class name、package name、command、API field 保留原文。
 - 只有在 user 明確要求英文或引用原文內容時，才切換成其他語言。
+- **結果優先白話（Outcome-first Plain Language）**：除語法、API field、class name、package name、command、測試名稱、專有名詞外，文件和對 user 說明都優先使用繁體中文白話。描述功能時，先說使用者或產品得到什麼結果，再補技術人員需要的實作線索；不要讓讀者從「A 程式呼叫 B，B 寫入 C」自己推回功能目的。
+- 寫法順序建議：先說「因為使用者要達成 X，所以功能會做到 Y」，再補「技術上由 A API / B table / C component 驗證」。例如：`建立專案前，使用者可以先確認這個工作流會帶哪些角色，不需要自己手動新增角色。技術上，建立專案頁面會先讀取工作流清單（GET /api/workflow-recipes），並從 workflow 的 roles[] 顯示角色。`
+- 問設計或 task 清晰度時，先把抽象 contract 翻成畫面上會不會多顯示某個東西、按鈕能不能按、API response 會多哪個欄位，再問決策。user 說「白話一點」時，不要只換同義詞；要改用使用者看得到的畫面重講。例如不要先問「`steps[]` 是否保留 `optional` 欄位」，要先說「建立專案頁的流程旁邊要不要標這一步可不可以跳過」。
 
 ## Session Startup
 
@@ -71,6 +74,8 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ## Core Rules
 
 - **Feature First, Security Later**: MVP 階段以功能開發為主，Spring Security 設為 permit all。認證、授權、CSRF 等安全性在功能完成後再補；不要在開發階段加入擋住功能的安全設定。
+- **Clean Code, Short Names**: 程式碼盡量符合 Clean Code：小而清楚的 function、單一責任、少副作用、少重複、少巢狀。命名要能說出領域意義，但不要冗長；優先用專案 glossary / spec 已定義的短詞。若名字需要用一句話才能看懂，先整理概念或拆小單位，而不是把整句話塞進 class / method / variable name。
+- **Purpose-First Comments**: 註解和說明優先寫「為什麼需要這個檢查 / 規則 / 設計」，不要翻譯程式正在做什麼。好例子：`避免同一個 workspace 被建立成兩個 Project，後續 Task 才不會寫到錯的 repo。` 壞例子：`檢查 folderPath 是否重複。` 程式本身已經清楚的步驟不要加註解；只有業務意圖、設計取捨、非直覺限制、或未來容易誤改的地方才補白話說明。
 - **First Principles Thinking**: 找根因，不只修表面症狀。
 - **Spec-Linked Rationale**: 設計決策、framework 機制、trade-off、research alternatives 寫進 spec / ADR。source code 註解只留「spec ID + 簡短敘述 + override 提示」（最多 3 行）。業務邏輯 invariant 的 inline comment 與 log message 仍要在 source 簡明寫。
 - **Documented POC Code**: POC、實驗測試、暫時驗證程式碼也必須交代用途。每個 POC 檔案或測試 class 至少要有簡短說明：驗證什麼假設、依據哪個 PRD / ADR / reference、如何執行、通過後對產品決策代表什麼。避免只留下「會過的測試」卻看不出為何存在。
@@ -81,7 +86,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - **Scope-Check Before Applying**: 套用 security / compliance finding 前，先搜尋 distinguishing identifier，確認目前 code 真的在 finding 範圍內。
 - **Clean Experiments**: debug 前建立可還原點；失敗實驗先還原再試下一個；確認修法後，逐行檢查 diff 都能對應到實際修正。
 - **Finish-Current-First**: 先完成手上的 spec / task（test + ship + commit）再開新需求。user mid-flight 提新需求時，先 acknowledge，再收尾當前工作。
-- **Plain-Language Explanations**: 對 user 說明時，第一句先指到實體：file path:line、command、DB row、API response shape、或 UI 字串。比較選項時，每個選項都說明：(a) 改哪個 file / command，(b) 會看到什麼實際行為，(c) 成本或風險。user 說「聽不懂」「白話一點」「重講」時，用新的實體 lead 重寫整段。
+- **Plain-Language Explanations**: 對 user 說明時，第一句先指到實體：file path:line、command、DB row、API response shape、或 UI 字串；接著用結果優先白話說明這個實體讓使用者完成什麼事。比較選項時，每個選項都說明：(a) 改哪個 file / command，(b) 使用者會看到什麼實際行為或產品結果，(c) 技術成本或風險。user 說「聽不懂」「白話一點」「重講」時，用新的實體 lead 重寫整段，先講產品結果，再講技術證據。
 
 ## Workflow Routing
 

@@ -533,7 +533,7 @@ Elements:
 | Task lifecycle | Workflow Recipe | pipeline, flow |
 | Completion conditions | Acceptance Criteria | conditions |
 | Execution artifacts | Evidence | logs, artifacts |
-| Task delivery | Wrap Summary | wrap |
+| Task wrap evidence | Wrap evidence | wrap |
 | Unresolved items | Definition Gaps | issues, unknowns |
 | Task origin | Source (GitHub / Chat / Manual) | source type |
 

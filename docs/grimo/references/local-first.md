@@ -5,7 +5,7 @@
 ## Product Takeaways For Grimo
 
 1. Local-first is not just "runs locally"; it means the user owns the working data and can keep using the product when network, provider accounts, or external services are unavailable.
-2. Grimo's local store should be the source of truth for Project, Task, Definition Package, workflow evidence, Review Materials, Wrap Summary and Learning proposals.
+2. Grimo's local store should be the source of truth for Project, Task, Definition Package, workflow evidence, Review Materials, Wrap evidence and Learning proposals.
 3. External issue trackers, cloud sync, provider sessions and PR comments are projections or execution channels, not the canonical record.
 4. Local-first is not local-only. Future sync and collaboration can exist, but they must not weaken local speed, offline readability, export/backup and user ownership.
 5. Full local-first sync is not MVP scope. Multi-device or multi-user sync requires explicit design for offline/online transition, conflict policy, partial sync, schema migration, permissions, audit and encryption.

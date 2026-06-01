@@ -17,6 +17,8 @@ This QA strategy defines the release verification gate for the current Grimo wor
 
 ## Verification Gates
 
+`$verifying-quality` must reconcile each spec's `docs/grimo/bdd-contract.md` style BDD Contract against actual verification bindings before returning PASS. Every `@ac` scenario must be `VERIFIED`, `MANUAL-READY`, or explicitly blocked by a testing infrastructure gap.
+
 For backend/API changes, `scripts/verify-release.sh` must include backend tests before the spec can ship. Controller tests should prove HTTP status and response body shape. Repository or service tests should prove persistence and duplicate/validation behavior.
 
 For frontend-to-backend changes, `scripts/verify-release.sh` must include `npm run test:fullstack` in `frontend/`. The full-stack config starts Spring Boot with temporary SQLite state and Vite with the `/api` proxy, then exercises the user flow from a browser.

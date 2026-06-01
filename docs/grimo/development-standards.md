@@ -11,14 +11,75 @@
 Backend rule：
 
 - REST API 放在 `/api/*`，request / response 使用明確 record，不直接暴露 persistence row / entity。
+- Collection response 必須使用 project-owned envelope，不直接回傳 raw array；不分頁清單用 `CollectionResponse<T>`，分頁清單用 `PageResponse<T>`。
 - Controller 只處理 HTTP mapping、validation 和 response status；Project 建立規則放在 service。
 - 本地持久化以 architecture / ADR-001 的 SQLite path 為準；S001 優先使用 Spring JDBC stack，只有在 POC 驗證 SQLite `JdbcDialect` 後才使用 Spring Data JDBC repository；測試必須使用 temporary database，不碰使用者真資料。
 - Spring Security 在 MVP 功能開發階段維持 permit-all，不因第一個 API 加入認證阻擋開發流程。
 - 新增 backend API 時，至少補 controller/service/repository 對應測試；frontend 呼叫該 API 時，還要補 full-stack browser path。
 
+## API Response Shape
+
+API response shape 要讓 BDD 好驗證，也讓前端不用猜這個 endpoint 回 raw array 還是 page object。
+
+### Non-Paged Collection
+
+使用者要一次看到完整小清單時，例如建立 Project 前讀取 workflow list，使用：
+
+```java
+record CollectionResponse<T>(List<T> content) {}
+```
+
+JSON:
+
+```json
+{
+  "content": []
+}
+```
+
+規則：
+
+- `content` 必填，沒有資料時回空陣列。
+- 不放 `page`、`links`、`_links`。
+- 不使用 Spring HATEOAS `CollectionModel` / HAL。
+- 測試要驗 `$.content`，不要只驗 `$` 是 array。
+
+### Paged Collection
+
+使用者會翻頁、調整每頁筆數、排序，或 UI 需要總筆數時，使用：
+
+```java
+record PageResponse<T>(List<T> content, PageMetadata page) {}
+
+record PageMetadata(int size, long totalElements, int totalPages, int number) {}
+```
+
+JSON:
+
+```json
+{
+  "content": [],
+  "page": {
+    "size": 20,
+    "totalElements": 0,
+    "totalPages": 0,
+    "number": 0
+  }
+}
+```
+
+規則：
+
+- 分頁 request query 使用 `page`, `size`, `sort`，語意對齊 Spring Data Web `Pageable`。
+- 不直接回傳 Spring Data `Page`, `PageImpl`, `Slice` 或 persistence entity。
+- 若 service 使用 Spring Data `Page<T>`，controller 回傳前要 mapping 成 `PageResponse<T>`。
+- Spring Data `PagedModel` 只作為官方設計參考；Grimo MVP 預設不用 HATEOAS / HAL。
+- BDD scenario 的 Contract 區塊必須呈現 `content[]` 和 `page` metadata，Verification Bindings 必須驗 `$.content` 與 `$.page.*`。
+
 ## Source Of Truth
 
 - 產品語言與行為以 `docs/grimo/PRD.md` 為準。
+- BDD 行為規格以 `docs/grimo/bdd-contract.md` 為準；spec 使用框架無關的 BDD Contract，測試實作用 JUnit、MockMvc、Playwright 等各自 idiom 對應。
 - UI layout、spacing、component states 以 `docs/grimo/ui/prototype/index.html` 和 `docs/grimo/ui/prototype/DESIGN-HANDOFF.md` 為準。
 - 前端 UI/UX 作業流程與設計語言保存規則以 `docs/grimo/design/ui-ux-workflow.md` 為準。
 - 可命名的設計決策先放進 `docs/grimo/design/tokens.json`，再映射到 CSS custom properties。
@@ -68,6 +129,14 @@ Backend rule：
 - 若改 layout：deterministic Playwright visual evidence，至少覆蓋 `1366x768`、`1440x900`
 - 若改 responsive：再覆蓋 `390x844`、`820x1180`
 - 若改表單或互動：補 component 或 E2E 行為測試
+
+### BDD Contract
+
+- Spec 的 BDD section 必須用 `Feature / Rule / Scenario / Given / When / Then` 描述可觀察行為，不寫框架細節。
+- 每個 scenario 必須帶 `@spec`, `@ac`, `@layer`, `@state` metadata；REST 行為另外帶 `@api`。
+- 每個 scenario 必須有 Verification Bindings，指出 backend/frontend/full-stack/manual 由哪些測試或指引驗證。
+- 後端測試用 JUnit/MockMvc/WebTestClient idiom 實作 contract；前端與 full-stack 測試用 Playwright idiom 實作 contract。
+- 不因為使用 BDD 就預設引入 Cucumber；只有當 `.feature` 檔成為跨角色協作 artifact 時才評估導入。
 
 ### Webwright Visual QA
 

@@ -1632,6 +1632,13 @@ textarea.task-body-input {
   resize: vertical;
 }
 
+.folder-picker-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+
 .form-note,
 .form-message {
   margin: 0;
@@ -1666,6 +1673,91 @@ textarea.task-body-input {
 
 .project-list-card:hover {
   border-color: color-mix(in oklch, var(--accent) 42%, var(--border));
+}
+
+.directory-browser,
+.workflow-preview,
+.role-preview {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklch, var(--surface-soft) 64%, var(--surface));
+  padding: 10px;
+}
+
+.directory-browser-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.directory-browser-head code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.directory-browser-head div {
+  display: flex;
+  gap: 6px;
+}
+
+.directory-list,
+.role-list,
+.workflow-step-list {
+  display: grid;
+  gap: 8px;
+}
+
+.directory-row {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--fg);
+  padding: 0 10px;
+  text-align: left;
+}
+
+.directory-row:hover {
+  border-color: color-mix(in oklch, var(--accent) 42%, var(--border));
+}
+
+.workflow-preview strong,
+.role-preview strong {
+  font-size: 13px;
+}
+
+.workflow-preview p,
+.role-row p,
+.workflow-step-list p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.workflow-step-list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.workflow-step-list span,
+.role-row span {
+  font-weight: 700;
+}
+
+.role-row {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+
+.role-row:first-child {
+  border-top: 0;
+  padding-top: 0;
 }
 
 .mapping-table,

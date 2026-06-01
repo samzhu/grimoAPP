@@ -1,7 +1,6 @@
 package io.github.samzhu.grimo.project;
 
 import java.net.URI;
-import java.util.List;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -30,13 +29,13 @@ public class ProjectController {
 	}
 
 	@GetMapping("/workflow-recipes")
-	List<WorkflowRecipeResponse> listWorkflowRecipes() {
-		return workflowRecipeCatalog.list();
+	CollectionResponse<WorkflowRecipeResponse> listWorkflowRecipes() {
+		return new CollectionResponse<>(workflowRecipeCatalog.list());
 	}
 
 	@GetMapping("/projects")
-	List<ProjectResponse> listProjects() {
-		return projectService.listProjects();
+	CollectionResponse<ProjectResponse> listProjects() {
+		return new CollectionResponse<>(projectService.listProjects());
 	}
 
 	@PostMapping("/projects")

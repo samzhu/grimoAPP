@@ -76,6 +76,25 @@ user with concrete, plain-language scenarios that show:
 - What is explicitly out of scope so the user can correct hidden assumptions
   before tasks are planned.
 
+Each acceptance scenario MUST be written in Outcome → Contract → Evidence
+order:
+
+1. **Outcome** — start with the visible user result in plain Traditional
+   Chinese. Mention the screen, button, API response, DB row, file, command,
+   or UI message a non-specialist can recognize.
+2. **Contract** — show the concrete API/DTO/DB/UI/command shape that makes the
+   outcome verifiable. For REST collection endpoints, follow the project API
+   response standard in `docs/grimo/architecture.md`: non-paged collections use
+   `CollectionResponse<T>` with `content[]`; paged collections use
+   `PageResponse<T>` with `content[]` and `page`. Show at least two
+   `content[]` items and each item's nested arrays/objects, such as
+   `CollectionResponse<WorkflowRecipeResponse>` with per-item `roles[]`;
+   include empty-array or negative cases when they matter.
+3. **Evidence** — bind the scenario to exact test files and commands. A
+   scenario is not `@state:verified` unless the named command has passed and
+   the assertion checks the load-bearing response fields, UI text, DB rows, or
+   command output.
+
 Ask one confirmation question at a time when answers may change later
 questions. For simple XS/S specs, related AC questions may be batched only if
 each answer is independent. Always include the recommended answer and the

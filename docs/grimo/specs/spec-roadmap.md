@@ -10,13 +10,19 @@ PRD Critical Path: 使用者先建立或選擇 Project，Project 決定工作流
 | Spec ID | 標題 | 點數 | 相依 | 狀態 |
 | --- | --- | ---: | --- | --- |
 | S001 | Project onboarding with workflow selection | 5 | PRD, ADR-001, architecture baseline | ✅ local verification PASS |
-| S002 | Workflow recipe role defaults during Project creation | 5 | S001, PRD P3/P4, workflow reference | 🟡 BDD confirmation in progress |
+| S003 | Project management list and browser-native workspace picker | M(13) | S001, S002 | 📐 in-design |
+
+## ✅ Shipped
+
+| Spec ID | 標題 | 點數 | 版本 |
+| --- | --- | ---: | --- |
+| S002 | Workflow recipe role defaults | M(14) | — |
 
 ## Backlog
 
 | Spec ID | 標題 | 點數 | 相依 | 狀態 |
 | --- | --- | ---: | --- | --- |
-| S003 | Task creation through backend API | TBD | S001, S002 | backlog |
-| S004 | Task-forming chat creates or advances defining Task | TBD | S001, S003 | backlog |
-| S005 | Ready Gate and Dispatch Window UI/API | TBD | S001, S002, S003 | backlog |
-| S006 | Review Materials and human approve/reject flow | TBD | S001, S002, S003 | backlog |
+| S004 | Task creation through backend API | TBD | S001, S002, S003 | backlog |
+| S005 | Task-forming chat creates or advances defining Task | TBD | S001, S004 | backlog |
+| S006 | Ready Gate and Dispatch Window UI/API | TBD | S001, S002, S003, S004 | backlog |
+| S007 | Review Materials and human approve/reject flow | TBD | S001, S002, S003, S004 | backlog |

@@ -29,6 +29,7 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-webmvc")
 	implementation("org.springframework.boot:spring-boot-starter-validation")
 	implementation("org.springframework.boot:spring-boot-starter-jdbc")
+	implementation("io.hypersistence:hypersistence-tsid:2.1.4")
 	runtimeOnly("org.xerial:sqlite-jdbc")
 
 	testImplementation("io.github.markpollack:workflow-batch")

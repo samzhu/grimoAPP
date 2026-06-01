@@ -21,7 +21,7 @@ run_critical() {
 run_critical "frontend build" npm --prefix "$ROOT_DIR/frontend" run build
 run_critical "frontend visual regression" npm --prefix "$ROOT_DIR/frontend" run test:visual
 run_critical "backend tests" "$ROOT_DIR/backend/gradlew" -p "$ROOT_DIR/backend" test
-run_critical "S001 full-stack Project onboarding" npm --prefix "$ROOT_DIR/frontend" run test:fullstack
+run_critical "S001/S002 full-stack Project onboarding" npm --prefix "$ROOT_DIR/frontend" run test:fullstack
 
 log_section "visual qa infrastructure"
 if [ -d "$ROOT_DIR/frontend/node_modules/@playwright" ] || [ -d "$ROOT_DIR/frontend/node_modules/playwright" ]; then
@@ -42,4 +42,4 @@ else
 fi
 
 log_section "verdict"
-printf "PASS: frontend build, deterministic visual regression, backend tests, and S001 full-stack Project onboarding completed. Webwright remains task-specific for prototype parity reviews.\n" | tee -a "$LOG_FILE"
+printf "PASS: frontend build, deterministic visual regression, backend tests, and S001/S002 full-stack Project onboarding completed. Webwright remains task-specific for prototype parity reviews.\n" | tee -a "$LOG_FILE"
