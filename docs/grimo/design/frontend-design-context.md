@@ -128,23 +128,22 @@ Grimo frontend design work should leave a durable context trail. When requiremen
 
 - Project management starts on a list-first view. Users should see existing Projects or an empty state before seeing create fields.
 - `新增專案` opens a separate create view with `返回列表`; the create form is not permanently shown beside the Project list.
-- Project Workspace selection is browser-first. The primary `選擇資料夾` action uses `showDirectoryPicker()` where supported, so users see the OS-native folder picker.
-- Workspace selection is optional. Users can create a Project without choosing any external work path; the list should show the Grimo-managed workspace created under `~/.grimo/projects/<projectId>`.
-- Manual path entry is a fallback for unsupported browsers or when users need backend / agent access to the repo.
+- Project Path is a simple optional text field. Users can paste `/Users/.../repo`; when left blank, Grimo creates a default project path under `~/.grimo/projects/<projectId>`.
+- Browser-native folder picking is not part of the S003 create contract because `showDirectoryPicker()` returns a browser handle, not a backend-operable absolute path.
+- Manual path entry is the only S003 way to bind an existing repo/codebase path.
 - Drag-and-drop folder import is not part of the S003 main flow. It is too hidden for onboarding and has the same no-absolute-path limitation as browser handles.
 - The S003 create view must not show a long backend-generated directory browser below the form.
 
 **Responsive behavior:**
 
 - Desktop and mobile use the same list/create mode split.
-- The create view stacks form fields and workflow preview; workspace picker state should stay compact and not push workflow roles far below the fold.
+- The create view stacks form fields and workflow preview; project path input state should stay compact and not push workflow roles far below the fold.
 
 **Component notes:**
 
-- Browser-selected workspaces show a display name such as `已選擇：grimoAPP`.
-- Backend-ready manual path workspaces show the validated local path.
-- Projects without a user-selected path show a clear `Grimo 預設工作區` state and remain valid Projects.
-- Browser workspace Projects must not be visually presented as backend-ready execution workspaces until a backend path or native bridge exists.
+- Manual project paths show the validated local path.
+- Projects without a user-selected path show the generated `projectPath` and remain valid Projects.
+- The UI must not show browser-selected folders as Project paths until a native bridge can provide backend-operable paths.
 
 ## 4. Component Decisions
 

@@ -13,8 +13,8 @@ Grimo MVP 中的一個本機 repo 或 codebase，是 Task、執行證據、conne
 _Avoid_: Multi-repo workspace as MVP meaning
 
 **Project Home**:
-Grimo 為每個 Project 建立的本機管理目錄，預設位於 `~/.grimo/projects/<projectId>`；用來保存 Grimo-managed workspace、evidence、未來 task worktree / sandbox metadata，並作為使用者沒選既有 repo 時的預設工作區。
-_Avoid_: Treating Project Home as the same thing as an external user repo, storing all app-wide data directly under one flat directory
+Grimo 為每個 Project 建立的本機管理目錄，預設位於 `~/.grimo/projects/<projectId>`；用來保存 evidence、未來 task worktree / sandbox metadata，也可在使用者沒填既有 repo path 時作為預設 `projectPath`。
+_Avoid_: Treating Project Home as the same thing as an external user repo, exposing it as `projectDataPath`, storing all app-wide data directly under one flat directory, calling it workspace in MVP user language
 
 **Task**:
 使用者想完成的一件工作，是 Grimo 追蹤進度、執行、審查和收尾的主要單位。
@@ -37,24 +37,24 @@ _Avoid_: Main product positioning
 _Avoid_: Thick AI coworker, independent persona, separate inbox, coding-only role model
 
 **Project Creation Page**:
-使用者從功能列表按「建立專案」後進入的頁面，負責填寫專案名稱、專案描述、Project Workspace、工作流下拉選單，並預覽隨工作流切換的角色列表；只有頁面上的 submit action 才真正建立 Project。
+使用者從功能列表按「建立專案」後進入的頁面，負責填寫專案名稱、專案描述、Project Path、工作流下拉選單，並預覽隨工作流切換的角色列表；只有頁面上的 submit action 才真正建立 Project。
 _Avoid_: Treating the feature-list entry button as the submit action, always-visible inline Project form
 
-**Project Workspace**:
-Project 的檔案系統工作區。S003 起，使用者不選工作路徑時，Grimo 會在 `~/.grimo/projects/<projectId>` 建立 `GRIMO_MANAGED` workspace；使用者也可以用 browser-native directory handle 或手動輸入既有 repo path 來改綁 workspace。
-_Avoid_: Generic Project Path, `folderPath` as product/API field, blocking Project creation when no external path is selected, assuming every browser-selected folder is backend-ready, uploaded file list
+**Project Path**:
+Project 的主要開發目錄，是 backend 可驗證、可保存、可操作的 repo / codebase path。S003 起，使用者不填專案路徑時，Grimo 會在 `~/.grimo/projects/<projectId>` 建立預設 `projectPath`；使用者也可以手動輸入既有 repo path。
+_Avoid_: Project Workspace as MVP product/API term, browser directory handle, `folderPath` as product/API field, blocking Project creation when no external path is selected, assuming browser-selected folders are backend-ready, uploaded file list
 
-**Browser Workspace Picker**:
-Project Creation Page 中的主要「選擇資料夾」互動；支援時使用 browser `showDirectoryPicker()` 開 OS 原生資料夾視窗，讓使用者選本機 repo / codebase。它產生 browser-owned directory handle，不產生 backend absolute path。
-_Avoid_: Backend `ls` UI as the primary picker, pretending `FileSystemDirectoryHandle` is a server path, browser file upload
-
-**Manual Workspace Path**:
-Project Creation Page 的 fallback；使用者手動輸入 `/Users/...` 這類本機 path，backend 驗證存在、是資料夾、可讀後，Project 使用該 existing local path 作為 workspace。它不是建立 Project 的必要條件；不輸入時使用 `GRIMO_MANAGED` workspace。
-_Avoid_: Running shell commands during validation, accepting invalid path as a Project workspace, making manual path the primary happy path, making manual path required for Project creation
+**Manual Project Path**:
+Project Creation Page 的選填欄位；使用者手動輸入 `/Users/...` 這類本機 path，backend 驗證存在、是資料夾、可讀後，Project 使用該 existing local path 作為 `projectPath`。它不是建立 Project 的必要條件；不輸入時使用 Grimo 預設 projectPath。
+_Avoid_: Running shell commands during validation, accepting invalid path as a Project path, making manual path required for Project creation
 
 **Local Directory Picker**:
 S001/S002 使用過的本機資料夾瀏覽方式；前端透過 Spring Boot read-only API 顯示資料夾清單。S003 起不再是 Project Creation Page 的主要互動，除非未來 spec 明確恢復。
 _Avoid_: Treating backend directory browsing as the default S003 picker, shell command execution
+
+**Task Worktree**:
+未來單一 Task 執行時使用的隔離工作目錄，通常從 Project Path 或 repo 建立，避免 agent 修改主路徑時影響其他工作。
+_Avoid_: Calling Project Path a worktree, creating multiple user-facing workspaces in MVP
 
 **Workflow Role Preview**:
 Project Creation Page 中由 Workflow Recipe 顯示的薄 Agent Profile 角色清單，幫使用者理解該工作流會用到哪些角色；它是 read-only preview，不讓使用者勾選或移除角色。

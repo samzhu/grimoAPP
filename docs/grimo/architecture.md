@@ -1,6 +1,6 @@
 # Grimo Architecture
 
-**Status:** Living architecture baseline through S002 release
+**Status:** Living architecture baseline through S003 design
 **Last updated:** 2026-06-01
 
 ## State At Planning
@@ -56,7 +56,7 @@ flowchart LR
   Vite["Vite dev server\n127.0.0.1:5173"]
   Backend["Spring Boot MVC\n127.0.0.1:8080"]
   SQLite["SQLite local DB"]
-  Workspace["Project workspace\n/Users/.../repo"]
+  ProjectPath["Project path\n/Users/.../repo"]
   LocalDirs["Local filesystem directories"]
 
   User --> Browser
@@ -64,18 +64,19 @@ flowchart LR
   Vite -- "/api proxy" --> Backend
   Backend --> SQLite
   Backend -- "GET /api/local-directories" --> LocalDirs
-  Backend -. "future Task execution uses stored workspacePath" .-> Workspace
+  Backend -. "future Task execution uses stored projectPath" .-> ProjectPath
 ```
 
-Runtime facts for S002:
+Runtime facts through S003 design:
 
 - Grimo is executed locally; the browser is only the human operator UI.
 - Frontend and backend are still started separately in development.
-- S003 changes `POST /api/projects.workspacePath` from a required user-provided path into a workspace binding result. If the user does not provide an existing path, backend creates a Grimo-managed workspace under `~/.grimo/projects/<projectId>`.
-- `GET /api/local-directories` lets the browser choose a local directory path through Spring Boot.
-- Backend-owned features can operate `GRIMO_MANAGED` and `LOCAL_PATH` workspaces in later specs. Browser-only handles are not backend-operable until a future native bridge or browser-mediated file flow exists.
-- S002 stores `workspacePath` as data only; directory browsing lists immediate child directories but does not read file contents, run shell commands, inspect the repo, or start agent execution.
-- No Electron, Tauri, native desktop shell, or OS-level file chooser bridge is assumed in S002.
+- S003 changes `POST /api/projects.workspacePath` from a required user-provided path into optional `projectPath` data. If the user does not provide an existing path, backend creates a Grimo-managed project path under `~/.grimo/projects/<projectId>`.
+- `GET /api/local-directories` is the S002 local-directory browser endpoint; S003 does not use it in the Project Creation main flow.
+- S003 no longer models `projectPathSource`, `backendPathReady`, or `projectDataPath`; `projectPath` is the only API path field.
+- Browser-only handles are not backend-operable until a future native bridge or browser-mediated file flow exists, so S003 does not use `showDirectoryPicker()` as a projectPath source.
+- S002 stores `workspacePath` as data only; S003 renames that API intent to `projectPath`. Directory browsing lists immediate child directories but does not read file contents, run shell commands, inspect the repo, or start agent execution.
+- No Electron, Tauri, native desktop shell, or OS-level file chooser bridge is assumed in S003.
 
 ### Runtime Scenario: Enter Project Creation Page
 
@@ -95,7 +96,7 @@ sequenceDiagram
   API-->>Vite: 200 OK JSON
   Vite-->>Browser: 200 OK JSON
   Browser->>Browser: Render Project Creation Page
-  Browser->>Browser: Show 專案名稱, 專案描述, 專案工作區, 專案工作流, 參與角色
+  Browser->>Browser: Show 專案名稱, 專案描述, 專案路徑, 專案工作流, 參與角色
 ```
 
 ### Runtime Scenario: Submit Project Creation
@@ -111,7 +112,7 @@ sequenceDiagram
   participant Store as ProjectStore
   participant DB as SQLite
 
-  User->>Browser: Fill name, description, workspacePath, workflow
+  User->>Browser: Fill name, description, optional projectPath, workflow
   User->>Browser: Click page-level 建立專案
   Browser->>Vite: POST /api/projects JSON
   Vite->>API: proxy POST /api/projects JSON
@@ -129,7 +130,7 @@ sequenceDiagram
   Browser->>Browser: Show created Project and selected workflow roles
 ```
 
-### Runtime Scenario: Choose Project Workspace
+### Runtime Scenario: Choose Project Path Before S003
 
 ```mermaid
 sequenceDiagram
@@ -148,7 +149,7 @@ sequenceDiagram
   Vite-->>Browser: 200 OK JSON
   Browser->>Browser: Render folder picker
   User->>Browser: Choose /Users/samzhu/workspace/github-samzhu/grimoAPP
-  Browser->>Browser: Fill 專案工作區 with selected path
+  Browser->>Browser: Fill 專案路徑 with selected path
 ```
 
 ## Module Map
@@ -223,15 +224,15 @@ Reason:
 - PRD and glossary define `Workflow Recipe` as Project-level.
 - `Task` inherits Project workflow; this prevents recipe chips from leaking into Task labels.
 
-### A004 — Project Workspace Selection Is Browser-First With Grimo-Managed Default
+### A004 — Project Path Is A Single Optional Backend Path
 
-Decision: S003 changes Project Creation's primary folder selection from backend directory browsing to browser-native `showDirectoryPicker()` where supported. If the user does not choose an existing path, backend creates a Grimo-managed workspace under `~/.grimo/projects/<projectId>`. Manual path entry remains the fallback for binding the Project to an existing local repo/path.
+Decision: S003 changes Project Creation's path contract to a single optional `projectPath`. If the user leaves it blank, backend creates a Grimo-managed `projectPath` under `~/.grimo/projects/<projectId>`. If the user enters an existing local repo/path, backend validates and stores that path.
 
 Reason:
 
-- The user wants `選擇資料夾` to open the OS-native browser picker instead of rendering a long backend `ls` directory list inside the form.
-- The user confirmed that selecting a work path is unrelated to whether a Project can be created; if no path is selected, Grimo creates a managed Project workspace under `~/.grimo`.
-- Browser File System Access returns a `FileSystemDirectoryHandle`, not a backend absolute path. Grimo must not pretend a browser-selected handle is a server-operable workspace.
+- The user confirmed that selecting a project path is unrelated to whether a Project can be created; if no path is selected, Grimo creates a managed Project path under `~/.grimo`.
+- The user clarified that `projectPath` means the repo / codebase path; `projectPathSource` and `projectDataPath` add unclear product meaning in MVP.
+- Browser File System Access returns a `FileSystemDirectoryHandle`, not a backend absolute path. Grimo must not pretend a browser-selected handle is a server-operable `projectPath`.
 - Manual path validation preserves the option to bind an existing repo/path for future Task / agent execution without requiring a framework change or desktop shell in S003.
 
 ## API Shape Baseline
@@ -244,7 +245,7 @@ GET /api/projects
 POST /api/projects
 ```
 
-`POST /api/projects` creates a Project and returns the created row, including `id`, `name`, `description`, `workspacePath`, `workflowRecipeId`, `workflowRecipeName`, `status`, `createdAt`, and `updatedAt`.
+`POST /api/projects` creates a Project and returns the created row. Through S002 the path field was `workspacePath`; S003 changes the intended contract to a single `projectPath` field. `Project Home` remains internal and is not exposed as `projectDataPath`.
 
 ### REST Response Envelope Standard
 
