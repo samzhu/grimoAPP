@@ -37,9 +37,9 @@ public class ProjectStore {
 				.list();
 	}
 
-	public boolean existsByWorkspacePath(String workspacePath) {
-		Integer count = jdbcClient.sql("SELECT COUNT(*) FROM projects WHERE workspace_path = :workspacePath")
-				.param("workspacePath", workspacePath)
+	public boolean existsByProjectPath(String projectPath) {
+		Integer count = jdbcClient.sql("SELECT COUNT(*) FROM projects WHERE workspace_path = :projectPath")
+				.param("projectPath", projectPath)
 				.query(Integer.class)
 				.single();
 		return count != null && count > 0;
@@ -51,12 +51,12 @@ public class ProjectStore {
 							INSERT INTO projects (
 								id, name, description, workspace_path, workflow_recipe_id, status, created_at, updated_at
 							)
-							VALUES (:id, :name, :description, :workspacePath, :workflowRecipeId, :status, :createdAt, :updatedAt)
+							VALUES (:id, :name, :description, :projectPath, :workflowRecipeId, :status, :createdAt, :updatedAt)
 							""")
 					.param("id", project.id())
 					.param("name", project.name())
 					.param("description", project.description())
-					.param("workspacePath", project.workspacePath())
+					.param("projectPath", project.projectPath())
 					.param("workflowRecipeId", project.workflowRecipeId())
 					.param("status", project.status())
 					.param("createdAt", project.createdAt().toString())
@@ -64,7 +64,7 @@ public class ProjectStore {
 					.update();
 		}
 		catch (DuplicateKeyException exception) {
-			throw new DuplicateProjectException(project.workspacePath());
+			throw new DuplicateProjectException(project.projectPath());
 		}
 	}
 

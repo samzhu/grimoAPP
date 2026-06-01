@@ -21,7 +21,7 @@ public class ProjectErrorHandler {
 	@ExceptionHandler(MethodArgumentNotValidException.class)
 	ResponseEntity<ErrorResponse> validationError() {
 		logger.atWarn().log("project.request.validation_failed");
-		return ResponseEntity.badRequest().body(new ErrorResponse("請填寫專案名稱與專案工作區"));
+		return ResponseEntity.badRequest().body(new ErrorResponse("請填寫專案名稱與專案工作流"));
 	}
 
 	@ExceptionHandler(IllegalArgumentException.class)
@@ -34,8 +34,8 @@ public class ProjectErrorHandler {
 
 	@ExceptionHandler(DuplicateProjectException.class)
 	ResponseEntity<ErrorResponse> duplicateProject() {
-		logger.atWarn().log("project.request.duplicate_workspace");
+		logger.atWarn().log("project.request.duplicate_project_path");
 		return ResponseEntity.status(HttpStatus.CONFLICT)
-				.body(new ErrorResponse("這個工作區已綁定到既有專案"));
+				.body(new ErrorResponse("這個專案路徑已經建立過 Project"));
 	}
 }

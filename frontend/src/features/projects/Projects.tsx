@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import type { LocalDirectory, Project, WorkflowRecipe } from "../../domain/project/project-types";
+import type { Project, WorkflowRecipe } from "../../domain/project/project-types";
 import { Metric } from "../../shared/ui/Metric";
 import { Panel } from "../../shared/ui/Panel";
-import { createProject, listLocalDirectories, listProjects, listWorkflowRecipes } from "./project-api";
+import { createProject, listProjects, listWorkflowRecipes } from "./project-api";
 
 type ProjectsProps = {
   onCurrentProjectChange: (project: Project) => void;
@@ -12,7 +12,7 @@ type ProjectsProps = {
 const emptyForm = {
   name: "",
   description: "",
-  workspacePath: "",
+  projectPath: "",
   workflowRecipeId: "",
 };
 
@@ -22,13 +22,10 @@ export function Projects({ onCurrentProjectChange }: ProjectsProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [recipes, setRecipes] = useState<WorkflowRecipe[]>([]);
   const [form, setForm] = useState(emptyForm);
+  const [viewMode, setViewMode] = useState<"list" | "create">("list");
   const [isLoading, setIsLoading] = useState(true);
-  const [isCreating, setIsCreating] = useState(false);
   const [isWorkflowLoading, setIsWorkflowLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [localDirectory, setLocalDirectory] = useState<LocalDirectory | null>(null);
-  const [isDirectoryLoading, setIsDirectoryLoading] = useState(false);
-  const [directoryError, setDirectoryError] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -62,7 +59,6 @@ export function Projects({ onCurrentProjectChange }: ProjectsProps) {
   const selectedRecipe = recipes.find((recipe) => recipe.id === form.workflowRecipeId);
   const canSubmit =
     form.name.trim().length > 0 &&
-    form.workspacePath.trim().length > 0 &&
     form.workflowRecipeId.trim().length > 0;
 
   const preferredWorkflowRecipeId = (recipeList: WorkflowRecipe[]) =>
@@ -71,7 +67,7 @@ export function Projects({ onCurrentProjectChange }: ProjectsProps) {
   const startProjectCreation = async () => {
     setError("");
     setMessage("");
-    setIsCreating(true);
+    setViewMode("create");
     if (recipes.length > 0) {
       setForm((current) => ({
         ...current,
@@ -94,19 +90,6 @@ export function Projects({ onCurrentProjectChange }: ProjectsProps) {
     }
   };
 
-  const openFolderPicker = async (path?: string) => {
-    setDirectoryError("");
-    setIsDirectoryLoading(true);
-    try {
-      const directory = await listLocalDirectories(path || form.workspacePath.trim() || undefined);
-      setLocalDirectory(directory);
-    } catch (caught) {
-      setDirectoryError(caught instanceof Error ? caught.message : "資料夾清單載入失敗");
-    } finally {
-      setIsDirectoryLoading(false);
-    }
-  };
-
   const submitProject = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!canSubmit) {
@@ -116,17 +99,17 @@ export function Projects({ onCurrentProjectChange }: ProjectsProps) {
     setMessage("");
     setIsSubmitting(true);
     try {
+      const projectPath = form.projectPath.trim();
       const project = await createProject({
         name: form.name.trim(),
         description: form.description.trim(),
-        workspacePath: form.workspacePath.trim(),
+        ...(projectPath ? { projectPath } : {}),
         workflowRecipeId: form.workflowRecipeId,
       });
       setProjects((current) => [project, ...current]);
       onCurrentProjectChange(project);
       setForm(emptyForm);
-      setLocalDirectory(null);
-      setIsCreating(false);
+      setViewMode("list");
       setMessage(`${project.name} 已建立並設為目前專案`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "建立專案失敗");
@@ -139,20 +122,25 @@ export function Projects({ onCurrentProjectChange }: ProjectsProps) {
     <section className="projects-view">
       <div className="section-head">
         <div>
-          <h1>專案管理</h1>
-          <p>管理本機 repo / codebase，讓任務、執行紀錄與審查資料有明確歸屬。</p>
+          <h1>{viewMode === "create" ? "新增專案" : "專案管理"}</h1>
+          <p>
+            {viewMode === "create"
+              ? "建立 Project 的基本資料、專案路徑與工作流。"
+              : "管理本機 repo / codebase，讓任務、執行紀錄與審查資料有明確歸屬。"}
+          </p>
         </div>
-        {isCreating ? (
-          <button className="icon-text-button" type="button" onClick={() => setIsCreating(false)}>
-            回到列表
+        {viewMode === "create" ? (
+          <button className="icon-text-button" type="button" onClick={() => setViewMode("list")}>
+            返回列表
           </button>
         ) : (
           <button className="primary-button" type="button" onClick={startProjectCreation}>
-            建立專案
+            新增專案
           </button>
         )}
       </div>
-      <div className="project-grid">
+      <div className="project-grid single">
+        {viewMode === "list" ? (
         <Panel title="Project list">
           {isLoading ? (
             <p className="form-note">載入專案中...</p>
@@ -168,7 +156,7 @@ export function Projects({ onCurrentProjectChange }: ProjectsProps) {
                   onClick={() => onCurrentProjectChange(project)}
                 >
                   <strong>{project.name}</strong>
-                  <Metric label="工作區" value={project.workspacePath} />
+                  <Metric label="專案路徑" value={project.projectPath} />
                   <Metric label="工作流" value={project.workflowRecipeName} />
                   <Metric label="狀態" value={project.status} />
                 </button>
@@ -176,8 +164,8 @@ export function Projects({ onCurrentProjectChange }: ProjectsProps) {
             </div>
           )}
         </Panel>
-        {isCreating ? (
-        <Panel title="建立專案">
+        ) : (
+        <Panel title="新增專案">
           <form className="form-stack" onSubmit={submitProject}>
             <label>
               專案名稱
@@ -197,73 +185,16 @@ export function Projects({ onCurrentProjectChange }: ProjectsProps) {
                 onChange={(event) => setForm({ ...form, description: event.target.value })}
               />
             </label>
-            <div className="folder-picker-field">
-              <label>
-                專案工作區
-                <input
-                  name="workspacePath"
-                  placeholder="/Users/samzhu/workspace/github-samzhu/grimoAPP"
-                  value={form.workspacePath}
-                  onChange={(event) => setForm({ ...form, workspacePath: event.target.value })}
-                />
-              </label>
-              <button
-                className="icon-text-button"
-                type="button"
-                disabled={isDirectoryLoading}
-                onClick={() => openFolderPicker()}
-              >
-                {isDirectoryLoading ? "讀取中..." : "選擇資料夾"}
-              </button>
-            </div>
-            {localDirectory && (
-              <div className="directory-browser" aria-label="本機資料夾瀏覽器">
-                <div className="directory-browser-head">
-                  <code>{localDirectory.path}</code>
-                  <div>
-                    <button
-                      className="icon-text-button"
-                      type="button"
-                      disabled={!localDirectory.parentPath || isDirectoryLoading}
-                      onClick={() => {
-                        if (localDirectory.parentPath) {
-                          void openFolderPicker(localDirectory.parentPath);
-                        }
-                      }}
-                    >
-                      上層
-                    </button>
-                    <button
-                      className="primary-button"
-                      type="button"
-                      onClick={() => {
-                        setForm({ ...form, workspacePath: localDirectory.path });
-                        setLocalDirectory(null);
-                      }}
-                    >
-                      選取此資料夾
-                    </button>
-                  </div>
-                </div>
-                {localDirectory.directories.length === 0 ? (
-                  <p className="form-note">這個資料夾底下沒有可選擇的子資料夾</p>
-                ) : (
-                  <div className="directory-list">
-                    {localDirectory.directories.map((directory) => (
-                      <button
-                        className="directory-row"
-                        key={directory.path}
-                        type="button"
-                        onClick={() => openFolderPicker(directory.path)}
-                      >
-                        {directory.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-            {directoryError && <p className="form-message error">{directoryError}</p>}
+            <label>
+              專案路徑
+              <input
+                name="projectPath"
+                placeholder="/Users/samzhu/workspace/github-samzhu/grimoAPP"
+                value={form.projectPath}
+                onChange={(event) => setForm({ ...form, projectPath: event.target.value })}
+              />
+            </label>
+            <p className="form-note">未填會使用 Grimo 預設路徑</p>
             <label>
               專案工作流
               <select
@@ -325,14 +256,10 @@ export function Projects({ onCurrentProjectChange }: ProjectsProps) {
             </button>
           </form>
         </Panel>
-        ) : (
-          <Panel title="建立專案">
-            {message && <p className="form-message success">{message}</p>}
-            {error && <p className="form-message error">{error}</p>}
-            <p className="form-note">按下建立專案後，選擇本機工作目錄與工作流，再確認參與角色。</p>
-          </Panel>
         )}
       </div>
+      {viewMode === "list" && message && <p className="form-message success">{message}</p>}
+      {viewMode === "list" && error && <p className="form-message error">{error}</p>}
     </section>
   );
 }

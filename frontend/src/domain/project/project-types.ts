@@ -25,7 +25,7 @@ export type Project = {
   id: string;
   name: string;
   description: string;
-  workspacePath: string;
+  projectPath: string;
   workflowRecipeId: string;
   workflowRecipeName: string;
   status: "ACTIVE" | "ARCHIVED";
@@ -45,21 +45,10 @@ export type ProjectWorkflowRole = {
 export type CreateProjectInput = {
   name: string;
   description: string;
-  workspacePath: string;
+  projectPath?: string;
   workflowRecipeId: string;
 };
 
 export type CollectionResponse<T> = {
   content: T[];
-};
-
-export type LocalDirectoryEntry = {
-  name: string;
-  path: string;
-};
-
-export type LocalDirectory = {
-  path: string;
-  parentPath: string | null;
-  directories: LocalDirectoryEntry[];
 };

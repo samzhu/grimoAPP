@@ -1,7 +1,6 @@
 import type {
   CollectionResponse,
   CreateProjectInput,
-  LocalDirectory,
   Project,
   WorkflowRecipe,
 } from "../../domain/project/project-types";
@@ -33,11 +32,6 @@ export async function listProjects(): Promise<Project[]> {
 export async function listWorkflowRecipes(): Promise<WorkflowRecipe[]> {
   const response = await requestJson<CollectionResponse<WorkflowRecipe>>("/api/workflow-recipes");
   return response.content;
-}
-
-export function listLocalDirectories(path?: string): Promise<LocalDirectory> {
-  const query = path ? `?${new URLSearchParams({ path }).toString()}` : "";
-  return requestJson<LocalDirectory>(`/api/local-directories${query}`);
 }
 
 export function createProject(input: CreateProjectInput): Promise<Project> {

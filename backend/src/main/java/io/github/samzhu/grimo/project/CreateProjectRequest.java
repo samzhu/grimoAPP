@@ -8,14 +8,14 @@ import jakarta.validation.constraints.Size;
  *
  * @param name user-facing Project name shown in the Projects view
  * @param description optional user-facing context for the Project
- * @param workspacePath Project Workspace path selected on the Project Creation Page
+ * @param projectPath optional repo or codebase path selected on the Project Creation Page
  * @param workflowRecipeId Project-level workflow recipe identifier
  * @see ProjectController
  */
 public record CreateProjectRequest(
 		@NotBlank @Size(max = 120) String name,
 		@Size(max = 500) String description,
-		@NotBlank @Size(max = 1000) String workspacePath,
+		@Size(max = 1000) String projectPath,
 		@NotBlank @Size(max = 80) String workflowRecipeId
 ) {
 }

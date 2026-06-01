@@ -1,6 +1,6 @@
 # S003: Project Management List And Project Path Contract
 
-> 規格：S003 | 大小：S(11) | 狀態：⏳ Design
+> 規格：S003 | 大小：M(13) | 狀態：✅ Local release PASS
 > 日期：2026-06-01
 > 對應：PRD §0.1, §2 Primary Product Flow / S001 / S002 / spec-roadmap row S003
 
@@ -188,13 +188,13 @@ AC 覆蓋矩陣：
 
 | AC | 使用者結果 | Contract / 可觀察輸出 | Layer | State |
 | --- | --- | --- | --- | --- |
-| AC-S003-1 | 使用者進專案管理先看到 Project list，不被新增表單干擾。 | `專案管理` view 顯示 list/empty state + `新增專案`，不顯示 create form fields | frontend | planned |
-| AC-S003-2 | 使用者按 `新增專案` 後進入新增頁，能返回列表。 | create view 顯示 `返回列表`、Project fields、workflow preview | frontend | planned |
-| AC-S003-3 | 使用者不選專案路徑也能建立 Project。 | `POST /api/projects` 不帶 `projectPath` 時建立 Project，response 只有 `projectPath=<generated path>`，沒有 source/readiness/data path 欄位 | backend, frontend, fullstack | planned |
-| AC-S003-4 | 使用者手動輸入有效 path 後，Project 使用該 repo/codebase path。 | `POST /api/projects.projectPath` 保存 normalized absolute path | backend, frontend, fullstack | planned |
-| AC-S003-5 | 無效手動 path 不會建立 Project。 | invalid path 回 `400 Bad Request` + user-readable error，DB 不新增 Project | backend, frontend, fullstack | planned |
-| AC-S003-6 | 同一個 repo/codebase path 不會被建立成兩個 Project。 | duplicate normalized `projectPath` 回 `409 Conflict`，DB 仍只有原 Project | backend, frontend | planned |
-| AC-S003-7 | 新增頁不再展開後端資料夾瀏覽器，也不把 browser handle 當 projectPath。 | UI 不呼叫 `/api/local-directories`；create request 不含 `projectPathSource` / `browserProjectPathKey` | frontend, fullstack | planned |
+| AC-S003-1 | 使用者進專案管理先看到 Project list，不被新增表單干擾。 | `專案管理` view 顯示 list/empty state + `新增專案`，不顯示 create form fields | frontend | verified |
+| AC-S003-2 | 使用者按 `新增專案` 後進入新增頁，能返回列表。 | create view 顯示 `返回列表`、Project fields、workflow preview | frontend | verified |
+| AC-S003-3 | 使用者不選專案路徑也能建立 Project。 | `POST /api/projects` 不帶 `projectPath` 時建立 Project，response 只有 `projectPath=<generated path>`，沒有 source/readiness/data path 欄位 | backend, frontend, fullstack | verified |
+| AC-S003-4 | 使用者手動輸入有效 path 後，Project 使用該 repo/codebase path。 | `POST /api/projects.projectPath` 保存 normalized absolute path | backend, frontend, fullstack | verified |
+| AC-S003-5 | 無效手動 path 不會建立 Project。 | invalid path 回 `400 Bad Request` + user-readable error，DB 不新增 Project | backend, frontend, fullstack | verified |
+| AC-S003-6 | 同一個 repo/codebase path 不會被建立成兩個 Project。 | duplicate normalized `projectPath` 回 `409 Conflict`，DB 仍只有原 Project | backend, frontend | verified |
+| AC-S003-7 | 新增頁不再展開後端資料夾瀏覽器，也不把 browser handle 當 projectPath。 | UI 不呼叫 `/api/local-directories`；create request 不含 `projectPathSource` / `browserProjectPathKey` | frontend, fullstack | verified |
 
 ### 驗收方式規劃
 
@@ -221,7 +221,7 @@ Contract：
 @spec:S003
 @ac:AC-S003-1
 @layer:frontend
-@state:planned
+@state:verified
 Scenario: 使用者進入專案管理時先看到 Project list
   Given（前提） 使用者打開 Grimo 並切到 "專案"
   When（動作） Project list 載入完成
@@ -240,7 +240,7 @@ Scenario: 使用者進入專案管理時先看到 Project list
 @spec:S003
 @ac:AC-S003-2
 @layer:frontend
-@state:planned
+@state:verified
 Scenario: 使用者按新增專案後進入建立頁，並可以回到列表
   Given（前提） 使用者位於 "專案管理" list view
   When（動作） 使用者按 "新增專案"
@@ -283,7 +283,7 @@ Contract：
 @ac:AC-S003-3
 @layer:backend,frontend,fullstack
 @api:POST /api/projects
-@state:planned
+@state:verified
 Scenario: 使用者不填專案路徑時，Grimo 建立預設 projectPath
   Given（前提） 使用者位於 "新增專案" 頁
   And（而且） 使用者已填寫 "專案名稱" 並選擇 "Web 服務開發"
@@ -324,7 +324,7 @@ Manual path flow 送出 `projectPath` 字串。backend 驗證 path 存在、是 
 @ac:AC-S003-4
 @layer:backend,frontend,fullstack
 @api:POST /api/projects
-@state:planned
+@state:verified
 Scenario: 使用者手動輸入有效 repo path 後建立 Project
   Given（前提） 使用者位於 "新增專案" 頁
   And（而且） 本機存在可讀資料夾 "/Users/samzhu/workspace/github-samzhu/grimoAPP"
@@ -347,7 +347,7 @@ Scenario: 使用者手動輸入有效 repo path 後建立 Project
 @ac:AC-S003-5
 @layer:backend,frontend,fullstack
 @api:POST /api/projects
-@state:planned
+@state:verified
 Scenario: 無效 projectPath 不會建立 Project
   Given（前提） 使用者位於 "新增專案" 頁
   When（動作） 使用者輸入不存在或不可讀的 projectPath 並建立 Project
@@ -369,7 +369,7 @@ Scenario: 無效 projectPath 不會建立 Project
 @ac:AC-S003-6
 @layer:backend,frontend
 @api:POST /api/projects
-@state:planned
+@state:verified
 Scenario: 重複 projectPath 不會建立第二個 Project
   Given（前提） 已存在 Project 使用 projectPath "/Users/samzhu/workspace/github-samzhu/grimoAPP"
   When（動作） 使用者用同一個 normalized projectPath 建立另一個 Project
@@ -397,7 +397,7 @@ S003 主流程不呼叫 `GET /api/local-directories`，不渲染 `.directory-bro
 @ac:AC-S003-7
 @layer:frontend,fullstack
 @api:GET /api/local-directories
-@state:planned
+@state:verified
 Scenario: 新增專案頁只顯示 projectPath 文字欄位
   Given（前提） 使用者位於 "新增專案" 頁
   When（動作） 使用者查看 "專案路徑" 區塊
@@ -527,4 +527,79 @@ S003 treats it as a derived storage location, not an API field. If a user does n
 
 ---
 
-<!-- Sections 6-7 added by /planning-tasks after implementation -->
+## 6. Task Plan
+
+POC：not required。S003 使用既有 Spring MVC / SQLite / MockMvc / Playwright stack，不新增 dependency；`showDirectoryPicker()` 已從 S003 contract 移除，主流程只做 `projectPath` 文字輸入 + backend 驗證。
+
+### 6.1 BDD layer split
+
+| Layer | Task | 主要 AC | 測試檔 | 驗證命令 |
+| --- | --- | --- | --- | --- |
+| Backend BDD | [S003-T01 Backend Project Path API BDD](../tasks/2026-06-01-S003-T01-backend-project-path-bdd.md) | AC-S003-3, AC-S003-4, AC-S003-5, AC-S003-6, response removed fields | `backend/src/test/java/io/github/samzhu/grimo/project/ProjectApiTests.java` | `./backend/gradlew -p backend test --tests '*ProjectApiTests'` |
+| Frontend BDD | [S003-T02 Frontend Project Management BDD](../tasks/2026-06-01-S003-T02-frontend-project-management-bdd.md) | AC-S003-1, AC-S003-2, AC-S003-7 | `frontend/e2e/project-management.ui.spec.ts` | `npm --prefix frontend run test:visual -- project-management.ui.spec.ts --grep "AC-S003"` |
+| Full-stack E2E | [S003-T03 Full-Stack E2E Project Path Verification](../tasks/2026-06-01-S003-T03-fullstack-e2e-project-path.md) | AC-S003-1, AC-S003-2, AC-S003-3, AC-S003-4, AC-S003-5, AC-S003-7 | `frontend/e2e/project-onboarding.fullstack.spec.ts` | `npm --prefix frontend run test:fullstack` |
+
+### 6.2 Execution order
+
+1. S003-T01：先鎖定 backend API contract，讓 `projectPath` optional、generated path、manual path validation、duplicate path rejection 都有 MockMvc evidence。
+2. S003-T02：再鎖定前端 list/create view 與 request body，確保使用者一進來只看到 Project list，新增頁不再展開 backend directory browser。
+3. S003-T03：最後跑 full-stack E2E，確認 real backend + Vite + SQLite schema 串起來，並把 S003 驗收接進 release gate。
+
+### 6.3 Manual planning result
+
+`/planning-tasks` manual mode 到這裡停止，不開始實作。下一個可執行 task 是：
+
+`docs/grimo/tasks/2026-06-01-S003-T01-backend-project-path-bdd.md`
+
+## 7. Results
+
+### Implementation Results
+
+Local Release Verdict: PASS
+
+| Item | Result | Evidence |
+| --- | --- | --- |
+| S003-T01 Backend BDD | PASS | `./gradlew test --tests '*ProjectApiTests'` in `backend/` passed; `ProjectApiTests` covers generated projectPath, manual path validation, invalid path rejection, duplicate normalized path rejection, and removed response fields. |
+| S003-T02 Frontend BDD | PASS | `npm --prefix frontend run test:visual -- project-management.ui.spec.ts --grep "AC-S003"` passed; 3 tests verify list-first view, create view return, projectPath-only submit body, and no directory browser. |
+| S003-T03 Full-stack E2E | PASS | `npm --prefix frontend run test:fullstack` passed; 4 tests verify real browser + Vite + Spring Boot + SQLite flow for list/create, blank projectPath, manual projectPath, invalid path, and no `/api/local-directories` main-flow request. |
+| Release gate | PASS | `./scripts/verify-release.sh` passed and wrote evidence to `temp/verify-release.log`. Verdict line: `PASS: frontend build, deterministic visual regression, backend tests, and S001/S002/S003 full-stack Project onboarding completed. Webwright remains task-specific for prototype parity reviews.` |
+
+### QA Review
+
+| Layer | Result | Detail |
+| --- | --- | --- |
+| Automated tests | PASS | `./scripts/verify-release.sh` ran `npm run build`, `npm run test:visual`, backend `./gradlew test`, and `npm run test:fullstack`; all CRITICAL checks passed. |
+| Coverage / Integration | PASS | S003 frontend-to-backend behavior is covered by real full-stack Playwright against Spring Boot and SQLite. No separate coverage target is configured in `qa-strategy.md`. |
+| Manual verification | N-A | All S003 ACs are covered by automated backend/frontend/full-stack tests. |
+| Testability gate | CLEAR | Every AC has executable evidence through `ProjectApiTests`, `project-management.ui.spec.ts`, or `project-onboarding.fullstack.spec.ts`. |
+
+### AC Evidence
+
+| AC | Status | Evidence |
+| --- | --- | --- |
+| AC-S003-1 | VERIFIED | `project-management.ui.spec.ts` and `project-onboarding.fullstack.spec.ts` show Project management starts in list view and hides create fields. |
+| AC-S003-2 | VERIFIED | `project-management.ui.spec.ts` and `project-onboarding.fullstack.spec.ts` verify `新增專案` enters create view and `返回列表` returns to list. |
+| AC-S003-3 | VERIFIED | `ProjectApiTests` and full-stack E2E verify blank/omitted `projectPath` creates a generated `.grimo/projects/<projectId>` path without removed fields. |
+| AC-S003-4 | VERIFIED | `ProjectApiTests` and full-stack E2E verify valid manual paths are normalized/saved and shown in Project list/API responses. |
+| AC-S003-5 | VERIFIED | `ProjectApiTests` and full-stack E2E verify invalid paths return `請輸入有效的本機資料夾路徑` and do not persist Project rows. |
+| AC-S003-6 | VERIFIED | `ProjectApiTests` verifies duplicate normalized `projectPath` returns `409 Conflict` and leaves one Project row. |
+| AC-S003-7 | VERIFIED | Frontend BDD and full-stack E2E verify no `選擇資料夾` button, no `.directory-browser`, no `/api/local-directories` request, and no source/browser-handle request fields. |
+
+### Implementation Notes
+
+- API surface now uses `projectPath`; the SQLite column remains `workspace_path` as an internal storage column.
+- `frontend/playwright.fullstack.config.ts` sets `user.home` to repo-local `temp/grimo-fullstack-home` for full-stack generated path tests, so S003 verification does not write generated Projects to the user's real home.
+- `LocalDirectoryController` remains for S001/S002 compatibility, but S003 Project creation does not call it.
+- The `playwright-expert` standalone `e2e/` workspace was not used because this repo's QA strategy already defines the browser gate under `frontend/e2e/` and `scripts/verify-release.sh`; no separate root `e2e/` workspace exists.
+
+### Final Size Re-score
+
+| Dimension | Initial | Actual | Rationale |
+| --- | ---: | ---: | --- |
+| Tech risk | 2 | 2 | Used existing Spring MVC/JDBC and Playwright stack; no framework pivot. |
+| Uncertainty | 2 | 2 | Product contract was already resolved before implementation; code changes matched the planned path. |
+| Dependencies | 2 | 2 | Depended on S001/S002 Project API and workflow recipe behavior only. |
+| Scope | 2 | 3 | Touched backend DTO/service/store/tests, frontend Projects UI/types/API, full-stack config, and release gate. |
+| Testing | 2 | 3 | Required backend BDD, mocked frontend BDD, full-stack E2E, visual gate, and full release gate. |
+| Reversibility | 1 | 1 | API rename is localized; DB column remains compatible as internal storage. |
+| **Total** | **11 / S** | **13 / M** | Bucket shifts S→M because implementation spanned backend, frontend, full-stack test config, and release gate. |

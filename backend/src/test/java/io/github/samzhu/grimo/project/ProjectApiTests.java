@@ -11,8 +11,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -42,6 +46,9 @@ class ProjectApiTests {
 
 	@Autowired
 	private JdbcClient jdbcClient;
+
+	@TempDir
+	private Path tempDir;
 
 	@Test
 	@DisplayName("AC-S002-1: workflow recipes return collection content with per-recipe roles")
@@ -98,14 +105,15 @@ class ProjectApiTests {
 	@Test
 	@DisplayName("AC-S002-9: Project list returns collection content with created Project")
 	void createsAndListsProject() throws Exception {
+		String projectPath = existingDirectory("grimoAPP").toString();
 		String request = """
 				{
 				  "name": "grimoAPP",
 				  "description": "本機 AI 開發工作台",
-				  "workspacePath": "/Users/samzhu/workspace/github-samzhu/grimoAPP",
+				  "projectPath": "%s",
 				  "workflowRecipeId": "coding"
 				}
-				""";
+				""".formatted(projectPath);
 
 		mockMvc.perform(post("/api/projects")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -113,7 +121,8 @@ class ProjectApiTests {
 				.andExpect(status().isCreated())
 				.andExpect(jsonPath("$.id", notNullValue()))
 				.andExpect(jsonPath("$.name").value("grimoAPP"))
-				.andExpect(jsonPath("$.workspacePath").value("/Users/samzhu/workspace/github-samzhu/grimoAPP"))
+				.andExpect(jsonPath("$.projectPath").value(projectPath))
+				.andExpect(jsonPath("$.workspacePath").doesNotExist())
 				.andExpect(jsonPath("$.folderPath").doesNotExist())
 				.andExpect(jsonPath("$.workflowRecipeId").value("coding"))
 				.andExpect(jsonPath("$.workflowRecipeName").value("開發工作流"))
@@ -122,21 +131,23 @@ class ProjectApiTests {
 		mockMvc.perform(get("/api/projects"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.content[*].name", hasItem("grimoAPP")))
-				.andExpect(jsonPath("$.content[*].workspacePath", hasItem("/Users/samzhu/workspace/github-samzhu/grimoAPP")))
+				.andExpect(jsonPath("$.content[*].projectPath", hasItem(projectPath)))
+				.andExpect(jsonPath("$.content[0].workspacePath").doesNotExist())
 				.andExpect(jsonPath("$.content[0].folderPath").doesNotExist());
 	}
 
 	@Test
-	@DisplayName("AC-S001-3 rejects duplicate workspace path")
+	@DisplayName("AC-S003-6: rejects duplicate normalized projectPath without persisted rows")
 	void rejectsDuplicateWorkspacePath() throws Exception {
+		String projectPath = existingDirectory("duplicate").toString();
 		String request = """
 				{
 				  "name": "duplicate-source",
 				  "description": "first",
-				  "workspacePath": "/tmp/grimo-duplicate",
+				  "projectPath": "%s",
 				  "workflowRecipeId": "coding"
 				}
-				""";
+				""".formatted(projectPath);
 
 		mockMvc.perform(post("/api/projects")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -147,7 +158,13 @@ class ProjectApiTests {
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(request))
 				.andExpect(status().isConflict())
-				.andExpect(jsonPath("$.error").value("這個工作區已綁定到既有專案"));
+				.andExpect(jsonPath("$.error").value("這個專案路徑已經建立過 Project"));
+
+		Integer projectCount = jdbcClient.sql("SELECT COUNT(*) FROM projects WHERE workspace_path = :projectPath")
+				.param("projectPath", projectPath)
+				.query(Integer.class)
+				.single();
+		org.assertj.core.api.Assertions.assertThat(projectCount).isEqualTo(1);
 	}
 
 	@Test
@@ -157,7 +174,6 @@ class ProjectApiTests {
 				{
 				  "name": "",
 				  "description": "missing name",
-				  "workspacePath": "",
 				  "workflowRecipeId": "unknown"
 				}
 				""";
@@ -166,64 +182,88 @@ class ProjectApiTests {
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(request))
 				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.error").value("請填寫專案名稱與專案工作區"));
+				.andExpect(jsonPath("$.error").value("請填寫專案名稱與專案工作流"));
 	}
 
 	@Test
-	@DisplayName("AC-S002-7: blank workspacePath rejects Project creation without rows")
-	void rejectsProjectCreateWithBlankWorkspacePathWithoutRows() throws Exception {
-		String projectName = "S002 missing local directory";
+	@DisplayName("AC-S003-3: creates Project with generated projectPath when request omits projectPath")
+	void createsProjectWithGeneratedProjectPathWhenRequestOmitsProjectPath() throws Exception {
+		String originalUserHome = System.getProperty("user.home");
+		System.setProperty("user.home", tempDir.toString());
+		String projectName = "S003 generated path";
 		String request = """
 				{
 				  "name": "%s",
-				  "description": "缺少本機工作目錄",
-				  "workspacePath": "",
+				  "description": "未填專案路徑",
 				  "workflowRecipeId": "web-service-development"
 				}
 				""".formatted(projectName);
 
-		mockMvc.perform(post("/api/projects")
-						.contentType(MediaType.APPLICATION_JSON)
-						.content(request))
-				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.error").value("請填寫專案名稱與專案工作區"));
+		try {
+			mockMvc.perform(post("/api/projects")
+							.contentType(MediaType.APPLICATION_JSON)
+							.content(request))
+					.andExpect(status().isCreated())
+					.andExpect(jsonPath("$.projectPath", matchesPattern(".*/\\.grimo/projects/[0-9A-HJKMNP-TV-Z]{13}$")))
+					.andExpect(jsonPath("$.workspacePath").doesNotExist())
+					.andExpect(jsonPath("$.projectPathSource").doesNotExist())
+					.andExpect(jsonPath("$.backendPathReady").doesNotExist())
+					.andExpect(jsonPath("$.projectDataPath").doesNotExist());
+		}
+		finally {
+			System.setProperty("user.home", originalUserHome);
+		}
 
 		Integer projectCount = jdbcClient.sql("SELECT COUNT(*) FROM projects WHERE name = :name")
 				.param("name", projectName)
 				.query(Integer.class)
 				.single();
-		Integer roleCount = jdbcClient.sql("""
-						SELECT COUNT(*)
-						FROM project_workflow_roles roles
-						JOIN projects projects ON projects.id = roles.project_id
-						WHERE projects.name = :name
-						""")
-				.param("name", projectName)
-				.query(Integer.class)
-				.single();
-		org.assertj.core.api.Assertions.assertThat(projectCount).isZero();
-		org.assertj.core.api.Assertions.assertThat(roleCount).isZero();
+		org.assertj.core.api.Assertions.assertThat(projectCount).isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("AC-S003-5: rejects invalid projectPath without persisted rows")
+	void rejectsInvalidProjectPathWithoutPersistedRows() throws Exception {
+		String projectName = "S003 invalid path";
+		Path invalidPath = tempDir.resolve("missing-repo");
+		String request = """
+				{
+				  "name": "%s",
+				  "description": "不存在的本機資料夾",
+				  "projectPath": "%s",
+				  "workflowRecipeId": "web-service-development"
+				}
+				""".formatted(projectName, invalidPath);
+
+		mockMvc.perform(post("/api/projects")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(request))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.error").value("請輸入有效的本機資料夾路徑"));
+
+		assertNoRowsForProjectName(projectName);
 	}
 
 	@Test
 	@DisplayName("AC-S002-8: Project create snapshots Web service development workflow roles")
 	void createsProjectWithWorkflowRoleSettings() throws Exception {
-		String workspacePath = "/tmp/grimo-s002-role-settings";
+		String projectPath = existingDirectory("role-settings").toString();
 		String request = """
 				{
 				  "name": "S002 role settings",
 				  "description": "角色設定驗收",
-				  "workspacePath": "%s",
+				  "projectPath": "%s",
 				  "workflowRecipeId": "web-service-development"
 				}
-				""".formatted(workspacePath);
+				""".formatted(projectPath);
 
 		mockMvc.perform(post("/api/projects")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(request))
 				.andExpect(status().isCreated())
 				.andExpect(jsonPath("$.id", matchesPattern("^[0-9A-HJKMNP-TV-Z]{13}$")))
-				.andExpect(jsonPath("$.workspacePath").value(workspacePath))
+				.andExpect(jsonPath("$.projectPath").value(projectPath))
+				.andExpect(jsonPath("$.workspacePath").doesNotExist())
 				.andExpect(jsonPath("$.folderPath").doesNotExist())
 				.andExpect(jsonPath("$.workflowRecipeId").value("web-service-development"))
 				.andExpect(jsonPath("$.workflowRecipeName").value("Web 服務開發"))
@@ -242,9 +282,9 @@ class ProjectApiTests {
 						SELECT COUNT(*)
 						FROM project_workflow_roles roles
 						JOIN projects projects ON projects.id = roles.project_id
-						WHERE projects.workspace_path = :workspacePath
+						WHERE projects.workspace_path = :projectPath
 						""")
-				.param("workspacePath", workspacePath)
+				.param("projectPath", projectPath)
 				.query(Integer.class)
 				.single();
 		org.assertj.core.api.Assertions.assertThat(count).isEqualTo(6);
@@ -253,14 +293,15 @@ class ProjectApiTests {
 	@Test
 	@DisplayName("AC-S002-10: Project id uses 13-character TSID")
 	void createsProjectWithTsid() throws Exception {
+		String projectPath = existingDirectory("short-id").toString();
 		String request = """
 				{
 				  "name": "S002 short id",
 				  "description": "短 ID 驗收",
-				  "workspacePath": "/tmp/grimo-s002-short-id",
+				  "projectPath": "%s",
 				  "workflowRecipeId": "research"
 				}
-				""";
+				""".formatted(projectPath);
 
 		mockMvc.perform(post("/api/projects")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -272,15 +313,15 @@ class ProjectApiTests {
 	@Test
 	@DisplayName("AC-S002-6/8 creates Project with empty role settings for recipes without roles")
 	void createsProjectWithEmptyRoleSettingsForRecipesWithoutRoles() throws Exception {
-		String workspacePath = "/tmp/grimo-s002-empty-role-settings";
+		String projectPath = existingDirectory("empty-role-settings").toString();
 		String request = """
 				{
 				  "name": "S002 empty roles",
 				  "description": "空角色驗收",
-				  "workspacePath": "%s",
+				  "projectPath": "%s",
 				  "workflowRecipeId": "research"
 				}
-				""".formatted(workspacePath);
+				""".formatted(projectPath);
 
 		mockMvc.perform(post("/api/projects")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -293,11 +334,33 @@ class ProjectApiTests {
 						SELECT COUNT(*)
 						FROM project_workflow_roles roles
 						JOIN projects projects ON projects.id = roles.project_id
-						WHERE projects.workspace_path = :workspacePath
+						WHERE projects.workspace_path = :projectPath
 						""")
-				.param("workspacePath", workspacePath)
+				.param("projectPath", projectPath)
 				.query(Integer.class)
 				.single();
 		org.assertj.core.api.Assertions.assertThat(count).isZero();
+	}
+
+	private Path existingDirectory(String name) throws Exception {
+		return Files.createDirectories(tempDir.resolve(name)).toAbsolutePath().normalize();
+	}
+
+	private void assertNoRowsForProjectName(String projectName) {
+		Integer projectCount = jdbcClient.sql("SELECT COUNT(*) FROM projects WHERE name = :name")
+				.param("name", projectName)
+				.query(Integer.class)
+				.single();
+		Integer roleCount = jdbcClient.sql("""
+						SELECT COUNT(*)
+						FROM project_workflow_roles roles
+						JOIN projects projects ON projects.id = roles.project_id
+						WHERE projects.name = :name
+						""")
+				.param("name", projectName)
+				.query(Integer.class)
+				.single();
+		org.assertj.core.api.Assertions.assertThat(projectCount).isZero();
+		org.assertj.core.api.Assertions.assertThat(roleCount).isZero();
 	}
 }

@@ -7,7 +7,7 @@ package io.github.samzhu.grimo.project;
  */
 public class DuplicateProjectException extends RuntimeException {
 
-	DuplicateProjectException(String workspacePath) {
-		super("Project workspace already exists: " + workspacePath);
+	DuplicateProjectException(String projectPath) {
+		super("Project path already exists: " + projectPath);
 	}
 }

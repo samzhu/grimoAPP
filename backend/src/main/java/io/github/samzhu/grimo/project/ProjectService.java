@@ -1,5 +1,8 @@
 package io.github.samzhu.grimo.project;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
@@ -55,25 +58,26 @@ public class ProjectService {
 
 	@Transactional
 	public ProjectResponse createProject(CreateProjectRequest request) {
-		String name = trimRequired(request.name(), "請填寫專案名稱與專案工作區");
-		String workspacePath = trimRequired(request.workspacePath(), "請填寫專案名稱與專案工作區");
+		String name = trimRequired(request.name(), "請填寫專案名稱與專案工作流");
 		String workflowRecipeId = trimRequired(request.workflowRecipeId(), "未知的專案工作流");
 		WorkflowRecipeResponse recipe = workflowRecipeCatalog.findById(workflowRecipeId)
 				.orElseThrow(() -> new IllegalArgumentException("未知的專案工作流"));
+		String projectId = idGenerator.newId();
+		String projectPath = resolveProjectPath(projectId, request.projectPath());
 
-		if (projectStore.existsByWorkspacePath(workspacePath)) {
+		if (projectStore.existsByProjectPath(projectPath)) {
 			logger.atWarn()
-					.addKeyValue("workspacePath", workspacePath)
+					.addKeyValue("projectPath", projectPath)
 					.log("project.create.duplicate");
-			throw new DuplicateProjectException(workspacePath);
+			throw new DuplicateProjectException(projectPath);
 		}
 
 		Instant now = Instant.now(clock);
 		ProjectRecord project = new ProjectRecord(
-				idGenerator.newId(),
+				projectId,
 				name,
 				request.description() == null ? "" : request.description().trim(),
-				workspacePath,
+				projectPath,
 				recipe.id(),
 				"ACTIVE",
 				now,
@@ -87,6 +91,7 @@ public class ProjectService {
 		logger.atInfo()
 				.addKeyValue("projectId", project.id())
 				.addKeyValue("workflowRecipeId", project.workflowRecipeId())
+				.addKeyValue("projectPath", project.projectPath())
 				.log("project.created");
 		return ProjectResponse.from(project, recipe, workflowRoles);
 	}
@@ -103,6 +108,30 @@ public class ProjectService {
 						""
 				));
 		return ProjectResponse.from(project, recipe, projectStore.findWorkflowRoles(project.id()));
+	}
+
+	private static String resolveProjectPath(String projectId, String requestedProjectPath) {
+		if (requestedProjectPath == null || requestedProjectPath.trim().isEmpty()) {
+			return createManagedProjectPath(projectId);
+		}
+		Path path = Path.of(requestedProjectPath.trim()).toAbsolutePath().normalize();
+		if (!Files.exists(path) || !Files.isDirectory(path) || !Files.isReadable(path)) {
+			throw new IllegalArgumentException("請輸入有效的本機資料夾路徑");
+		}
+		return path.toString();
+	}
+
+	private static String createManagedProjectPath(String projectId) {
+		Path path = Path.of(System.getProperty("user.home"), ".grimo", "projects", projectId)
+				.toAbsolutePath()
+				.normalize();
+		try {
+			Files.createDirectories(path);
+		}
+		catch (IOException exception) {
+			throw new IllegalArgumentException("無法建立 Grimo 預設專案路徑");
+		}
+		return path.toString();
 	}
 
 	private static String trimRequired(String value, String message) {

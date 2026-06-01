@@ -1,49 +1,65 @@
 import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-test("AC-S001-4/5 AC-S002 creates Project with workspace, workflow roles, collection responses, and TSID", async ({
+async function openProjectCreate(page: Page) {
+  await page.goto("/");
+  await page.getByRole("button", { name: "展開主選單" }).click();
+  await page.getByRole("button", { name: "專案" }).click();
+  await expect(page.getByRole("heading", { name: "專案管理" })).toBeVisible();
+  await page.getByRole("button", { name: "新增專案" }).click();
+  await expect(page.getByRole("heading", { name: "新增專案", level: 1 })).toBeVisible();
+}
+
+test("AC-S003-1/2/7 shows list-first Project management and projectPath-only create form", async ({
   page,
 }) => {
-  const suffix = Date.now().toString();
-  const projectName = `S002 專案 ${suffix}`;
-  const parentPath = join(tmpdir(), `grimo-s002-${suffix}`);
-  const workspacePath = join(parentPath, "workspace");
-
-  await mkdir(workspacePath, { recursive: true });
+  const localDirectoryRequests: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/api/local-directories")) {
+      localDirectoryRequests.push(request.url());
+    }
+  });
 
   await page.goto("/");
   await page.getByRole("button", { name: "展開主選單" }).click();
   await page.getByRole("button", { name: "專案" }).click();
 
   await expect(page.getByRole("heading", { name: "專案管理" })).toBeVisible();
-  await page.getByRole("button", { name: "建立專案" }).click();
+  await expect(page.getByText("Project list")).toBeVisible();
+  await expect(page.getByRole("button", { name: "新增專案" })).toBeVisible();
+  await expect(page.getByLabel("專案名稱")).toHaveCount(0);
+  await expect(page.getByLabel("專案路徑")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "新增專案" }).click();
+  await expect(page.getByRole("heading", { name: "新增專案", level: 1 })).toBeVisible();
+  await expect(page.getByRole("button", { name: "返回列表" })).toBeVisible();
+  await expect(page.getByLabel("專案路徑")).toBeVisible();
+  await expect(page.getByText("未填會使用 Grimo 預設路徑")).toBeVisible();
+  await expect(page.getByRole("button", { name: "選擇資料夾" })).toHaveCount(0);
+  await expect(page.locator(".directory-browser")).toHaveCount(0);
+  expect(localDirectoryRequests).toHaveLength(0);
+
+  await page.getByRole("button", { name: "返回列表" }).click();
+  await expect(page.getByRole("heading", { name: "專案管理" })).toBeVisible();
+  await expect(page.getByText("Project list")).toBeVisible();
+});
+
+test("AC-S003-3 creates Project with generated projectPath when projectPath is blank", async ({
+  page,
+}) => {
+  const suffix = Date.now().toString();
+  const projectName = `S003 generated ${suffix}`;
+  await openProjectCreate(page);
 
   const submitButton = page.getByRole("button", { name: "建立專案" });
   await expect(submitButton).toBeDisabled();
-  await expect(page.getByLabel("專案工作流")).toContainText("Web 服務開發");
-
-  await page.getByLabel("專案工作流").selectOption("research");
-  await expect(page.getByText("這個工作流尚未定義角色")).toBeVisible();
-  await expect(page.getByText("Product Manager")).not.toBeVisible();
-
-  await page.getByLabel("專案工作流").selectOption("web-service-development");
-  await expect(page.getByText("Product Manager")).toBeVisible();
-  await expect(page.getByText("Frontend Engineer")).toBeVisible();
-  await expect(page.getByText("Backend Engineer")).toBeVisible();
-  await expect(page.getByText("AI Review")).toBeVisible();
-  await expect(page.getByText("Human Review")).toBeVisible();
-  await expect(page.getByText("optional")).not.toBeVisible();
-  await expect(page.getByText("可跳過")).not.toBeVisible();
-
   await page.getByLabel("專案名稱").fill(projectName);
-  await page.getByLabel("專案描述").fill("S002 full-stack 驗收專案");
-  await page.getByLabel("專案工作區").fill(parentPath);
-  await page.getByRole("button", { name: "選擇資料夾" }).click();
-  await page.getByRole("button", { name: "workspace" }).click();
-  await page.getByRole("button", { name: "選取此資料夾" }).click();
-  await expect(page.getByLabel("專案工作區")).toHaveValue(workspacePath);
+  await page.getByLabel("專案描述").fill("S003 full-stack generated path");
+  await page.getByLabel("專案工作流").selectOption("web-service-development");
+  await expect(submitButton).toBeEnabled();
 
   const createRequestPromise = page.waitForRequest(
     (request) => request.method() === "POST" && request.url().endsWith("/api/projects"),
@@ -52,28 +68,68 @@ test("AC-S001-4/5 AC-S002 creates Project with workspace, workflow roles, collec
     (response) => response.request().method() === "POST" && response.url().endsWith("/api/projects"),
   );
   await submitButton.click();
-  const createRequest = await createRequestPromise;
-  const createRequestBody = JSON.parse(createRequest.postData() ?? "{}") as {
-    workspacePath?: string;
-    folderPath?: string;
-  };
-  expect(createRequestBody.workspacePath).toBe(workspacePath);
-  expect(createRequestBody.folderPath).toBeUndefined();
 
-  const createResponse = await createResponsePromise;
-  expect(createResponse.ok()).toBe(true);
-  const createdProject = (await createResponse.json()) as {
+  const createRequestBody = JSON.parse((await createRequestPromise).postData() ?? "{}") as {
+    projectPath?: string;
+    workspacePath?: string;
+    projectPathSource?: string;
+    browserProjectPathKey?: string;
+  };
+  expect(createRequestBody.projectPath).toBeUndefined();
+  expect(createRequestBody.workspacePath).toBeUndefined();
+  expect(createRequestBody.projectPathSource).toBeUndefined();
+  expect(createRequestBody.browserProjectPathKey).toBeUndefined();
+
+  const createdProject = (await (await createResponsePromise).json()) as {
     id: string;
-    workspacePath: string;
-    folderPath?: string;
+    projectPath: string;
+    workspacePath?: string;
+    projectPathSource?: string;
+    backendPathReady?: boolean;
+    projectDataPath?: string;
   };
   expect(createdProject.id).toMatch(/^[0-9A-HJKMNP-TV-Z]{13}$/);
-  expect(createdProject.workspacePath).toBe(workspacePath);
-  expect(createdProject.folderPath).toBeUndefined();
+  expect(createdProject.projectPath).toMatch(/\/\.grimo\/projects\/[0-9A-HJKMNP-TV-Z]{13}$/);
+  expect(createdProject.workspacePath).toBeUndefined();
+  expect(createdProject.projectPathSource).toBeUndefined();
+  expect(createdProject.backendPathReady).toBeUndefined();
+  expect(createdProject.projectDataPath).toBeUndefined();
 
   await expect(page.getByText(`${projectName} 已建立並設為目前專案`)).toBeVisible();
   await expect(page.locator(".project-context")).toContainText(projectName);
-  await expect(page.getByRole("button", { name: new RegExp(projectName) })).toBeVisible();
+  await expect(page.getByRole("button", { name: new RegExp(projectName) })).toContainText(
+    createdProject.projectPath,
+  );
+});
+
+test("AC-S003-4 creates Project with validated manual projectPath", async ({ page }) => {
+  const suffix = Date.now().toString();
+  const projectName = `S003 manual ${suffix}`;
+  const projectPath = join(tmpdir(), `grimo-s003-manual-${suffix}`);
+  await mkdir(projectPath, { recursive: true });
+  await openProjectCreate(page);
+
+  await page.getByLabel("專案名稱").fill(projectName);
+  await page.getByLabel("專案描述").fill("S003 full-stack manual path");
+  await page.getByLabel("專案路徑").fill(projectPath);
+  await page.getByLabel("專案工作流").selectOption("web-service-development");
+  await expect(page.getByText("Product Manager")).toBeVisible();
+  await expect(page.getByText("Frontend Engineer")).toBeVisible();
+  await expect(page.getByText("Backend Engineer")).toBeVisible();
+  await expect(page.getByText("AI Review")).toBeVisible();
+  await expect(page.getByText("Human Review")).toBeVisible();
+
+  const createResponsePromise = page.waitForResponse(
+    (response) => response.request().method() === "POST" && response.url().endsWith("/api/projects"),
+  );
+  await page.getByRole("button", { name: "建立專案" }).click();
+  const createdProject = (await (await createResponsePromise).json()) as {
+    id: string;
+    projectPath: string;
+    workspacePath?: string;
+  };
+  expect(createdProject.projectPath).toBe(projectPath);
+  expect(createdProject.workspacePath).toBeUndefined();
 
   const response = await page.request.get("/api/projects");
   expect(response.ok()).toBe(true);
@@ -81,17 +137,17 @@ test("AC-S001-4/5 AC-S002 creates Project with workspace, workflow roles, collec
     content: Array<{
       id: string;
       name: string;
-      workspacePath: string;
+      projectPath: string;
+      workspacePath?: string;
       workflowRecipeId: string;
       workflowRoles: Array<{ id: string; name: string }>;
     }>;
   };
-  const projects = body.content;
-  expect(projects).toContainEqual(
+  const listedProject = body.content.find((project) => project.name === projectName);
+  expect(listedProject).toEqual(
     expect.objectContaining({
       id: expect.stringMatching(/^[0-9A-HJKMNP-TV-Z]{13}$/),
-      name: projectName,
-      workspacePath,
+      projectPath,
       workflowRecipeId: "web-service-development",
       workflowRoles: expect.arrayContaining([
         expect.objectContaining({ id: "product-manager", name: "Product Manager" }),
@@ -99,4 +155,25 @@ test("AC-S001-4/5 AC-S002 creates Project with workspace, workflow roles, collec
       ]),
     }),
   );
+  expect(listedProject).not.toHaveProperty("workspacePath");
+});
+
+test("AC-S003-5 rejects invalid manual projectPath without adding Project", async ({ page }) => {
+  const suffix = Date.now().toString();
+  const projectName = `S003 invalid ${suffix}`;
+  const missingProjectPath = join(tmpdir(), `grimo-s003-missing-${suffix}`);
+  await openProjectCreate(page);
+
+  await page.getByLabel("專案名稱").fill(projectName);
+  await page.getByLabel("專案描述").fill("S003 full-stack invalid path");
+  await page.getByLabel("專案路徑").fill(missingProjectPath);
+  await page.getByLabel("專案工作流").selectOption("web-service-development");
+  await page.getByRole("button", { name: "建立專案" }).click();
+
+  await expect(page.getByText("請輸入有效的本機資料夾路徑")).toBeVisible();
+
+  const response = await page.request.get("/api/projects");
+  expect(response.ok()).toBe(true);
+  const body = (await response.json()) as { content: Array<{ name: string }> };
+  expect(body.content).not.toContainEqual(expect.objectContaining({ name: projectName }));
 });

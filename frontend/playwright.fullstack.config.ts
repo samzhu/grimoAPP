@@ -14,7 +14,7 @@ export default defineConfig({
   webServer: [
     {
       command:
-        "GRIMO_DATASOURCE_URL='jdbc:sqlite:file:grimo-fullstack?mode=memory&cache=shared' ../backend/gradlew -p ../backend bootRun",
+        "JAVA_TOOL_OPTIONS='-Duser.home=../temp/grimo-fullstack-home' GRIMO_DATASOURCE_URL='jdbc:sqlite:file:grimo-fullstack?mode=memory&cache=shared' ../backend/gradlew -p ../backend bootRun",
       url: "http://127.0.0.1:8080/api/workflow-recipes",
       reuseExistingServer: false,
       timeout: 120_000,

@@ -65,7 +65,7 @@ export function App() {
           <div className="project-context">
             <span>目前專案</span>
             <strong>{currentProject?.name ?? "grimo/web"}</strong>
-            <code>{currentProject?.workspacePath ?? "/Users/samzhu/workspace/github-samzhu/grimo/apps/web"}</code>
+            <code>{currentProject?.projectPath ?? "/Users/samzhu/workspace/github-samzhu/grimo/apps/web"}</code>
           </div>
         </header>
 
