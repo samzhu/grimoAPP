@@ -243,7 +243,7 @@ Response:
   {
     "id": "coding",
     "name": "開發工作流",
-    "description": "Discuss / Explore / Prototype / Spec / Usage / Tkt / Dev / Review",
+    "description": "Discuss / Explore / Prototype / Spec / Usage / Tkt / Dev / Auto-Review / Unit-test fe/be / Integration-test / E2E-test / Release",
     "category": "development"
   }
 ]

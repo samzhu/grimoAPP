@@ -90,6 +90,27 @@ Binding 必須能讓 `$verifying-quality` 追到：
 - 哪個 command 會執行該測試。
 - 失敗時要回哪個 task/spec 修。
 
+## Data Contract Examples
+
+每個會改 API、DTO、DB row、event payload、command output、UI form data 或 file format 的 spec，都必須在 BDD Contract 裡放資料合約範例。不要只寫「欄位符合 schema」；要讓開發者看懂每個欄位為什麼存在、誰決定它、測試要怎麼證明它不是硬編碼。
+
+每個資料合約至少包含：
+
+- 一個 realistic request/input 範例。
+- 一個 realistic response/output 範例；collection 要至少兩筆 `content[]`，並包含空陣列或反向案例需要的 shape。
+- 每個欄位的設計說明表，包含 `欄位`, `型別/格式`, `規則`, `來源`, `設計理由`, `BDD 要驗什麼`。
+- 如果 spec 會新增或修改 DB table，Storage contract 必須固定包含：每張 table 的用途註解、ownership / boundary、不可存放的資料、欄位設計表，以及至少一組 realistic sample rows。Sample rows 要呈現 FK 關係和反向/空狀態需要的 shape，不能只列欄位名稱。
+- 明確列出禁止由 client 設定的系統欄位，例如 `state`, `source`, `workflowRecipeId`, `id`, `createdAt`。
+
+建議格式：
+
+| 欄位 | 型別/格式 | 規則 | 來源 | 設計理由 | BDD 要驗什麼 |
+| --- | --- | --- | --- | --- | --- |
+| `title` | string | trim、必填、不可空白 | user input | 使用者在列表中掃描工作標題 | blank title 失敗；成功 response 保留 normalized title |
+| `state` | enum string | 系統固定值 | backend rule | 避免 client 直接跳過 workflow | request override 不生效；response 是預期 state |
+
+如果欄位只是為了相容現有 UI 而暫時存在，也要寫清楚，例如「display default，後續 spec 會取代」。如果欄位會影響行為，BDD 必須有正向或反向案例證明它真的影響行為；如果欄位是 display-only，BDD 要避免把它誤寫成 lifecycle rule。
+
 ## Framework Mapping
 
 BDD Contract 到實作框架的對應如下：

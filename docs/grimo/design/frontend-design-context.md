@@ -105,7 +105,7 @@ Grimo frontend design work should leave a durable context trail. When requiremen
 **Current layout decisions:**
 
 - The page is not a second Kanban board. It summarizes action counts, then lists REVIEW and BLOCKED tasks as the priority queue.
-- REVIEW and BLOCKED share the main queue because both stop progress: REVIEW blocks DONE, and BLOCKED blocks dispatcher or workflow recovery. Wrap evidence is reviewed inside a DONE task when it exists.
+- REVIEW and BLOCKED share the main queue because both stop progress: REVIEW blocks DONE, and BLOCKED blocks dispatcher or workflow recovery. Release evidence is reviewed inside a DONE task when it exists.
 - Definition gaps are secondary decision material in the right column, so users can scan incomplete tasks without mixing them into the urgent queue.
 - Attention cards show real task labels, not recipe steps. `Prototype`, `Spec`, `Review`, and other recipe steps belong in Task detail / Workflow evidence, not list-level label chips.
 
@@ -144,6 +144,21 @@ Grimo frontend design work should leave a durable context trail. When requiremen
 - Manual project paths show the validated local path.
 - Projects without a user-selected path show the generated `projectPath` and remain valid Projects.
 - The UI must not show browser-selected folders as Project paths until a native bridge can provide backend-operable paths.
+
+### Workflow Page
+
+**Purpose:** Product-facing reference view for how Project Workflow Recipe steps map to Task List State.
+
+**Current layout decisions:**
+
+- Web development workflow keeps verification inside `RUNNING`, not as a first-class Task List State.
+- `RUNNING` shows implementation and evidence work: `Dev / Auto-Review / Unit-test fe/be / Integration-test / E2E-test`.
+- `REVIEW` remains the human approve/reject state after verification evidence is complete.
+- `DONE` displays `Release` as the web development workflow's completion subflow; release evidence remains inside the DONE task instead of becoming another board column.
+
+**Do not:** Add a `VERIFYING` board/list state, or label human approval as `Auto-Review`.
+
+**Verification:** `npm run build`; backend `ProjectApiTests.exposesWebServiceDevelopmentRecipeDefinition`.
 
 ## 4. Component Decisions
 

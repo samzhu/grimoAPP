@@ -60,9 +60,10 @@ Step 3: Layer 3 — Manual verification readiness
 Step 4: Testability gate — can every AC actually be verified?
 Step 5: Execute tests in isolated environment, capture evidence
 Step 6: Code quality review
-Step 7: Design sync check
-Step 8: Verdict (evidence-based)
-Step 9: Record results to spec file & handoff
+Step 7: Generality review — detect test-overfit or hardcoded implementation
+Step 8: Design sync check
+Step 9: Verdict (evidence-based)
+Step 10: Record results to spec file & handoff
 ```
 
 ## Process
@@ -80,6 +81,14 @@ Read the project's key documents to understand its conventions:
 
 Use any prior implementation results as context, but **re-verify
 independently** — do not trust prior findings blindly.
+
+During context gathering, check whether the spec changes any API, DTO, DB row,
+event payload, command output, UI form data, or file format. If yes, the spec's
+BDD Contract must include realistic input/output examples and a per-field
+design table covering type/format, rules, source, rationale, and what BDD must
+assert. Missing field contracts are a testability risk: implementers and QA
+cannot know whether tests are asserting the intended behavior or just matching
+an accidental shape.
 
 ### 0.5 Build and maintain verification command inventory
 
@@ -191,6 +200,10 @@ An AC is UNTESTABLE when:
 - But no test, no script, and no written instructions exist
 - And the gap cannot be filled by writing instructions alone —
   it requires building new test infrastructure
+- Or the AC depends on API/DTO/DB/event/command/UI data fields whose format,
+  source, system ownership, or expected assertion is absent from the spec, so
+  a verifier cannot distinguish intended behavior from an accidental or
+  hardcoded shape.
 
 **When UNTESTABLE is found:**
 
@@ -376,14 +389,75 @@ Check against the project's own standards. Common areas:
   is a CRITICAL finding — it reintroduces fixed bugs and forces
   unnecessary workarounds.
 
-### 7. Design-section sync check
+### 7. Generality review — anti-hardcoding gate
+
+Passing the named acceptance tests is not enough. Review whether the
+implementation really satisfies the behavior contract, or merely
+recognizes the known test inputs and returns the expected outputs.
+
+This gate exists because AI-generated code can overfit to visible
+examples: for example, a test that checks `5 + 5 = 10` can be passed
+by hardcoding `return 10` instead of implementing addition. Treat this
+as a test quality and implementation quality risk, even when the
+standard verification script is green.
+
+#### Required checks
+
+For each changed behavior:
+
+1. **Trace contract to implementation.** Identify the production code
+   path that implements the scenario. Confirm it uses domain inputs,
+   persistence state, framework wiring, or algorithmic rules required
+   by the spec, not only fixture literals.
+2. **Search for suspicious fixture coupling.** Compare test fixture
+   values, AC example values, ids, names, paths, magic numbers, and
+   expected outputs against production code. Exact matches are not
+   automatically wrong, but hardcoded branches on known examples,
+   canned response bodies, fake success paths, or bypassed persistence
+   are CRITICAL findings.
+3. **Run at least one independent generality probe when feasible.**
+   Use an input or state not already present in the task's BDD examples
+   or test fixtures, then verify the same rule still holds through the
+   real public entry point.
+4. **Prefer property or relation checks over single examples.** When
+   the behavior has a stable rule, require one of:
+   - parameterized examples covering at least two non-trivial inputs and
+     one edge/negative case
+   - property-based test data generation
+   - metamorphic relation checks, where transformed inputs must preserve
+     or predictably change outputs
+   - differential checks against an independent implementation,
+     framework result, or persisted read-back
+5. **Check that tests would fail on plausible wrong implementations.**
+   Ask what would catch: hardcoded expected value, ignored input field,
+   missing database write, client-only UI state, skipped validation,
+   inverted condition, removed framework call, or duplicated fixture row.
+   If nothing would catch one of these plausible faults, flag the
+   missing check.
+
+#### Evidence standard
+
+Record one of these outcomes in the spec results:
+
+| Outcome | Meaning | Verdict effect |
+|---|---|---|
+| `GENERALITY-CLEAR` | Implementation uses real inputs/state and at least one non-fixture probe or relation check supports the behavior. | May PASS |
+| `GENERALITY-MANUAL-CLEAR` | Human code review found no fixture coupling, but an automated probe is not practical for this behavior. | May PASS with rationale |
+| `GENERALITY-RISK` | Behavior passes standard tests, but tests are example-only and a plausible hardcoded implementation would pass. | IMPORTANT or CRITICAL depending on AC |
+| `GENERALITY-FAIL` | Production code is hardcoded, fixture-coupled, bypasses real state, or only implements the tested example. | REJECT-FIX |
+
+If a generality probe requires new testing infrastructure, classify it
+through the Testability gate. Do not mark the AC verified just because
+the visible examples pass.
+
+### 8. Design-section sync check
 
 Compare the spec's design sections against actual implementation:
 - Statements that no longer match reality
 - Missing annotations marking implementation divergences
 - Findings that should have updated the design documentation
 
-### 8. Verdict
+### 9. Verdict
 
 **Four-layer result table:**
 
@@ -394,13 +468,14 @@ Compare the spec's design sections against actual implementation:
 | Coverage / Integration | PASS/SKIP/PENDING | [coverage or IT status] |
 | Manual verification | READY/MISSING/N-A | [instructions location] |
 | Testability gate | CLEAR/BLOCKED | [all ACs verifiable?] |
+| Generality gate | CLEAR/RISK/FAIL | [anti-hardcoding review result] |
 ```
 
 **Verdict outcomes:**
 
 | Verdict | Condition | Next action |
 |---------|-----------|-------------|
-| `PASS` | All layers pass, all ACs have evidence or are MANUAL-READY | Ship |
+| `PASS` | All layers pass, all ACs have evidence or are MANUAL-READY, and the generality gate is clear | Ship |
 | `REJECT-FIX` | Tests fail, quality issues, or missing instructions | Fix, re-verify |
 | `REJECT-BLOCKED` | UNTESTABLE ACs — verification infrastructure gap | Build test capability first |
 
@@ -408,11 +483,11 @@ Compare the spec's design sections against actual implementation:
 
 | Level | Definition | Effect |
 |-------|-----------|--------|
-| CRITICAL | Missing AC coverage, test doesn't verify what it claims, security issue, build breakage, UNTESTABLE AC | Blocks shipping |
+| CRITICAL | Missing AC coverage, test doesn't verify what it claims, hardcoded or fixture-coupled implementation, security issue, build breakage, UNTESTABLE AC | Blocks shipping |
 | IMPORTANT | Documentation drift, missing edge-case coverage, standards violation | Should fix before shipping |
 | MINOR | Style nit, cosmetic issue | Note for future |
 
-### 9. Record results and handoff
+### 10. Record results and handoff
 
 **All evidence goes into the spec file — the single permanent record.**
 

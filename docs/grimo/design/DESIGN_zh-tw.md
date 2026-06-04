@@ -523,7 +523,7 @@ viewBox: 0 0 32 32
 | 工作流程 | 工作流程配方 | pipeline、flow |
 | 驗收條件 | 驗收標準 | acceptance criteria |
 | 執行記錄 | 執行證據 | logs、artifacts |
-| 收尾證據 | 完結摘要 | Wrap evidence |
+| 收尾證據 | 完結摘要 | Release evidence |
 | 失敗的任務 | 已阻塞 | error、failed |
 | 任務來源 | 來源（GitHub / Chat / 手動建立）| source type |
 

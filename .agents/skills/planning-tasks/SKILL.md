@@ -122,8 +122,13 @@ Rules:
   UI text, finding fields, command output, or file content.
 - A task must include enough information to execute: purpose, source/research
   links, fixture names, positive and negative cases, implementation class or
-  file names, expected fields, tests to write, target files, verification
-  command, dependencies, and status.
+  file names, expected fields, data contract source, tests to write, target
+  files, verification command, dependencies, and status.
+- If the task implements or verifies API, DTO, DB row, event payload, command
+  output, UI form data, or file format, copy or point to the spec's
+  request/response/row examples and per-field design table. Do not invent
+  fields inside the task; return to `/planning-spec` when the spec lacks a
+  required field format, source, rule, or rationale.
 - The spec is for design context and trade-offs. The task is for doing the
   work. If the implementer must read the spec to know which class to create,
   which field to fill, or which test to write, the task is under-specified.

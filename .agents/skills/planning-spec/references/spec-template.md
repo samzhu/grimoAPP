@@ -42,6 +42,8 @@ File: `docs/grimo/specs/YYYY-MM-DD-<spec-id>-<topic>.md`
 
 ## 3. BDD Contract
 
+> 必填檢查：套用 `references/spec-required-data.md`。任何 API、DTO、DB row、event、command、UI form 或 file format 變更，都必須有 realistic example、欄位設計表、系統欄位限制和 BDD read-back / assertion。
+
 驗證命令：
 
 執行：`[project standard verification command]`
@@ -89,6 +91,12 @@ Contract：
 }
 ```
 
+Field contract:
+
+| 欄位 | 型別/格式 | 規則 | 來源 | 設計理由 | BDD 要驗什麼 |
+| --- | --- | --- | --- | --- | --- |
+| `id` | string | system-owned | backend | 讓 resource 可被 URL/log/test 追蹤 | client 不能覆寫；response 有值 |
+
 ```gherkin
 @spec:<spec-id>
 @ac:AC-<spec-id>-1
@@ -126,6 +134,45 @@ Scenario: [先說使用者結果，不只說技術行為]
 ## 4. 介面與 API 設計
 
 [Code signatures、struct definitions、key patterns。用白話說每個欄位從哪裡來，以及 runtime 怎麼呼叫這些介面。]
+
+### Storage
+
+如果本 spec 新增或修改 DB table，必須填寫本段；沒有 DB schema 變更時寫 `N/A — <reason>`。
+
+```sql
+-- table: <table_name>
+-- 用途: <使用者或產品因這張表得到什麼能力>
+-- owner: <parent table / aggregate；如何驗證 ownership>
+-- 不存: <容易誤放但應該屬於其他表或 projection 的資料>
+CREATE TABLE IF NOT EXISTS <table_name> (
+    id TEXT PRIMARY KEY
+);
+```
+
+Schema field rationale:
+
+| Table | Field | 型別/格式 | 規則 | 設計理由 | BDD 要驗什麼 |
+| --- | --- | --- | --- | --- | --- |
+| `<table_name>` | `id` | TEXT | primary key, system-owned | row identity | persisted read-back uses returned id |
+
+Storage sample data:
+
+Context / parent rows:
+
+| table | id | 說明 |
+| --- | --- | --- |
+| `<parent_table>` | `<parent-id>` | <why this parent exists> |
+
+`<table_name>`:
+
+| `id` | `<parent_id>` | `<field>` |
+| --- | --- | --- |
+| `<row-a>` | `<parent-id>` | `<realistic value>` |
+
+BDD read-back expectation:
+
+- `<API/query/test>` must read the sample rows back through the public or intended read path.
+- The sample must include enough varied values to fail a hardcoded implementation.
 
 ## 5. 檔案規劃
 

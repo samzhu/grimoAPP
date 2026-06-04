@@ -34,8 +34,8 @@ Code blocks labeled `Pollack shape` are design sketches, not compile-ready Java.
 1. Grimo 的 board-facing state 仍維持 PRD 定義：`BACKLOG`、`DEFINING`、`READY`、`RUNNING`、`REVIEW`、`DONE`、`BLOCKED`。
 2. Board state 不是 Pollack workflow step；它是產品狀態 projection。
 3. MVP Project 預設使用 Coding Task Recipe。
-4. Coding recipe 的主要 steps 是 `Discuss`、`Explore`、`Prototype`、`Spec`、`Usage`、`Tkt`、`Dev`、`Review`，`Wrap` 是 optional。
-5. 每個主要 step 都包一個 `QualityLoop` sub-workflow，通過條件是 `quality_score > 9`。
+4. Coding recipe 的主要 steps 是 `Discuss`、`Explore`、`Prototype`、`Spec`、`Usage`、`Tkt`、`Dev`、`Auto-Review`、`Unit-test fe/be`、`Integration-test`、`E2E-test`、`Release`；人類 approve / reject 是 `REVIEW` 產品 gate，不是 recipe step。
+5. 每個主要 step 都包一個 `QualityLoop` sub-workflow：`sub-Review -> sub-Rating -> sub-Fix`，通過條件是 `quality_score > 9`。
 6. 人類確認保留在產品 gate：`ReadyGate` 與 `HumanReviewGate`。
 7. `CheckpointingStepRunner` 是 MVP local durability path；Temporal 是未來 scale-out path。
 
@@ -46,12 +46,13 @@ Code blocks labeled `Pollack shape` are design sketches, not compile-ready Java.
 | Project Workflow Recipe | `Workflow` definition | Project 選定 recipe；Task 繼承 Project workflow。 |
 | Task workflow run | `WorkflowExecutor` run with stable `runId` | `runId` 對應 Grimo task run / claim attempt。 |
 | Recipe main step | `Step` or sub-workflow-as-step | `Discuss` 可以是 chat/research sub-workflow；`Dev` 可以是 agentic CLI step。 |
-| Quality Loop | `Workflow` used as sub-workflow | `Review -> Rating -> Gate -> Fix` repeat until pass or stop condition。 |
+| Quality Loop | `Workflow` used as sub-workflow | `sub-Review -> sub-Rating -> Gate -> sub-Fix` repeat until pass or stop condition。 |
 | Ready Gate | `Gate` plus human decision state | Gate output 更新產品 state；失敗回 `DEFINING` 或 `BLOCKED`。 |
 | Dispatcher preflight | deterministic `Step` + branch / gate | 檢查 profile、dependencies、runtime、permissions。 |
 | Agent Claim | deterministic `Step` | 建立 claim、worktree/sandbox、execution context。 |
-| AI Review | `Step` or review sub-workflow | 產生 Review Materials。 |
-| Human Review | product gate projected from workflow output | approve -> `DONE` 或 optional `Wrap`；reject -> `RUNNING` fix path。 |
+| Auto-Review | `Step` or review sub-workflow | 自動整理 execution findings 與 Review Materials 草稿，仍屬於 `RUNNING`。 |
+| Unit / Integration / E2E evidence | `Step` sequence inside ExecutionWorkflow | Unit-test fe/be、Integration-test、E2E-test 產生進 REVIEW 前的 evidence，仍屬於 `RUNNING`。 |
+| Human Review Gate | product gate projected from workflow output | approve -> `DONE`；reject -> `RUNNING` fix path。 |
 | Workflow Evidence | trace + Grimo evidence tables | Pollack trace 記 transition；Grimo 保存 definition、score、findings、fix history。 |
 | Crash recovery | `CheckpointingStepRunner` | 已完成 step 用 checkpoint skip；FAILED step 需 operator decision 後 reset。 |
 
@@ -66,17 +67,20 @@ flowchart TD
   TaskWorkflow --> Ready["ReadyGateWorkflow"]
   TaskWorkflow --> Dispatch["DispatchClaimWorkflow"]
   TaskWorkflow --> Execution["ExecutionWorkflow"]
-  TaskWorkflow --> HumanReview["HumanReviewWorkflow"]
-  TaskWorkflow --> Wrap["OptionalWrapWorkflow"]
+  TaskWorkflow --> HumanReview["HumanReviewGate"]
+  TaskWorkflow --> Release["ReleaseWorkflow"]
   TaskWorkflow --> Learning["LearningProposalWorkflow"]
 
   Definition --> QualityLoopA["QualityLoopWorkflow"]
   Execution --> QualityLoopB["QualityLoopWorkflow"]
-  Wrap --> QualityLoopC["QualityLoopWorkflow"]
+  Execution --> Unit["Unit-test fe/be"]
+  Unit --> Integration["Integration-test"]
+  Integration --> E2E["E2E-test"]
+  Release --> QualityLoopC["QualityLoopWorkflow"]
 
-  QualityLoopA --> Review["ReviewStep"]
-  QualityLoopA --> Rating["RatingStep"]
-  QualityLoopA --> Fix["FixStep"]
+  QualityLoopA --> Review["sub-ReviewStep"]
+  QualityLoopA --> Rating["sub-RatingStep"]
+  QualityLoopA --> Fix["sub-FixStep"]
 
   TaskWorkflow --> Evidence["Workflow Evidence Projection"]
   Evidence --> Trace["Pollack trace"]
@@ -108,10 +112,10 @@ flowchart TD
   Execution --> ReviewPackage["Review Materials"]
   ReviewPackage --> HumanReview{"HumanReviewGate: approve?"}
   HumanReview -- "reject or fix required" --> Execution
-  HumanReview -- "approve, no wrap" --> Done["Project state projection: DONE"]
-  HumanReview -- "approve, wrap needed" --> Wrap["OptionalWrapWorkflow"]
+  HumanReview -- "approve" --> Done["Project state projection: DONE"]
+  Done --> Release["ReleaseWorkflow"]
 
-  Wrap --> Learning{"Learning proposal needed?"}
+  Release --> Learning{"Learning proposal needed?"}
   Learning -- "yes" --> Proposal["LearningProposalWorkflow"]
   Learning -- "no" --> Done
   Proposal --> Done
@@ -201,13 +205,13 @@ Goal: 對任一主要 step 的 output 做 review、rating、fix，直到 `qualit
 
 ```mermaid
 flowchart TD
-  StepOutput["Main step output"] --> Review["Review"]
-  Review --> Rating["Rating"]
+  StepOutput["Main step output"] --> Review["sub-Review"]
+  Review --> Rating["sub-Rating"]
   Rating --> Score{"quality_score > 9?"}
   Score -- "yes" --> Pass["Pass output to next main step"]
   Score -- "no" --> Stop{"Stop condition reached?"}
   Stop -- "yes" --> Block["Emit BLOCKED / NEEDS_HUMAN evidence"]
-  Stop -- "no" --> Fix["Fix"]
+  Stop -- "no" --> Fix["sub-Fix"]
   Fix --> Review
 ```
 
@@ -260,16 +264,21 @@ Workflow.define("dispatch-claim")
 
 ## Sub-Workflow: Execution
 
-Goal: 執行正式寫入工作，產生 Review Materials。
+Goal: 執行正式寫入工作，並在 `RUNNING` 裡完成 Dev、Auto-Review、unit、integration 和 E2E evidence。
 
 ```mermaid
 flowchart TD
   Claim["Agent Claim context"] --> Dev["Dev"]
   Dev --> DevQL["QualityLoop"]
-  DevQL --> Verify["Project / Task Acceptance Gate Evidence"]
-  Verify --> AIReview["AI Review"]
-  AIReview --> ReviewQL["QualityLoop"]
-  ReviewQL --> Materials["Review Materials"]
+  DevQL --> AutoReview["Auto-Review"]
+  AutoReview --> ReviewQL["QualityLoop"]
+  ReviewQL --> Unit["Unit-test fe/be"]
+  Unit --> UnitQL["QualityLoop"]
+  UnitQL --> Integration["Integration-test"]
+  Integration --> IntegrationQL["QualityLoop"]
+  IntegrationQL --> E2E["E2E-test"]
+  E2E --> E2EQL["QualityLoop"]
+  E2EQL --> Materials["Review Materials"]
 ```
 
 Pollack shape:
@@ -278,37 +287,38 @@ Pollack shape:
 Workflow.define("execution")
     .step(devAgentStep)
     .then(qualityLoop("dev"))
-    .then(collectAcceptanceEvidence)
-    .then(aiReview)
-    .then(qualityLoop("ai-review"))
+    .then(autoReview)
+    .then(qualityLoop("auto-review"))
+    .then(runUnitTests)
+    .then(qualityLoop("unit-test-fe-be"))
+    .then(runIntegrationTests)
+    .then(qualityLoop("integration-test"))
+    .then(runE2eTests)
+    .then(qualityLoop("e2e-test"))
     .then(buildReviewMaterials);
 ```
 
-## Sub-Workflow: Human Review And Optional Wrap
+## Gate: Human Review And Release
 
-Goal: 人類 approve / reject 是產品 gate；Wrap 只在 approve 後且需要收尾時執行。
+Goal: 人類 approve / reject 是產品 gate；Release 是 DONE 底下的收尾 workflow。
 
 ```mermaid
 flowchart TD
   Materials["Review Materials"] --> HumanGate{"Human approve?"}
   HumanGate -- "reject" --> FixPath["Return to ExecutionWorkflow"]
-  HumanGate -- "approve" --> WrapNeeded{"Wrap needed?"}
-  WrapNeeded -- "no" --> Done["DONE"]
-  WrapNeeded -- "yes" --> Wrap["Wrap: merge, cleanup, delivery summary, short retro"]
-  Wrap --> WrapQL["QualityLoop if evidence is required"]
-  WrapQL --> Done
+  HumanGate -- "approve" --> Done["DONE"]
+  Done --> Release["Release: merge, cleanup, delivery summary, short retro"]
+  Release --> ReleaseQL["QualityLoop if evidence is required"]
 ```
 
 Pollack shape:
 
 ```java
-Workflow.define("human-review-wrap")
+Workflow.define("human-review-release")
     .gate(humanApprovalGate)
         .onFail(returnToExecution)
-        .onPass(decideWrap)
-    .branch(wrapNeeded)
-        .then(wrapAndQualityLoop)
-        .otherwise(markDone);
+        .onPass(markDone)
+    .then(releaseAndQualityLoop);
 ```
 
 ## Sub-Workflow: Learning Proposal
@@ -354,8 +364,8 @@ Minimum typed context keys for the MVP definition:
 | `review_findings` | `ReviewFindings` | review step | fix / materials |
 | `fix_history` | `FixHistory` | fix step | review / materials |
 | `acceptance_evidence` | `AcceptanceEvidence` | execution workflow | human review |
-| `review_materials` | `ReviewMaterials` | AI review | human review |
-| `wrap_evidence` | `WrapEvidence` | DONE task evidence | done / learning / follow-up task |
+| `review_materials` | `ReviewMaterials` | Auto-Review / execution workflow | human review |
+| `release_evidence` | `ReleaseEvidence` | DONE task evidence | done / learning / follow-up task |
 
 ## Execution Runner Decision
 

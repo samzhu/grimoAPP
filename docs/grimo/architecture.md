@@ -215,6 +215,17 @@ Reason:
 - Spring Data Relational 4.0 docs list direct Spring Data JDBC dialect support for DB2, H2, HSQLDB, MariaDB, Microsoft SQL Server, MySQL, Oracle and PostgreSQL; SQLite is not listed.
 - The same docs state that unsupported databases need a `JdbcDialect` implementation, otherwise the application will not start.
 
+### A002b — SQLite Schema Design Stays Relational
+
+Decision: Grimo SQLite tables use normalized source-of-truth storage for product entities and workflow evidence. JSON / array fields are allowed for raw provider payloads, adapter metadata, import/export envelopes and rebuildable UI projections only.
+
+Reason:
+
+- Grimo local database is the product source of truth for Project, Task, workflow evidence and Review Materials.
+- Workflow steps, quality scores and fix attempts have independent lifecycle and must be queryable, testable and constrained.
+- SQLite supports JSON functions, but JSON is not a separate storage type and should not replace relational modeling for core data.
+- Detailed rules live in `docs/grimo/references/sqlite-data-modeling.md`.
+
 ### A003 — Workflow Recipe Selection Is Project-Level
 
 Decision: S001 exposes workflow selection while creating Project; Task creation does not select workflow.

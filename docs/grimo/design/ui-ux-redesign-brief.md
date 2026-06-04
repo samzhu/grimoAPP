@@ -13,7 +13,7 @@ This document is a design handoff for redesign work. It is not a request to pres
 The redesign should preserve:
 
 - Product semantics from `docs/grimo/PRD.md`.
-- User-facing workflow boundaries: task creation, definition, ready gate, execution, review, wrap.
+- User-facing workflow boundaries: task creation, definition, ready gate, execution, review, done release evidence.
 - Local-first, project-bound, task-centered information architecture.
 - Human approval gates for `READY` and `REVIEW`.
 - Evidence-first review experience.
@@ -67,7 +67,7 @@ Grimo is:
 
 - A local-first workbench for one developer's codebases.
 - A task system for coding-agent work.
-- A control plane for project, task, workflow recipe, agent profile, execution, review materials, and Wrap evidence.
+- A control plane for project, task, workflow recipe, agent profile, execution, review materials, and Release evidence.
 - A source of truth for workflow evidence, even when tasks originate from external clients or issue systems.
 
 ---
@@ -110,17 +110,17 @@ Task execution requires a human-confirmed `READY` state, a user-started dispatch
 
 A Task means one piece of user-visible work. It is not the same as an internal workflow step.
 
-Internal steps such as `Discuss`, `Explore`, `Prototype`, `Spec`, `Usage`, `Tkt`, `Dev`, `Review`, and optional `Wrap` belong in task detail, workflow detail, or evidence views, not as top-level board columns.
+Internal steps such as `Discuss`, `Explore`, `Prototype`, `Spec`, `Usage`, `Tkt`, `Dev`, `Auto-Review`, `Unit-test fe/be`, `Integration-test`, `E2E-test`, and `Release` belong in task detail, workflow detail, or evidence views, not as top-level board columns.
 
 ### P4. Review Owns Approval
 
-The product state `REVIEW` means the AI's self-review, quality loop, tests or non-applicability explanation, and review materials are ready for the human.
+The product state `REVIEW` means Auto-Review, quality loop, tests or non-applicability explanation, and review materials are ready for the human.
 
-Human approval happens in `REVIEW`, not after `WRAP`; tasks without cleanup or delivery-summary work can move from approved `REVIEW` directly to `DONE`.
+Human approval happens in `REVIEW`, not after Release; tasks without cleanup or delivery-summary work can move from approved `REVIEW` directly to `DONE`.
 
 ### P5. Local-First Ownership
 
-The local store is the source of truth for task, workflow evidence, review history, quality score, fix history, and Wrap evidence.
+The local store is the source of truth for task, workflow evidence, review history, quality score, fix history, and Release evidence.
 
 External issue trackers and providers are projections or execution channels.
 
@@ -195,7 +195,7 @@ Design meaning:
 | `READY` | Definition package and quality gate were accepted; work is schedulable but not automatically running. | Show dispatch-window state, manual start affordance, and dispatcher/preflight readiness. |
 | `RUNNING` | Agent work is active or claimed. | Show progress, active execution, worker log, and recoverability. |
 | `REVIEW` | Human must approve or reject completed evidence. | This is a human inbox state. Review materials must be prominent. |
-| `DONE` | Work completed; Wrap evidence may exist inside the task. | Completed record, summary, evidence, learnings when available. |
+| `DONE` | Work completed; Release evidence may exist inside the task. | Completed record, summary, evidence, learnings when available. |
 | `BLOCKED` | Needs human, environment, permission, dependency, or missing detail. | Should surface repair guidance and next best action. |
 
 Important: `BLOCKED` is not currently a board column in the POC board; it appears in the `待處理` view. A redesign can keep that split or make blockers more visible, but blocked work must not disappear.
@@ -205,10 +205,10 @@ Important: `BLOCKED` is not currently a board column in the POC board; it appear
 For coding tasks, the first recipe is:
 
 ```text
-Discuss -> Explore -> Prototype -> Spec -> Usage -> Tkt -> Dev -> Review -> DONE
+Discuss -> Explore -> Prototype -> Spec -> Usage -> Tkt -> Dev -> Auto-Review -> Unit-test fe/be -> Integration-test -> E2E-test -> REVIEW -> DONE
 ```
 
-Each main step has an automatic `Review -> Rating -> Fix` quality loop until `quality_score > 9`. Wrap evidence is stored inside the DONE task when cleanup, delivery summary, retro, or follow-up proposal exists.
+Each main step has an automatic `sub-Review -> sub-Rating -> sub-Fix` quality loop until `quality_score > 9`. Release evidence is stored inside the DONE task when cleanup, delivery summary, retro, or follow-up proposal exists.
 
 These are internal workflow semantics. They should be inspectable, but the main product surface should stay task-oriented.
 
@@ -333,7 +333,7 @@ Design needs:
 
 ### Flow E. Review And Approve
 
-1. DEV and AI self-review complete.
+1. Dev, Auto-Review, Unit-test fe/be, Integration-test and E2E-test evidence are complete.
 2. Quality loop and required evidence are complete.
 3. Task enters `REVIEW`.
 4. Human reviews Definition Package, execution outputs, quality score, diff, tests, risk notes, retro, reviewer findings, and fix history.
@@ -346,12 +346,12 @@ Design needs:
 - Approval/rejection should be visually distinct from internal AI review.
 - If rejected, the path back to Chat or Definition/Execution repair should be obvious.
 
-### Flow F. Optional Wrap And Learning Loop
+### Flow F. Optional Release Evidence And Learning Loop
 
-1. Approved work enters `WRAP` only when cleanup, delivery summary, or short retro is needed.
-2. If no wrap work is needed, the task can move directly from approved `REVIEW` to `DONE`.
-3. Learning Loop may propose skill or recipe improvements from wrap evidence or accumulated task history.
-4. Task becomes `DONE`.
+1. Approved work enters `DONE`.
+2. DONE task shows Release evidence only when cleanup, delivery summary, or short retro is needed.
+3. Learning Loop may propose skill or recipe improvements from Release evidence or accumulated task history.
+4. Task remains `DONE`; a follow-up proposal creates a separate BACKLOG / DEFINING task if accepted.
 
 Design needs:
 
@@ -1019,7 +1019,7 @@ Use product language:
 - `Quality Gate`
 - `Dispatcher`
 - `Agent Claim`
-- `Wrap evidence`
+- `Release evidence`
 - `Learning Proposal`
 
 Avoid exposing implementation language to ordinary users:

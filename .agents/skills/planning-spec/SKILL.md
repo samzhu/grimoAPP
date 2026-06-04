@@ -58,53 +58,16 @@ Acceptance criteria and unit test plans must be grounded in concrete user scenar
 
 ### BDD / Acceptance Standard Confirmation Gate
 
-Before handing off to `/planning-tasks`, the designer MUST explicitly discuss
-and confirm the BDD behavior and acceptance standard with the user. This is a
-hard gate, not a polish step.
+Before handing off to `/planning-tasks`, the designer MUST explicitly confirm
+load-bearing BDD behavior and acceptance standards with the user. Present each
+scenario in Outcome -> Contract -> Evidence order, including the observable
+screen/API/DB/command result, the concrete data shape, and the test file plus
+command that proves it.
 
-The confirmation must happen after research and initial design are grounded,
-and before the spec is treated as task-ready. The designer must present the
-user with concrete, plain-language scenarios that show:
-
-- What command, API call, UI action, file change, DB row, log line, or deploy
-  result the user will actually see.
-- What each AC proves, including the positive behavior and important negative
-  case.
-- What exact evidence counts as pass: test command output, HTTP status/body,
-  UI text, DB row state, Cloud Build result, Cloud Run health check, log count,
-  or other observable result.
-- What is explicitly out of scope so the user can correct hidden assumptions
-  before tasks are planned.
-
-Each acceptance scenario MUST be written in Outcome → Contract → Evidence
-order:
-
-1. **Outcome** — start with the visible user result in plain Traditional
-   Chinese. Mention the screen, button, API response, DB row, file, command,
-   or UI message a non-specialist can recognize.
-2. **Contract** — show the concrete API/DTO/DB/UI/command shape that makes the
-   outcome verifiable. For REST collection endpoints, follow the project API
-   response standard in `docs/grimo/architecture.md`: non-paged collections use
-   `CollectionResponse<T>` with `content[]`; paged collections use
-   `PageResponse<T>` with `content[]` and `page`. Show at least two
-   `content[]` items and each item's nested arrays/objects, such as
-   `CollectionResponse<WorkflowRecipeResponse>` with per-item `roles[]`;
-   include empty-array or negative cases when they matter.
-3. **Evidence** — bind the scenario to exact test files and commands. A
-   scenario is not `@state:verified` unless the named command has passed and
-   the assertion checks the load-bearing response fields, UI text, DB rows, or
-   command output.
-
-Ask one confirmation question at a time when answers may change later
-questions. For simple XS/S specs, related AC questions may be batched only if
-each answer is independent. Always include the recommended answer and the
-cost/risk of choosing it.
-
-Do not proceed to `/planning-tasks` while any load-bearing BDD behavior,
-verification command, deployment/manual evidence, or pass/fail threshold is
-unconfirmed. If the user changes the expected behavior during confirmation,
-update §2 design, §3 ACs, §4 interfaces, §5 file plan, and task-boundary hints
-immediately before asking the next question.
+Read `references/spec-required-data.md` before writing or reviewing §3. Use
+its confirmation gate and required-data checklist as the blocking readiness
+criteria. Do not proceed while any behavior, field, table, command, manual
+evidence, or threshold is unconfirmed.
 
 ### Spec Gives Context, Tasks Give Instructions
 
@@ -145,6 +108,12 @@ information for each future task to name its class/file, BDD scenario, source,
 POC need, expected output fields, and verification type. If the spec only says
 "add static detectors" or "handle security issues", it is not ready for task
 planning.
+
+Read `references/spec-required-data.md` and verify every required item that
+applies to the spec. In particular, every changed API/DTO/DB row/event/UI/file
+contract must include examples and per-field rationale; every new or modified
+DB table must include table comments, ownership/boundary notes, field
+rationale, realistic sample rows, and BDD read-back expectations.
 
 ## Contract
 
@@ -378,67 +347,17 @@ For key design decisions (interface shape, data model, error strategy), explicit
 ### Confirm BDD behavior and acceptance standards
 
 After the user confirms the approach, convert the design into draft BDD
-scenarios and ask the user to confirm them before task planning.
-
-For every load-bearing AC, present:
-
-| Item | Required content |
-|---|---|
-| Concrete behavior | The exact button, URL, command, API request, DB row, file path, log query, or visible output. |
-| Decision | The behavior or pass/fail threshold being confirmed. |
-| Recommended answer | The default answer plus one sentence on cost or risk. |
-| Spec update | Which §2/§3/§4/§5 lines will change if the user chooses differently. |
-
-Question format:
-
-```text
-`<file/command/API/UI>` will show `<observable result>`.
-
-Question N: Should AC-<id> pass when `<scenario>`?
-Recommendation: Yes/No — <reason>. Cost/risk: <one sentence>.
-```
-
-Rules:
-
-- Start with the verification success picture before implementation details:
-  show 2-3 concrete "done means this observable thing happens" options when
-  depth is ambiguous.
-- Confirm negative cases and cleanup/manual evidence, not only the happy path.
-  Examples: rejected upload stays out of DB, old GCS object is deleted,
-  deployment health is 200, Cloud Run `severity>=ERROR` logs are 0 rows.
-- If the user supplies a stricter standard during confirmation, treat it as
-  the source of truth and update ACs immediately.
-- If the user says a command must be executed but must not be recorded in the
-  spec, record only the permitted evidence shape, not the sensitive command
-  text.
-- Do not replace this confirmation with a passive "review the spec" request.
-  The user must see the BDD behavior and acceptance standard explicitly.
+scenarios and ask the user to confirm them before task planning. Read
+`references/spec-required-data.md` for the required question format and data
+fields. The user must see the concrete behavior, data fields, decision,
+recommended answer, risk, and spec sections affected by a different choice.
 
 ### Maximize framework reuse — build custom only as last resort
 
-After a technology/framework is chosen (pinned in the architecture doc), the default posture is **reuse its types, interfaces, and patterns**. Custom abstractions are justified only when the framework genuinely cannot serve the need.
-
-**Step 0.5 is the enforcement mechanism.** Before designing any interface, `research-protocol.md` Step 0.5 requires mapping every pinned library's public API surface. This step catches the most common reuse failure: assuming a library's scope from its name instead of reading its actual interfaces.
-
-**Reuse checklist (run during Research, after Step 0.5 completes):**
-1. Does the framework already define an interface for this capability? → Use it as the port.
-2. Does the framework already define request/response types? → Use them, don't invent parallel DTOs.
-3. Does the framework provide a configuration/extension point (builder, factory, path override, SPI)? → Use it, even if the mechanism is indirect (e.g., a wrapper script injected via a binary-path setting).
-4. Does the framework provide an **advisor/interceptor chain**? → Use it for cross-cutting concerns (persistence, logging, metrics), don't wrap the entire class.
-5. Does an upstream model/adapter already integrate with the infrastructure this spec needs? → Inject and configure, don't rewrite.
-
-**Custom implementation is justified when:**
-- The framework has a verified gap (confirmed by raw source inspection, not assumption).
-- The gap is documented in §2 Challenges Considered with the source URL.
-- The custom code follows the framework's own patterns (e.g., implements its SPI, returns its response types).
-
-**Rewrite-same-interface pattern (from Step 0.75):**
-When a framework's interface is well-designed but its implementation has gaps (e.g., parser doesn't support the applicable standard, error handling is too aggressive), rewrite the implementation while keeping the same method signatures and output types. This preserves downstream integration — framework consumers (builders, factories, callbacks) continue to work with the rewritten version. See `research-protocol.md` "Rewrite-Same-Interface Pattern" for details and worked example.
-
-**Anti-patterns:**
-- Designing a custom port interface + custom response types + custom parsing when the framework already provides all three. This creates a parallel type system that must be maintained alongside the framework's evolution.
-- **Assuming a library's scope from its name.** Example: `agent-client` sounds like "just a CLI wrapper" but actually provides `AgentSession` (multi-turn abstraction), `AgentSessionRegistry` (lifecycle SPI), and `AgentCallAdvisor` (interceptor chain). Skipping Step 0.5 causes this failure mode — designing a custom persistence wrapper when the library already has an extension point designed for exactly that purpose.
-- **Evaluating framework compliance in isolation.** If an industry standard exists (Step 0.25), the question isn't "does the framework's parser work?" but "does the framework's parser implement the standard correctly?" A parser that works for flat inputs but fails on standard-compliant nested inputs is defective, even if its unit tests pass.
+After a technology/framework is chosen, default to reusing its types,
+interfaces, extension points, and patterns. Read
+`references/framework-reuse.md` before designing custom ports, adapters,
+serializers, parsers, or DTOs. Custom code is allowed only for verified gaps.
 
 ### Challenge assumptions (built-in)
 
@@ -515,7 +434,7 @@ Specs are read by humans (including junior engineers) who need to understand the
 3. **Use visual flow diagrams.** An ASCII diagram showing "user does X → system does Y → DB gets Z" conveys more than three paragraphs of prose.
 4. **Show example data, not just schema.** Every table definition must include a concrete example showing what 2-3 rows look like after a realistic usage scenario. Include column values, not just column names.
 5. **Use tables for comparisons.** "Why A not B" is a table, not paragraphs. Each row is one dimension, each cell is one fact.
-6. **Label fields with plain-language sources.** For JSON/metadata fields, show where each value comes from (which API, which method) — not just the field name.
+6. **Label fields with plain-language sources and rationale.** For JSON/metadata fields, show where each value comes from, who is allowed to set it, the validation/default rule, why the field exists, and what BDD must assert — not just the field name.
 7. **Keep it concise.** If a section can be a 5-row table instead of 5 paragraphs, use the table. Cut adjectives. Cut "as mentioned above." Cut any sentence that restates what the reader just read.
 8. **BDD must sound like a real scenario.** Use `Given（前提）`, `When（動作）`, `Then（結果）`, `And（而且）`. The scenario should match what the user described, or a better researched real-world case. Do not write only abstract implementation phrases.
 
@@ -534,35 +453,17 @@ If this spec genuinely needs verification the standard pipeline cannot provide, 
 
 ### NFR coverage sweep (before writing §3)
 
-Before writing §3 ACs, walk these 5 categories (derived from ISO 25010). For each, EITHER add an AC that quantifies the requirement, OR record `N/A — <one-line reason>` in §3's NFR coverage table. **Silent skipping is forbidden — explicit N/A is OK.**
-
-| Category | Trigger questions | When N/A is legitimate |
-|---|---|---|
-| **Performance** | Response time / throughput / payload size target? p95 / QPS budget? | Internal one-shot CLI, no concurrency, no SLO |
-| **Security** | Touches user input / auth tokens / PII / file uploads / SQL / shell? Inputs validated? Outputs escaped? | Pure compute, no I/O boundary, no external input |
-| **Reliability** | Failure mode? Retry / idempotency / transaction boundary? Partial-failure behavior? | Single in-memory call, fail-fast acceptable |
-| **Usability** | i18n? a11y (keyboard / screen reader)? Error messages user-readable? | Backend internal API, no end-user surface |
-| **Maintainability** | Structured log fields? Metric / trace span? Config externalised vs baked in? | One-line constant, no runtime configurability needed |
-
-**Why this gate exists.** Functional ACs cover the happy path. NFRs only become visible at production time when something breaks — by then the spec is shipped and retrofitting takes another spec. The sweep forces explicit consideration in design.
-
-**Anti-pattern:** spec §3 contains 5 functional ACs (upload / list / delete / etc.) but no latency target, no input-size limit, no failure-mode behavior, no log field. After ship, production hits a 50MB upload and the response hangs because the spec never bounded payload size. The NFR sweep would have surfaced this as either AC-N "reject uploads > 10MB with 413" or explicit `N/A — payload size enforced by web server config`.
+Before writing §3 ACs, walk Performance, Security, Reliability, Usability,
+and Maintainability. For each, either add a measurable AC or record explicit
+`N/A — <reason>` in §3. Silent skipping is forbidden. The required table shape
+is in `references/spec-required-data.md`.
 
 ### AC well-formedness check (mandatory before handoff)
 
-Every AC in §3 MUST pass these 5 properties (IEEE 29148 well-formed requirement qualities, distilled for SBE format):
-
-1. **Singular** — one Given/When/Then triple = one behavior. Don't chain unrelated cases with `and`. Two behaviors → two ACs.
-2. **Unambiguous** — two readers must agree on what passes. Forbidden vague verbs: "correctly handle", "properly process", "appropriately respond", "良好", "適當". Replace with a measurable outcome (HTTP status code, response body shape, DB row state, UI string).
-3. **Implementation-free** — Then describes externally observable behavior, not internal class/method names. ✅ `Then response is 409 Conflict with body {"error": "duplicate"}` ❌ `Then SkillService.validate() throws DuplicateSkillException`.
-4. **Verifiable** — confirmable by Test, Demonstration, or Inspection (column declared in the AC table). If none of the three can verify it, the AC is mis-specified.
-5. **Bounded** — Given lists preconditions explicitly: state, input range, fixture. ✅ `Given a skill with name length ≤ 64 and SKILL.md frontmatter passing yaml.safe_load` ❌ `Given a valid skill`.
-
-**Anti-patterns this check catches:**
-
-- `AC-1: 系統正確處理 skill upload` → fails Singular + Unambiguous + Verifiable. Split into AC-1 happy path, AC-2 oversize file, AC-3 invalid SKILL.md — each with concrete G/W/T.
-- `AC-5: 效能良好` → fails Unambiguous + Verifiable. Rewrite: `AC-5: GET /api/v1/skills returns p95 ≤ 200ms under 100 concurrent requests (k6 fixture)`.
-- `AC-7: Calls SkillRepository.save() with the validated entity` → fails Implementation-free. Rewrite to observable outcome: `Then a row exists in skills with name=<input.name>, status='draft', created_at within 1s of request`.
+Every AC in §3 MUST be singular, unambiguous, implementation-free,
+verifiable, and bounded. Rewrite vague ACs until the pass/fail evidence is an
+observable API response, UI state, DB row, command output, file content, log
+line, or manual inspection result.
 
 ## Doc Sync — after design decisions
 
@@ -579,90 +480,22 @@ Every AC in §3 MUST pass these 5 properties (IEEE 29148 well-formed requirement
 
 ## Native Tooling Preference
 
-When a task can be accomplished with a native tool's own CLI (e.g., `docker build`, `npm run`, shell script), prefer it over wrapping with the build system (e.g., Gradle task, Maven plugin).
-
-**Prefer native when:**
-- The tool invocation is a one-liner with no build-system inputs
-- The artifact is independent of the compilation pipeline
-- The tool has its own well-documented CLI
-
-**Wrap with build system only when:**
-- Build outputs are inputs to the build task graph (e.g., a jar depends on a generated file)
-- Version/property interpolation from the build script is essential
-- CI pipeline benefits from build-system up-to-date checking
-
-Rationale: extra layers add plugin compatibility risk, version drift between plugin and tool, and maintenance burden. A direct `docker build` is more portable and debuggable than a build-system Docker plugin invocation.
+Prefer a native tool's own CLI for one-line independent artifacts, such as
+`docker build`, `npm run`, or shell scripts. Wrap with the build system only
+when build outputs, version interpolation, or CI task-graph behavior require
+it.
 
 ## Forbidden File-Plan Patterns
 
-An XS or S spec MUST NOT pre-create files — configs, placeholders, empty directories, version catalogs — for downstream specs that have not yet shipped. If file X is only needed by spec N, it lands in spec N, not earlier.
-
-Exception: project-wide formatters, linters, CI configs, or other cross-cutting tooling where the cost of retro-fitting exceeds the cost of early adoption. These MUST be explicitly justified in the spec's Approach section (§2) and tied to an acceptance criterion.
-
-Rationale: pre-populated config drift is a common source of "this was never needed" cleanup work, and it hides the real dependency graph between specs. A spec should add only what its own acceptance criteria demand.
+XS/S specs MUST NOT pre-create configs, placeholders, empty directories, or
+version catalogs for downstream specs. Cross-cutting tooling is allowed only
+when justified in §2 and tied to an AC.
 
 ## Troubleshooting — Known Failure Modes
 
-### User keeps correcting your design direction
-**Symptom:** User provides URLs to library source code you should have found yourself. Correction ratio > 2:1.
-**Root cause:** Step 0.5 was skipped or under-scoped. You assumed a library's capabilities from its name or from the roadmap description, which is intentionally coarse-grained.
-**Fix:** Stop the grill loop. Go back to Step 0.5. Fetch the repo tree for every pinned library this spec touches. List all public interfaces. Resume the grill only after the API surface is mapped.
-
-### Approach comparison table gets rebuilt after research
-**Symptom:** You presented a comparison table, then research findings invalidated it, forcing a rebuild.
-**Root cause:** Phase 2 gate violation — grill questions were asked before research completed.
-**Fix:** Never present a comparison table until ALL research agents have returned. This is a hard rule, not a guideline.
-
-### Two libraries from the same ecosystem don't integrate
-**Symptom:** You designed a bridge between Library A and Library B, but user points out Library A already has an SPI for this purpose.
-**Root cause:** Researched Library B's API without first mapping Library A's extension points. Example: researching `spring-ai-session`'s `SessionMemoryAdvisor` without first discovering `agent-client`'s `AgentCallAdvisor` chain.
-**Fix:** Step 0.5 requires mapping EACH library independently before researching their integration. The integration question comes AFTER both surfaces are mapped.
-
-### Roadmap description contradicts actual API
-**Symptom:** The roadmap says "use X" but X doesn't exist or works differently than described.
-**Root cause:** Normal — roadmap is coarse-grained by design. Spec planning is where API verification happens.
-**Fix:** Note the contradiction explicitly in the first grill question. Update the roadmap description in the same commit as the spec file.
-
-### Spec designs a complex solution when the framework already solves it
-**Symptom:** During `/planning-tasks` POC, the framework's native
-capability is discovered to be sufficient. The spec's entire approach
-(custom decorators, bridge code, external dependencies) is unnecessary.
-**Root cause:** Research mapped what the libraries *expose* but didn't
-test what the libraries *already do*. Example: research found
-`AgentSessionRegistry` has `find()` and `resume()`, but didn't test
-whether `resume()` actually restores conversation context — which it
-does, making a custom persistence layer unnecessary.
-**Fix:** Research must distinguish between "API surface mapping" and
-"behavior validation." When the spec's core value proposition is "add
-capability X that the framework lacks," research MUST verify the
-framework genuinely lacks X. If verification requires running code,
-declare `POC: required` with the specific hypothesis. Do NOT assume
-a gap from docs alone.
-
-### Spec introduces dependency to solve a non-existent problem
-**Symptom:** The spec adds a new library (e.g., `spring-ai-session`)
-to provide functionality that the existing stack already handles
-natively (e.g., CLI's own session persistence via `--resume`).
-**Root cause:** Research focused on the new library's capabilities
-without first asking "does the existing stack already solve this?"
-Step 0.5 mapped the library's API but didn't validate the product
-requirement against the existing stack.
-**Fix:** Before evaluating any NEW dependency, answer: "What does the
-existing stack provide TODAY for this use case?" This question must
-be answered by inspecting actual behavior (source code, test runs),
-not by assuming capabilities from names or docs. If the existing
-stack provides 80%+ of the requirement, design around it — don't
-add a dependency for the remaining 20%.
-
-### Framework parser/serializer doesn't support the applicable standard
-**Symptom:** Spec designs around a framework's parser, then discovers during deep dive (or worse, during implementation) that the parser doesn't handle the industry standard's full input range. Example: a YAML frontmatter parser that only supports flat `key: value` but the standard (agentskills.io) requires nested maps and lists.
-**Root cause:** Step 0.25 (industry standard) was done, Step 0.5 (API surface) was done, but Step 0.75 (behavior deep dive) was skipped. The parser's _interface_ looked fine (`getFrontMatter() → Map<String, Object>`), but its _internals_ used a custom line-splitter instead of a proper YAML engine.
-**Fix:** Step 0.75 is mandatory for parsers, serializers, codecs, and adapters. Read to private method level. Test mentally (or via POC) with a standard-compliant input that exercises nested structures, arrays, and multi-line values. If the implementation is defective but the interface is sound, apply the rewrite-same-interface pattern.
-
-### Designing a parallel type system instead of reusing framework types
-**Symptom:** The spec defines a new domain record (e.g., `Skill`) with fields that mirror an existing framework record (e.g., `SkillsTool.Skill`). Downstream code needs awkward mapping between the two. Framework consumers (builders, factories, callbacks) can't accept the custom type.
-**Root cause:** Defaulted to hexagonal-architecture instinct ("domain types must be framework-free") without first checking if the framework's type is already clean enough to use directly or wrap.
-**Fix:** During Step 0.5, check if framework output types are: (a) immutable records/value objects, (b) usable as constructor parameters in framework consumers, (c) lacking problematic dependencies. If all three, use them directly (or wrap in a thin domain entry with added state). Build custom types only when the framework type is genuinely unsuitable.
+Read `references/troubleshooting.md` when the user corrects the design more
+than twice, research invalidates the approach, a framework seems to lack an
+expected capability, or `/planning-tasks` reports that the spec is unclear.
 
 ## Handoff
 

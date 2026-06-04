@@ -14,6 +14,7 @@ Backend rule：
 - Collection response 必須使用 project-owned envelope，不直接回傳 raw array；不分頁清單用 `CollectionResponse<T>`，分頁清單用 `PageResponse<T>`。
 - Controller 只處理 HTTP mapping、validation 和 response status；Project 建立規則放在 service。
 - 本地持久化以 architecture / ADR-001 的 SQLite path 為準；S001 優先使用 Spring JDBC stack，只有在 POC 驗證 SQLite `JdbcDialect` 後才使用 Spring Data JDBC repository；測試必須使用 temporary database，不碰使用者真資料。
+- SQLite schema design 必須遵守 `docs/grimo/references/sqlite-data-modeling.md`：核心資料先正規化，JSON / `[]` 只用於 raw payload、adapter metadata、import/export envelope 或可重建 projection。
 - Spring Security 在 MVP 功能開發階段維持 permit-all，不因第一個 API 加入認證阻擋開發流程。
 - 新增 backend API 時，至少補 controller/service/repository 對應測試；frontend 呼叫該 API 時，還要補 full-stack browser path。
 
@@ -85,6 +86,72 @@ JSON:
 - 可命名的設計決策先放進 `docs/grimo/design/tokens.json`，再映射到 CSS custom properties。
 - 可重複的 Webwright review prompt 放在 `docs/grimo/design/webwright-prompts.md`；prompt 必須對應已命名的產品或設計規則。
 - 目前前端只可把 prototype 轉成 product UI；不要加入 prototype 沒有、PRD 也沒要求的新產品功能。
+
+## Task Planning From BDD
+
+開 task 時要先回答「這個 task 要證明哪個使用者結果成立」，再決定要改哪些檔案。`/planning-tasks` 或人工開 task 都必須從 spec 的 `## 3. BDD Contract` 和 Verification Bindings 往回切，不從 implementation file list 直接切。
+
+### Verification Shift-Left
+
+驗收條件要在 spec 和 task 階段先講清楚，不能等 `$verifying-quality` 才第一次發現。`$verifying-quality` 的工作是獨立查證與擋 release，不是替前段補寫規格。
+
+`$planning-spec` 必須在交給 `$planning-tasks` 前定義驗收預期：
+
+- 每個 AC 要寫出可觀察結果：API response、DB row、UI text、command output、log line、file content 或人工檢查畫面。
+- 每個會改 API、DTO、DB row、event payload、command output、UI form data 或 file format 的 AC，都要在 spec `## 3. BDD Contract` 放資料合約：request/input 範例、response/output 範例，以及每個欄位的型別/格式、規則、來源、設計理由、BDD 要驗什麼。
+- 每個新增或修改 DB table 的 spec，都要在 Storage 設計固定附上 table 說明註解與範例資料：table 用途、owner / parent、不可存放的資料、欄位 rationale、realistic sample rows、FK 如何串起來，以及 BDD 要用哪個 persisted read-back 驗證不是硬編碼。
+- 系統欄位要明確標出不能由 client 設定，例如 `id`, `state`, `source`, `workflowRecipeId`, `createdAt`；BDD 要驗 request override 不會生效或不會被 DTO 接受。
+- 每個 scenario 的 Verification Bindings 要先列出預期測試層：backend、frontend、full-stack、manual、deployment 或 testing infrastructure。
+- 如果驗收有前置條件，例如需要特定 profile、temporary database、browser viewport、外部憑證、Cloud Run revision、人工操作步驟，spec 要先寫成 verification condition。
+- 每個可被硬編碼通過的 AC，都要先定義 generality expectation：至少一個非範例輸入、邊界/反向案例、property、metamorphic relation、differential check 或 persisted read-back。不要只寫單一 `5 + 5 = 10` 型範例。
+- 如果設計會改 API shape、DB schema、UI 流程、command contract、release gate 或測試策略，§2 design、§3 BDD Contract、§4 interface/API、§5 file plan 必須同步更新，不能只改其中一段。
+- 如果某個 AC 應該被自動或整合測試驗證，但專案沒有測試基礎設施，先開 testing infrastructure spec 或把它列為前置 task；不要把 feature task 開成「實作完再說」。
+
+`$planning-tasks` 必須把上述驗收預期轉成可執行 task：
+
+- Task plan 要把每個 AC 對到測試檔、驗證命令與 release gate 位置。
+- 有條件驗收要變成 task 裡的 `Verification` 前置條件，而不是藏在備註。
+- 如果 task 的 BDD 只是一組範例，task 要補 `Generality Probe`：說明要用哪個額外輸入、狀態轉換、讀回檢查或關係式證明功能不是硬編碼測資。
+- 測試基礎設施缺口要先開 task 或回到 `$planning-spec` 修正設計；不得產生一組最後必然被 `$verifying-quality` 判定 `BLOCKED-BY-TESTABILITY` 的 feature tasks。
+- 如果 task planning 發現 spec 的設計或驗收條件不一致，要停下並回到 `$planning-spec` 修訂，不要替 spec 靜默改方向。
+
+Spec 的 `## 6. Task Plan` 必須先列出 BDD layer split：
+
+| Layer | Task | 主要 AC | 測試檔 | 驗證命令 |
+| --- | --- | --- | --- | --- |
+| Backend BDD | `SNNN-T01 ...` | `AC-SNNN-*` | `backend/src/test/java/**` | backend test command |
+| Frontend BDD | `SNNN-T02 ...` | `AC-SNNN-*` | `frontend/e2e/*.spec.ts` 或 component test | frontend test command |
+| Full-stack E2E | `SNNN-T03 ...` | cross-layer AC | `frontend/e2e/*.spec.ts` | full-stack command |
+
+不是每個 spec 都一定要三個 task；只有真的跨 backend、frontend、full-stack 時才拆三層。純 backend spec 可以只有 Backend BDD，純 UI layout spec 可以只有 Frontend BDD + visual evidence。拆 task 的原則是「一個 task 對一組可獨立驗證的 AC」，不是「一個檔案一個 task」。
+
+每個 `docs/grimo/tasks/SNNN-TNN-*.md` 至少要包含：
+
+- `Purpose`：使用者或產品會得到什麼結果。
+- `BDD`：從 spec 複製或濃縮對應 scenario，保留 Given/When/Then。
+- `Contract Source`：指回 spec 的 AC 或 scenario，例如 `AC-S003-3, AC-S003-4`。
+- `Data Contract`：指回 spec 裡的 request/response/DB row 範例和欄位設計表；如果 task 實作會新增或改欄位，先回 spec 修正，不在 task 裡偷偷發明。
+- `Target Tests`：明確列出要新增或修改的測試檔。
+- `Verification Conditions`：驗收前置條件，例如 profile、temporary database、viewport、外部憑證、人工步驟或 release gate 是否已接入。
+- `Generality Probe`：至少一個不在 BDD 範例裡的輸入、資料狀態、變形關係或 read-back 檢查，用來防止 production code 只回固定答案。
+- `Verification`：列出可重跑 command；backend/API task 必須包含 backend test command，frontend-to-backend task 必須包含 full-stack command。
+- `Result`：實作後記錄 RED/GREEN evidence、實際 command、是否接進 `scripts/verify-release.sh`。
+
+後端 task 的預設寫法：
+
+- Task 名稱帶 `Backend ... BDD`，讓人一眼知道它是 backend contract task。
+- BDD scenario 對應 JUnit 5 test，`@DisplayName` 保留 AC id。
+- `Given` 使用 temporary database、fixture 或現有 row。
+- `When` 使用 MockMvc/WebTestClient/API request。
+- `Then` 驗 HTTP status、JSON shape、database state；不要只驗 service method 回傳值。
+
+前端和 full-stack task 的預設寫法：
+
+- UI-only 行為用 Playwright 或 component test 驗使用者看得到的狀態。
+- 只要前端呼叫 `/api`，就要有 full-stack E2E task 或在同一 task 中明確加入 full-stack command。
+- 長流程用 `test.step()` 保留 Given/When/Then 可讀性，並讓 report 能對回 scenario。
+
+開 task 時不要把「接 release gate」藏在最後。如果某層測試是 shipping 必要條件，task plan 要明確指出該 command 是否已經在 `scripts/verify-release.sh` 內；若尚未接入，必須開 release gate / verification task 補上。
 
 ## Frontend Architecture
 
