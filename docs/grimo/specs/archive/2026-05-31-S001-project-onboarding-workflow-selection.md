@@ -1,6 +1,6 @@
 # S001: Project Onboarding With Workflow Selection
 
-> 規格：S001 | 大小：M(12) | 狀態：✅ local verification PASS  
+> 規格：S001 | 大小：L(15) | 狀態：✅ QA PASS
 > 日期：2026-05-31  
 > 對應：PRD §0.1, §0.6, §2, §4 P15 / ADR-001 / spec-roadmap row S001
 
@@ -450,7 +450,34 @@ Implemented files:
 - Frontend Project API wiring: `frontend/src/features/projects/Projects.tsx`, `frontend/src/features/projects/project-api.ts`, `frontend/src/domain/project/project-types.ts`, `frontend/src/App.tsx`, `frontend/vite.config.ts`.
 - Verification: `frontend/playwright.fullstack.config.ts`, `frontend/e2e/project-onboarding.fullstack.spec.ts`, `scripts/verify-release.sh`.
 
+### Verifying Quality Review
+
+Independent QA result: PASS on 2026-06-05.
+
+| Layer | Result | Evidence |
+| --- | --- | --- |
+| Automated tests | PASS | `scripts/verify-release.sh` exited 0. `temp/verify-release.log` verdict: `PASS: frontend build, deterministic visual regression, backend tests including S004 TaskApiTests and S009 workflow evidence tests, and S001/S002/S003/S004 full-stack Project onboarding and Task creation completed.` |
+| Targeted backend/API test | PASS | `cd backend && ./gradlew test --rerun-tasks --tests '*ProjectApiTests' compileTestJava` passed. `backend/build/test-results/test/TEST-io.github.samzhu.grimo.project.ProjectApiTests.xml` recorded `tests=10`, `failures=0`, `errors=0`, `skipped=0`. |
+| Coverage / integration | PASS | Full-stack Playwright ran `frontend/e2e/project-onboarding.fullstack.spec.ts` through real browser -> Vite `/api` proxy -> Spring Boot -> temporary SQLite state; 5 full-stack tests passed in the release gate. |
+| Manual verification | N/A | S001 acceptance criteria are covered by backend/API tests and full-stack browser tests; no human-only step remains. |
+| Testability gate | CLEAR | Project create/list, workflow recipe loading, duplicate/invalid input, Vite proxy wiring, and release-gate inclusion all have executable checks. |
+| Generality gate | CLEAR | QA inspected `ProjectService`, `ProjectController`, `ProjectApiTests`, `Projects.tsx`, and `project-onboarding.fullstack.spec.ts`. The implementation uses request data, workflow catalog lookup, persisted SQLite rows, generated IDs, temporary directories, duplicate read-back, and non-fixture full-stack project names/paths rather than canned responses. |
+| Design sync | PASS with documented evolution | S001 originally used `folderPath`; later shipped S002/S003 evolved the live API to `CollectionResponse<T>` and `projectPath`. Current tests explicitly assert obsolete `folderPath` / `workspacePath` fields are absent, so S001's onboarding outcome is complete under the current Project contract. |
+
+Verdict: PASS — ready for `$shipping-release S001`.
+
+### Final Size Re-score (per estimation-scale.md)
+
+| Dimension | Initial | Actual | Rationale |
+| --- | ---: | ---: | --- |
+| Tech risk | 2 | 3 | Spring Data JDBC direct repository support for SQLite was not available; S001 had to pivot to Spring JDBC / explicit SQL while keeping the local-first persistence goal. |
+| Uncertainty | 2 | 2 | The Project onboarding goal was clear, but API field naming and workflow recipe details were refined by later S002/S003 work. |
+| Dependencies | 2 | 2 | Depends on PRD, ADR-001 SQLite direction, Spring Boot, Vite, Playwright, and the local Java/Node toolchain. |
+| Scope | 2 | 3 | Actual implementation spans backend API/persistence, frontend Project UI/API client, Vite proxy, Playwright full-stack config, and release script wiring. |
+| Testing | 2 | 3 | Verification requires backend integration tests plus real browser -> Vite proxy -> Spring Boot -> temporary SQLite full-stack checks. |
+| Reversibility | 2 | 2 | Project API and SQLite schema are now consumed by later Project/Task specs, but the contract has already been evolved through S002/S003 without a destructive migration. |
+| **Total** | **12 / M** | **15 / L** | Bucket shift M -> L; root cause is first full-stack vertical slice plus SQLite persistence and full-stack release-gate setup. |
+
 Follow-up:
 
-- Run `$verifying-quality S001` as the independent QA review before `$shipping-release S001`.
 - Spring Data JDBC repository support for SQLite remains deferred until a custom `JdbcDialect` POC is worth the added SPI work.

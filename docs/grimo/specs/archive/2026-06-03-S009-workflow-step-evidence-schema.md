@@ -1,8 +1,8 @@
 # S009: Workflow step evidence schema and summary projection
 
-> 規格：S009 | 大小：M(13) | 狀態：⏳ Plan
+> 規格：S009 | 大小：M(13) | 狀態：✅ Done
 > 日期：2026-06-03
-> 最後更新：2026-06-03
+> 最後更新：2026-06-05
 > 對應：PRD §0.4, §0.5, §2, §4 P6/P7/P15, §6 AC4 / S004 `workflowSummary` projection boundary / `docs/grimo/glossary.md`
 
 ---
@@ -182,12 +182,12 @@ Feature: Workflow Step Evidence
 
 | AC | 使用者結果 | 可觀察證據 | Layer | 狀態 |
 | --- | --- | --- | --- | --- |
-| AC-S009-1 | 建立 Task 時先保存 immutable Task Workflow；使用者第一次打開 `BACKLOG` Task 的 `Chat` 後，Task 以單一 transition 進入 workflow，系統保存一個 active run，且不允許孤兒 workflow evidence。 | S004-created `BACKLOG` Task 有 `task_workflows` / `task_workflow_steps` rows，但沒有 active workflow run；第一次 Chat 入口後同一個 transaction 內完成 Task `DEFINING`、`task_workflow_runs` / `task_workflow_run_steps` rows、step key/order 來自 Task Workflow；orphan copy/run/run-step/quality row insert 在 FK enforcement 下失敗。 | backend | proposed |
-| AC-S009-2 | Task board 顯示目前 workflow step 和最新 quality score，不靠 root fake fields。 | `GET /api/projects/{projectId}/tasks` 回 `workflowSummary.currentStep/qualityScore`；`tasks` row 沒有 `step/score/workflow_summary` columns。 | backend, api | proposed |
-| AC-S009-3 | Task detail 可以讀到每個 step 的 Quality Loop 嘗試紀錄。 | `GET /api/projects/{projectId}/tasks/{taskId}/workflow` 回 ordered `steps[]` 和 nested `qualitySummary`。 | backend, api | proposed |
-| AC-S009-4 | Project isolation 防止別的 Project 讀到 workflow evidence。 | 用 Project A URL 讀 Project B Task workflow 回 404；Task list 不混入其他 Project 的 summary。 | backend, api | proposed |
-| AC-S009-5 | Evidence 寫入不是 public client contract。 | 沒有 public `POST/PUT /workflow` endpoint；backend tests 透過 internal service/fixture 寫入，再從 API 讀回。 | backend, security | proposed |
-| AC-S009-6 | Release gate 會跑 S009 backend evidence tests。 | `scripts/verify-release.sh` 執行 backend tests；log 可回查 S009 AC。 | automation | proposed |
+| AC-S009-1 | 建立 Task 時先保存 immutable Task Workflow；使用者第一次打開 `BACKLOG` Task 的 `Chat` 後，Task 以單一 transition 進入 workflow，系統保存一個 active run，且不允許孤兒 workflow evidence。 | S004-created `BACKLOG` Task 有 `task_workflows` / `task_workflow_steps` rows，但沒有 active workflow run；第一次 Chat 入口後同一個 transaction 內完成 Task `DEFINING`、`task_workflow_runs` / `task_workflow_run_steps` rows、step key/order 來自 Task Workflow；orphan copy/run/run-step/quality row insert 在 FK enforcement 下失敗。 | backend | verified |
+| AC-S009-2 | Task board 顯示目前 workflow step 和最新 quality score，不靠 root fake fields。 | `GET /api/projects/{projectId}/tasks` 回 `workflowSummary.currentStep/qualityScore`；`tasks` row 沒有 `step/score/workflow_summary` columns。 | backend, api | verified |
+| AC-S009-3 | Task detail 可以讀到每個 step 的 Quality Loop 嘗試紀錄。 | `GET /api/projects/{projectId}/tasks/{taskId}/workflow` 回 ordered `steps[]` 和 nested `qualitySummary`。 | backend, api | verified |
+| AC-S009-4 | Project isolation 防止別的 Project 讀到 workflow evidence。 | 用 Project A URL 讀 Project B Task workflow 回 404；Task list 不混入其他 Project 的 summary。 | backend, api | verified |
+| AC-S009-5 | Evidence 寫入不是 public client contract。 | 沒有 public `POST/PUT /workflow` endpoint；backend tests 透過 internal service/fixture 寫入，再從 API 讀回。 | backend, security | verified |
+| AC-S009-6 | Release gate 會跑 S009 backend evidence tests。 | `scripts/verify-release.sh` 執行 backend tests；log 可回查 S009 AC。 | automation | verified |
 
 ### Rule: Task creation copies ordered workflow steps before workflow starts
 
@@ -538,6 +538,8 @@ record RecordWorkflowQualityRunCommand(
 ) {}
 ```
 
+[Implementation note 2026-06-05] 實作後，`WorkflowEvidenceService` 保持 read-only，只提供 `findWorkflowDetail(projectId, taskId)` 給 public controller 使用；first Chat transition 由 `TaskWorkflowTransitionService.openChatForBacklogTask(taskId)` 寫入 run/steps，測試 fixture 和 internal workflow 寫入集中在 `WorkflowEvidenceStore`。這比設計草稿中把 `startStep` / `recordQualityRun` 暴露在 service interface 更貼近 S009 邊界：S009 只開 read API，不讓 client 偽造 evidence。
+
 Internal write rules:
 
 | Rule | Behavior |
@@ -854,7 +856,7 @@ S009 不要求新增 visible UI screen。若 implementation 順手調整 fronten
 
 | 檔案 | 動作 | 說明 |
 | --- | --- | --- |
-| `docs/grimo/specs/spec-roadmap.md` | modify | Move S009 to `⏳ Plan` after task planning. |
+| `docs/grimo/specs/spec-roadmap.md` | modify | Track S009 planning, local verification and shipping status. |
 | `backend/src/test/java/io/github/samzhu/grimo/poc/SqliteForeignKeyEnforcementPocTests.java` | existing POC | Confirms Xerial SQLite JDBC can enforce FK ownership with `PRAGMA foreign_keys=ON`; S009 backend tests must keep the guarantee at Grimo datasource level. |
 | `backend/src/main/resources/schema.sql` | modify | Add `task_workflows`, `task_workflow_steps`, `task_workflow_runs`, `task_workflow_run_steps`, `task_workflow_quality_runs` tables and indexes。 |
 | `backend/src/main/java/io/github/samzhu/grimo/workflow/TaskWorkflowService.java` | new | Copies Project workflow definition into a Task-owned immutable workflow copy during Task creation。 |
@@ -863,9 +865,9 @@ S009 不要求新增 visible UI screen。若 implementation 順手調整 fronten
 | `backend/src/main/java/io/github/samzhu/grimo/workflow/WorkflowEvidenceStore.java` | new | JdbcClient-backed workflow copy, run, evidence persistence and projection queries。 |
 | `backend/src/main/java/io/github/samzhu/grimo/workflow/TaskWorkflowRecord.java` | new | DB row shape for Task Workflow。 |
 | `backend/src/main/java/io/github/samzhu/grimo/workflow/TaskWorkflowStepRecord.java` | new | DB row shape for copied workflow step metadata。 |
-| `backend/src/main/java/io/github/samzhu/grimo/workflow/WorkflowRunRecord.java` | new | DB row shape for workflow run。 |
-| `backend/src/main/java/io/github/samzhu/grimo/workflow/WorkflowRunStepRecord.java` | new | DB row shape for workflow run step。 |
-| `backend/src/main/java/io/github/samzhu/grimo/workflow/WorkflowQualityRunRecord.java` | new | DB row shape for quality attempt。 |
+| `backend/src/main/java/io/github/samzhu/grimo/workflow/TaskWorkflowRunRecord.java` | new | DB row shape for workflow run。 |
+| `backend/src/main/java/io/github/samzhu/grimo/workflow/TaskWorkflowRunStepRecord.java` | new | DB row shape for workflow run step。 |
+| `backend/src/main/java/io/github/samzhu/grimo/workflow/TaskWorkflowQualityRunRecord.java` | new | DB row shape for quality attempt。 |
 | `backend/src/main/java/io/github/samzhu/grimo/workflow/TaskWorkflowDetailResponse.java` | new | Detail API response DTO。 |
 | `backend/src/main/java/io/github/samzhu/grimo/workflow/WorkflowEvidenceController.java` | new | Read-only `GET /api/projects/{projectId}/tasks/{taskId}/workflow`。 |
 | `backend/src/main/java/io/github/samzhu/grimo/task/TaskResponse.java` | modify | Ensure `workflowSummary` is populated by projection service when workflow rows exist。 |
@@ -894,12 +896,135 @@ POC evidence：`backend/src/test/java/io/github/samzhu/grimo/poc/SqliteForeignKe
 | `S009-T03 Workflow Detail Read API Boundary` | read-only `GET /workflow`, ordered step evidence, quality attempts, project isolation, no public evidence write | AC-S009-3, AC-S009-4, AC-S009-5 | `backend/src/test/java/io/github/samzhu/grimo/workflow/WorkflowEvidenceApiTests.java` | `./gradlew test --tests '*WorkflowEvidenceApiTests'` in `backend/` |
 | `S009-T04 Release Gate Workflow Evidence` | release script/log makes S009 backend evidence tests traceable through the critical gate | AC-S009-6 | `scripts/verify-release.sh` | `scripts/verify-release.sh` |
 
-### Next Task
+### Task Loop Result
 
-After S004-T01 passes, continue with `docs/grimo/tasks/2026-06-04-S009-T01-workflow-run-storage-and-first-chat-transition.md`.
+All S009 task files passed and were consolidated into §7. The temporary `docs/grimo/tasks/*-S009-*.md` files are removed after consolidation; §6 keeps the execution plan and §7 keeps the implementation evidence.
 
 Full-stack E2E is not required in S009 because this spec does not add a visible UI workflow screen. The S004 full-stack test proves browser-to-backend Task creation; S009 is verified through backend/API read-back.
 
 ---
 
-<!-- Section 7 added by /planning-tasks after implementation -->
+## 7. Implementation Results
+
+### Verification Results
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Backend deterministic checks | PASS | `./gradlew test compileTestJava` in `backend/` passed on 2026-06-05. |
+| Release gate | PASS | `scripts/verify-release.sh` passed on 2026-06-05; `temp/verify-release.log` names `backend tests (includes S004 TaskApiTests and S009 workflow evidence tests)`. |
+| E2E seam gate | Not required | S009 adds backend storage, projection and a read-only workflow detail API; it does not add a visible workflow detail UI or browser interaction. Full release gate still ran the existing S001/S002/S003/S004 full-stack checks with temporary SQLite state. |
+
+### Task Results
+
+| Task | Result | Evidence |
+| --- | --- | --- |
+| S009-T01 Workflow Run Storage and First Chat Transition | PASS | `WorkflowEvidenceStoreTests` covers `BACKLOG -> DEFINING`, active run creation, copied run steps, FK enforcement and duplicate evidence guards. |
+| S009-T02 Workflow Summary Projection | PASS | `WorkflowSummaryProjectionTests` and `TaskApiTests` verify two different active steps/scores, latest attempt selection, and no `step` / `score` / `workflow_summary` root columns. |
+| S009-T03 Workflow Detail Read API Boundary | PASS | `WorkflowEvidenceApiTests` verifies ordered `GET /api/projects/{projectId}/tasks/{taskId}/workflow`, latest `qualitySummary`, cross-Project 404 and no public write endpoint. |
+| S009-T04 Release Gate Workflow Evidence | PASS | `scripts/verify-release.sh` keeps backend tests in the critical path and writes an S009 workflow evidence marker to `temp/verify-release.log`. |
+
+### AC Results
+
+| AC | Result | Evidence |
+| --- | --- | --- |
+| AC-S009-1 | VERIFIED | `backend/src/test/java/io/github/samzhu/grimo/workflow/WorkflowEvidenceStoreTests.java` |
+| AC-S009-2 | VERIFIED | `backend/src/test/java/io/github/samzhu/grimo/workflow/WorkflowSummaryProjectionTests.java`, `backend/src/test/java/io/github/samzhu/grimo/task/TaskApiTests.java` |
+| AC-S009-3 | VERIFIED | `backend/src/test/java/io/github/samzhu/grimo/workflow/WorkflowEvidenceApiTests.java` |
+| AC-S009-4 | VERIFIED | `backend/src/test/java/io/github/samzhu/grimo/workflow/WorkflowEvidenceApiTests.java` |
+| AC-S009-5 | VERIFIED | `backend/src/test/java/io/github/samzhu/grimo/workflow/WorkflowEvidenceApiTests.java` and static route check in task result |
+| AC-S009-6 | VERIFIED | `scripts/verify-release.sh`, `temp/verify-release.log` |
+
+### Key Findings
+
+- Task board 的 `workflowSummary` 已由 `WorkflowSummaryProjectionService` 從 normalized evidence rows 查出，不寫回 `tasks` root row。
+- `WorkflowEvidenceService` 實作成 read-only boundary；public API 只有 `GET /api/projects/{projectId}/tasks/{taskId}/workflow`。
+- First Chat transition 的寫入由 `TaskWorkflowTransitionService` 包在 transaction 裡，避免 Task state 和 workflow run 半完成。
+- S009 沒有新增 UI，因此不需要 Playwright spec；後續 S006/S007 若要顯示 workflow detail，應直接 consume S009 read API，仍不能新增 public evidence write API。
+
+### Pending Verification
+
+None.
+
+### Independent QA Review
+
+Verdict: PASS（2026-06-05）
+
+QA reviewer found no CRITICAL / IMPORTANT / MINOR findings.
+
+Commands:
+
+```bash
+cd /Users/samzhu/workspace/github-samzhu/grimoAPP/backend && ./gradlew test
+cd /Users/samzhu/workspace/github-samzhu/grimoAPP/backend && ./gradlew compileTestJava
+cd /Users/samzhu/workspace/github-samzhu/grimoAPP/backend && ./gradlew test --rerun-tasks --tests '*WorkflowEvidenceStoreTests' --tests '*WorkflowSummaryProjectionTests' --tests '*WorkflowEvidenceApiTests'
+cd /Users/samzhu/workspace/github-samzhu/grimoAPP && scripts/verify-release.sh
+```
+
+QA findings:
+
+- AC-S009-1 to AC-S009-5 have matching `@DisplayName` testcase evidence in `WorkflowEvidenceStoreTests`, `WorkflowSummaryProjectionTests` and `WorkflowEvidenceApiTests`; targeted S009 tests pass.
+- Public workflow API remains read-only: `WorkflowEvidenceController` exposes only `@GetMapping`, and static scan found no public `POST` / `PUT` / `PATCH` / `DELETE` workflow evidence mapping.
+- `WorkflowEvidenceService` Javadoc matches the implementation: it is a read-only detail service and only exposes `findWorkflowDetail(projectId, taskId)`.
+- §2 / §4 implementation note matches actual code: workflow write paths remain internal through `TaskWorkflowTransitionService` / `WorkflowEvidenceStore`.
+- `tasks` root schema has no `step`, `score` or `workflow_summary` columns; workflow evidence remains normalized in workflow-owned tables.
+
+Result: S009 is ready for `/shipping-release S009`.
+
+### Verifying Quality Review
+
+Verdict: PASS（2026-06-05 10:00 Asia/Taipei）
+
+No CRITICAL / IMPORTANT / MINOR findings.
+
+| Layer | Result | Detail |
+| --- | --- | --- |
+| Automated tests | PASS | `scripts/verify-release.sh` passed. Log: `temp/verify-release.log`; verdict line names backend tests including S009 workflow evidence tests. |
+| Coverage / Integration | PASS | QA strategy has no coverage target/tooling requirement yet. Registered integration commands are in sync with `scripts/verify-release.sh`; S009 itself has no visible UI/browser seam, while the release gate still ran existing full-stack tests against temporary SQLite state. |
+| Manual verification | N/A | S009 is backend storage/projection/read API work and has no manual UI workflow. |
+| Testability gate | CLEAR | Every AC-S009-* has a Verification Binding and executable evidence. |
+| Generality gate | CLEAR | Tests use two Tasks, different step labels, different quality scores, latest-attempt updates, persisted read-back, cross-Project rejection and unsupported write methods. Static grep found no fixture-coupled production branch for S009 sample values. |
+
+Commands:
+
+```bash
+cd /Users/samzhu/workspace/github-samzhu/grimoAPP && scripts/verify-release.sh
+cd /Users/samzhu/workspace/github-samzhu/grimoAPP/backend && ./gradlew test --rerun-tasks --tests '*WorkflowEvidenceStoreTests' --tests '*WorkflowSummaryProjectionTests' --tests '*WorkflowEvidenceApiTests' compileTestJava
+cd /Users/samzhu/workspace/github-samzhu/grimoAPP && rg -n "@DisplayName\\(\"AC-S009|AC-S009" backend/src/test/java/io/github/samzhu/grimo/workflow backend/src/test/java/io/github/samzhu/grimo/task
+cd /Users/samzhu/workspace/github-samzhu/grimoAPP && rg -n "@(PostMapping|PutMapping|PatchMapping|DeleteMapping).*workflow|/workflow" backend/src/main/java/io/github/samzhu/grimo
+cd /Users/samzhu/workspace/github-samzhu/grimoAPP && rg -n "TODO|FIXME|HACK|XXX" backend/src/main/java/io/github/samzhu/grimo/workflow backend/src/main/java/io/github/samzhu/grimo/task scripts docs/grimo/specs/2026-06-03-S009-workflow-step-evidence-schema.md
+```
+
+AC verification:
+
+| AC | Classification | Evidence |
+| --- | --- | --- |
+| AC-S009-1 | VERIFIED | `WorkflowEvidenceStoreTests` covers first Chat transition, copied run steps, single active run, FK rejection and duplicate attempt rejection. |
+| AC-S009-2 | VERIFIED | `WorkflowSummaryProjectionTests` and `TaskApiTests` cover projected `workflowSummary`, latest attempt score, BACKLOG null summary and no `tasks.step` / `tasks.score` / `tasks.workflow_summary`. |
+| AC-S009-3 | VERIFIED | `WorkflowEvidenceApiTests` covers ordered workflow detail response, latest `qualitySummary`, pending step null summary and `Dev` taskState. |
+| AC-S009-4 | VERIFIED | `WorkflowEvidenceApiTests` verifies cross-Project workflow detail read returns 404. |
+| AC-S009-5 | VERIFIED | `WorkflowEvidenceApiTests` verifies public `POST` / `PUT` / `PATCH` / `DELETE` requests do not mutate workflow evidence; static route scan found only the read controller and existing `/workflow-recipes`. |
+| AC-S009-6 | VERIFIED | `scripts/verify-release.sh` passed and `temp/verify-release.log` contains the S009 backend evidence gate marker. |
+
+Code quality and design sync:
+
+- New public workflow records/responses have class-level Javadoc with `@param` descriptions; new workflow services/projections have `LoggerFactory` loggers.
+- `WorkflowEvidenceStore` keeps the non-obvious projection query documented with the S009 ranking rule.
+- Public API surface remains read-only for workflow evidence. Internal write paths stay in `TaskWorkflowTransitionService` / `WorkflowEvidenceStore`.
+- §2 / §4 implementation note matches production code: `WorkflowEvidenceService` is read-only and exposes `findWorkflowDetail(projectId, taskId)` only.
+- `rg -n "TODO|FIXME|HACK|XXX"` over S009 production/spec paths returned no matches.
+
+Result: S009 remains ready for `/shipping-release S009`.
+
+### Final Size Re-score
+
+Estimation scale: `.agents/skills/planning-spec/references/estimation-scale.md`
+
+| Dimension | Initial | Actual | Rationale |
+| --- | ---: | ---: | --- |
+| Tech risk | 2 | 2 | Used documented Spring JDBC, MockMvc and SQLite patterns; the POC had already validated FK enforcement and no framework pivot was needed. |
+| Uncertainty | 2 | 2 | Workflow copy, BACKLOG-to-DEFINING, read-only evidence API and projection boundaries were decided before implementation; implementation did not add new product scope. |
+| Dependencies | 3 | 3 | S009 depends on S001/S002/S004 and prepares storage for downstream S005/S006/S007. |
+| Scope | 3 | 3 | Shipped normalized schema, workflow package services/records/responses/controller, Task summary projection and backend tests across multiple production surfaces. |
+| Testing | 2 | 2 | Needed Spring Boot/MockMvc/JdbcClient tests plus release gate; no browser UI or external daemon E2E was required for S009. |
+| Reversibility | 1 | 2 | The result includes persisted SQLite tables and a read-only public API; reverting requires coordinated schema/API cleanup even though MVP consumers are still local. |
+| **Total** | **13 / M** | **14 / M** | Bucket stays M; the main delta is persisted schema/API reversibility. |

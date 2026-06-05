@@ -1,7 +1,8 @@
 # S004: Task Creation Through Backend API
 
-> 規格：S004 | 大小：M(14) | 狀態：⏳ Plan
+> 規格：S004 | 大小：M(14) | 狀態：✅ Done
 > 日期：2026-06-02
+> 最後更新：2026-06-05
 > 對應：PRD §0.4, §6 MVP 範疇 4-6 / spec-roadmap row S004 / S001-S003 Project API baseline
 
 ---
@@ -217,18 +218,19 @@ BDD / acceptance confirmation status:
 - 已確認：manual Task 建立後先進 `BACKLOG`；S005 才處理第一次打開 Task `Chat` 時的 `BACKLOG -> DEFINING` 入口。
 - 已確認：建立 Task 會複製 Task Workflow，但不初始化 active Workflow Run；run/evidence 要等第一次打開 `BACKLOG` Task 的 `Chat` 時，由 S009 的 atomic transition 連同 `BACKLOG -> DEFINING` 一起開始。
 - 已確認：Task root schema 和 Workflow Evidence schema 要一起規劃；S004 實作 Task root create/list，S009 正式設計 workflow step execution / Quality Loop tables 與 `workflowSummary` projection。
-- 待使用者確認：API 是否用 nested Project path；無 current Project 時是否保留 fixture/demo board。
+- 已確認：API 使用 nested Project path：`/api/projects/{projectId}/tasks`。
+- 已確認：無 current Project 時保留 read-only fixture/demo board，但 `新增 Task` 不可送出 create API。
 
 AC 覆蓋矩陣：
 
 | AC | 使用者結果 | Contract / 可觀察輸出 | Layer | State |
 | --- | --- | --- | --- | --- |
-| AC-S004-1 | 使用者送出 manual Task 後，backend 建立一筆 Project-owned Task，狀態是 `BACKLOG`，並複製該 Task 的 Task Workflow，但不啟動 active run。 | `POST /api/projects/{projectId}/tasks` returns `201 Created` with `state=BACKLOG`, `source=manual`, inherited `workflowRecipeId`, `workflowSummary.currentStep/qualityScore = null`, Task Workflow copied, and no active workflow run initialized。 | backend, api | proposed |
-| AC-S004-2 | 使用者回到 Task board 時，只看到目前 Project 的 Tasks，不混入其他 Project。 | `GET /api/projects/{projectId}/tasks` returns `CollectionResponse<TaskResponse>` sorted newest first, with nested `workflowSummary` per item。 | backend, api | proposed |
-| AC-S004-3 | 使用者填錯資料時，系統不建立壞 Task，並回可理解錯誤。 | blank title `400`, unknown project `404`, SQLite row count unchanged。 | backend, api | proposed |
-| AC-S004-4 | 使用者在已選 Project 內建立 Task 後，Task board 立即出現新卡片；未選 Project 時不能建立孤兒 Task。 | UI sends `labels[]`, no `source/state/workflowRecipeId/workflowSummary/acceptance/gaps/evidence/commentCount/skill`; returned Task card appears in `BACKLOG`; `currentProject = null` disables create or routes to Project selection。 | frontend, fullstack | proposed |
-| AC-S004-5 | QA 能證明 Task creation 不是 fixture 假成功或 hardcoded response。 | Full-stack creates dynamic Project + dynamic Task; follow-up `GET` read-back contains the Task and labels。 | fullstack | proposed |
-| AC-S004-6 | Release gate 會跑 S004 backend/full-stack checks。 | `temp/verify-release.log` includes S004 Task creation gate and fails on task API/test failure。 | docs, automation | proposed |
+| AC-S004-1 | 使用者送出 manual Task 後，backend 建立一筆 Project-owned Task，狀態是 `BACKLOG`，並複製該 Task 的 Task Workflow，但不啟動 active run。 | `POST /api/projects/{projectId}/tasks` returns `201 Created` with `state=BACKLOG`, `source=manual`, inherited `workflowRecipeId`, `workflowSummary.currentStep/qualityScore = null`, Task Workflow copied, and no active workflow run initialized。 | backend, api | verified |
+| AC-S004-2 | 使用者回到 Task board 時，只看到目前 Project 的 Tasks，不混入其他 Project。 | `GET /api/projects/{projectId}/tasks` returns `CollectionResponse<TaskResponse>` sorted newest first, with nested `workflowSummary` per item。 | backend, api | verified |
+| AC-S004-3 | 使用者填錯資料時，系統不建立壞 Task，並回可理解錯誤。 | blank title `400`, unknown project `404`, SQLite row count unchanged。 | backend, api | verified |
+| AC-S004-4 | 使用者在已選 Project 內建立 Task 後，Task board 立即出現新卡片；未選 Project 時不能建立孤兒 Task。 | UI sends `labels[]`, no `source/state/workflowRecipeId/workflowSummary/acceptance/gaps/evidence/commentCount/skill`; returned Task card appears in `BACKLOG`; `currentProject = null` disables create or routes to Project selection。 | frontend, fullstack | verified |
+| AC-S004-5 | QA 能證明 Task creation 不是 fixture 假成功或 hardcoded response。 | Full-stack creates dynamic Project + dynamic Task; follow-up `GET` read-back contains the Task and labels。 | fullstack | verified |
+| AC-S004-6 | Release gate 會跑 S004 backend/full-stack checks。 | `temp/verify-release.log` includes S004 Task creation gate and fails on task API/test failure。 | docs, automation | verified |
 
 Feature: Manual Task creation
 
@@ -289,7 +291,7 @@ Location: /api/projects/01JZ9DPROJECT1/tasks/01JZ9E3K7M2Q4
 @ac:AC-S004-1
 @layer:backend,api
 @api:POST /api/projects/{projectId}/tasks
-@state:proposed
+@state:verified
 Scenario: Manual Task creation persists a Project-owned BACKLOG Task
   Given a Project exists with workflowRecipeId "web-service-development"
   When the client creates a Task with title "補上 Task API", body "建立 backend API 並接 CreateTaskDialog", and labels ["backend", "enhancement"]
@@ -365,7 +367,7 @@ Response:
 @ac:AC-S004-2
 @layer:backend,api
 @api:GET /api/projects/{projectId}/tasks
-@state:proposed
+@state:verified
 Scenario: Task list returns only Tasks for the selected Project
   Given Project A has two Tasks
   And Project B has one Task
@@ -405,7 +407,7 @@ Contract:
 @ac:AC-S004-3
 @layer:backend,api
 @api:POST /api/projects/{projectId}/tasks
-@state:proposed
+@state:verified
 Scenario: Invalid Task create returns user-readable error without persistence
   Given a Project exists
   When the client creates a Task with a blank title
@@ -462,7 +464,7 @@ Forbidden request fields:
 @ac:AC-S004-4
 @layer:frontend,fullstack
 @api:POST /api/projects/{projectId}/tasks
-@state:proposed
+@state:verified
 Scenario: User creates a manual Task from the Task board
   Given the user has selected a Project
   And the Task board is using backend Tasks for that Project
@@ -498,7 +500,7 @@ QA 能確認新 Task 不是 UI fixture 或 canned response。測試會用動態 
 @ac:AC-S004-5
 @layer:fullstack
 @api:GET /api/projects/{projectId}/tasks
-@state:proposed
+@state:verified
 Scenario: Task create survives read-back through the real API
   Given Playwright creates a Project with a dynamic name through the real Project API
   When the browser creates a Task with a dynamic title that is not present in frontend fixtures
@@ -527,7 +529,7 @@ Generality expectation:
 @spec:S004
 @ac:AC-S004-6
 @layer:docs,automation
-@state:proposed
+@state:verified
 Scenario: Release verification runs Task creation checks
   Given S004 implementation is complete
   When scripts/verify-release.sh runs
@@ -656,7 +658,7 @@ SQLite FK enforcement 是 connection-level 設定，不是只靠 DDL。S004 impl
 
 `tasks` 不存 `step`、`score` 或 `workflowSummary` JSON。建立 Task 時會複製 Task Workflow，但 active step、quality score、fix history 仍屬於 Workflow Evidence / Quality Loop 的下一層資料，未來由 execution rows 投影成 `workflowSummary`。S004 只回 `workflowSummary.currentStep: null` 和 `workflowSummary.qualityScore: null`，也不初始化 active Workflow Run；即使 Task Workflow 裡已經有第一個 planned step，也不能把它投影成 `currentStep`，避免把 Backlog Task 假裝成已進入 workflow 或已被評分。
 
-The formal workflow table design is split into paired spec S009 (`Workflow evidence schema and summary projection`). S004 keeps the boundary note here only to protect the data model while S004 is implemented. Exact Task Workflow storage is an S009 design decision:
+The formal workflow table design is split into paired spec S009 (`Workflow evidence schema and summary projection`). S004 keeps the boundary note here to protect the data model while Task creation is implemented. S009 later shipped the workflow run / evidence read model on top of the Task-owned workflow copy.
 
 MVP `workflowRecipeId` 是目前 Project selected recipe 的 API 欄位；S009 的 Task Workflow storage 會用 `source_type` / `source_ref` / optional `source_hash` 保存更通用的 workflow definition 來源，讓未來 workflow file 不需要重命名核心 evidence schema。Task Workflow 一旦建立就是 Task-owned immutable copy；當下複製出的 workflow rows 就是版本本體，不依賴 hash。若未來要讓舊 Task 改用新版 workflow，必須另開明確 migration / rebase 行為，而不是 update 既有 rows。
 
@@ -694,7 +696,7 @@ Frontend state rule:
 
 | 檔案 | 動作 | 說明 |
 | --- | --- | --- |
-| `docs/grimo/specs/spec-roadmap.md` | modify | S004 status changes to `⏳ Plan` after task planning. |
+| `docs/grimo/specs/spec-roadmap.md` | modify | Track S004 planning, local verification and shipping status. |
 | `backend/src/test/java/io/github/samzhu/grimo/poc/SqliteForeignKeyEnforcementPocTests.java` | existing POC | Confirms Xerial SQLite JDBC can enforce FK ownership with `PRAGMA foreign_keys=ON` and shows why DDL alone is insufficient. |
 | `backend/src/main/resources/schema.sql` | modify | Add `tasks` table and project/updated index. |
 | `backend/src/main/java/io/github/samzhu/grimo/project/ProjectStore.java` | modify | Add `findById(String projectId)` so TaskService can inherit Project workflow and reject missing Project. |
@@ -739,10 +741,151 @@ POC evidence：`backend/src/test/java/io/github/samzhu/grimo/poc/SqliteForeignKe
 | `S004-T03 Full-stack Task Creation Evidence` | browser creates Project + Task through real API and verifies follow-up GET read-back | AC-S004-4, AC-S004-5 | `frontend/e2e/task-creation.fullstack.spec.ts` | `npm run test:fullstack -- task-creation.fullstack.spec.ts` in `frontend/` |
 | `S004-T04 Release Gate Task Creation` | release script/log names S004 Task creation and runs backend/full-stack checks | AC-S004-6 | `scripts/verify-release.sh` | `scripts/verify-release.sh` |
 
-### Next Task
+### Task Loop Result
 
-Start with `docs/grimo/tasks/2026-06-04-S004-T01-backend-task-api-and-workflow-copy.md`.
+All S004 task files passed and were consolidated into §7. The temporary `docs/grimo/tasks/*-S004-*.md` files are removed after consolidation; §6 keeps the execution plan and §7 keeps the implementation evidence.
 
 ---
 
-<!-- Section 7 added by /planning-tasks after implementation -->
+## 7. Implementation Results
+
+### Verification Results
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Backend focused checks | PASS | `cd backend && ./gradlew test --rerun-tasks --tests '*TaskApiTests' compileTestJava` passed on 2026-06-05. XML: `TaskApiTests` ran 3 tests, 0 failures, 0 errors, 0 skipped. |
+| SQLite FK POC | PASS | Existing `SqliteForeignKeyEnforcementPocTests` remains green in the backend suite; latest XML has 2 tests, 0 failures, 0 errors, 0 skipped. |
+| Release gate | PASS | `scripts/verify-release.sh` passed on 2026-06-05. `temp/verify-release.log` names S004 backend `TaskApiTests`, S004 visual/UI checks, and S004 full-stack Task creation. |
+| Browser/full-stack seam | PASS | Release gate ran `frontend/e2e/task-creation.fullstack.spec.ts`; `AC-S004-4/5 creates a Project-owned BACKLOG Task through real full-stack API wiring` passed as 1 Chromium test inside the 5-test full-stack suite. |
+
+### Task Results
+
+| Task | Result | Evidence |
+| --- | --- | --- |
+| S004-T01 Backend Task API and Workflow Copy | PASS | `TaskApiTests` covers Project-owned `BACKLOG` create, copied Task Workflow, no active run, Project-scoped list, invalid input and missing Project failures. |
+| S004-T02 Frontend Task API Wiring | PASS | `task-management.ui.spec.ts` covers selected Project create request shape, removed `建議 skill`, `建立 Task` submit flow and no-Project orphan guard. |
+| S004-T03 Full-stack Task Creation Evidence | PASS | `task-creation.fullstack.spec.ts` creates a dynamic Project and Task through real `/api` wiring, then verifies follow-up `GET /api/projects/{projectId}/tasks`. |
+| S004-T04 Release Gate Task Creation | PASS | `scripts/verify-release.sh` runs backend, visual and full-stack S004 evidence and records S004 in `temp/verify-release.log`. |
+
+### AC Results
+
+| AC | Result | Evidence |
+| --- | --- | --- |
+| AC-S004-1 | VERIFIED | `backend/src/test/java/io/github/samzhu/grimo/task/TaskApiTests.java` display name: `AC-S004-1: creates a Project-owned BACKLOG Task with copied workflow and no active run`. |
+| AC-S004-2 | VERIFIED | `backend/src/test/java/io/github/samzhu/grimo/task/TaskApiTests.java` display name: `AC-S004-2: lists only Tasks for the selected Project`. |
+| AC-S004-3 | VERIFIED | `backend/src/test/java/io/github/samzhu/grimo/task/TaskApiTests.java` display name: `AC-S004-3: rejects invalid Task create without persisted rows`. |
+| AC-S004-4 | VERIFIED | `frontend/e2e/task-management.ui.spec.ts` covers selected Project create and no-Project orphan guard; `frontend/e2e/task-creation.fullstack.spec.ts` covers the real browser create path. |
+| AC-S004-5 | VERIFIED | `frontend/e2e/task-creation.fullstack.spec.ts` observes the real `POST /api/projects/{projectId}/tasks` and verifies follow-up API read-back. |
+| AC-S004-6 | VERIFIED | `scripts/verify-release.sh` and `temp/verify-release.log` include S004 Task creation evidence. |
+
+### Key Findings
+
+- Task creation is Project-owned end to end: frontend cannot submit without `currentProject`, backend only exposes nested `/api/projects/{projectId}/tasks`, and `tasks.project_id` is protected by SQLite FK enforcement.
+- Creating a Task stores a `BACKLOG` manual Task and copies Task Workflow metadata, but does not create an active workflow run. S009 owns first Chat transition and workflow evidence projection.
+- The Task create request surface is intentionally small: `title`, `body`, `labels[]`. Client-owned `skill`, `source`, `state`, `workflowRecipeId`, `workflowSummary`, `acceptance`, `gaps`, `evidence` and `commentCount` are not accepted.
+- The Task board still preserves fixture/demo data when no Project is selected, but that path is read-only for creation. Real Task creation only happens after a Project is selected.
+- The repo's browser/full-stack evidence lives under `frontend/e2e` and is wired into `scripts/verify-release.sh`; no separate root `e2e/` workspace is required for S004.
+
+### Pending Verification
+
+None.
+
+Result: S004 is ready for `/shipping-release S004`.
+
+### Independent QA Review
+
+Verdict: **PASS**. 這次獨立 QA 重新跑過 release gate 和 S004 backend focused test，沒有發現 CRITICAL / IMPORTANT blocking issue。S004 可以進 `/shipping-release S004`，本 review 不做 commit。
+
+Commands run:
+
+| Command | Result | Evidence |
+| --- | --- | --- |
+| `scripts/verify-release.sh` | PASS | Exit 0。`temp/verify-release.log` 的 verdict 提到 `backend tests including S004 TaskApiTests`，並提到 `S001/S002/S003/S004 full-stack Project onboarding and Task creation completed`。 |
+| `cd backend && ./gradlew test --rerun-tasks --tests '*TaskApiTests' compileTestJava` | PASS | Exit 0。`backend/build/test-results/test/TEST-io.github.samzhu.grimo.task.TaskApiTests.xml` 顯示 `tests="3"`、`failures="0"`、`errors="0"`、`skipped="0"`。 |
+
+Findings:
+
+- Backend request surface 符合 S004：`CreateTaskRequest` 只接受 `title`, `body`, `labels`；`source`, `state`, `workflowRecipeId`, `workflowSummary`, `acceptance`, `gaps`, `evidence`, `commentCount`, `skill` 都不是 create DTO 欄位。
+- Project ownership 有 executable evidence：frontend 沒有 `currentProject` 時 `新增 Task` disabled 且不呼叫 task POST；backend 只提供 `/api/projects/{projectId}/tasks`，missing Project 回 `404`，SQLite FK 測試會擋 orphan `tasks.project_id`。
+- Workflow copy 邊界符合設計：Task 建立時 insert `tasks` row 和 Task Workflow copy；`TaskApiTests` 同時驗證 copied workflow rows 存在，且 `task_workflow_runs` 沒有 active run。
+- 沒有 fake workflow summary root columns：`schema.sql` 的 `tasks` 不存 `step`, `score`, `workflowSummary`, `commentCount`, `acceptance`, `gaps`, `evidence`；board summary 從 workflow evidence projection 回傳。
+- Frontend 有保留 prototype-era `Task.skill` / `Task.step` / `Task.score` compatibility shape，但 S004 的 create dialog 沒有 public skill selection，request body 也不送 `skill`；這不阻擋 S004 出貨。
+
+AC verification table:
+
+| AC | Status | Executable evidence |
+| --- | --- | --- |
+| AC-S004-1 | VERIFIED | `TaskApiTests` display name `AC-S004-1: creates a Project-owned BACKLOG Task with copied workflow and no active run`；驗 `201`, `BACKLOG`, `manual`, inherited `workflowRecipeId`, empty projections, copied Task Workflow, no active run。 |
+| AC-S004-2 | VERIFIED | `TaskApiTests` display name `AC-S004-2: lists only Tasks for the selected Project`；驗 `CollectionResponse`, cross-project exclusion, selected Project only。 |
+| AC-S004-3 | VERIFIED | `TaskApiTests` display name `AC-S004-3: rejects invalid Task create without persisted rows`；驗 blank title `400`, missing Project `404`, row count unchanged, orphan FK rejected。 |
+| AC-S004-4 | VERIFIED | `frontend/e2e/task-management.ui.spec.ts` 驗 selected Project create request shape、移除 `建議 skill`、no-Project orphan guard；`frontend/e2e/task-creation.fullstack.spec.ts` 驗 real browser create path。 |
+| AC-S004-5 | VERIFIED | `frontend/e2e/task-creation.fullstack.spec.ts` 使用 timestamp dynamic Project / Task title，觀察 real `POST /api/projects/{projectId}/tasks`，並用 follow-up `GET /api/projects/{projectId}/tasks` read-back。 |
+| AC-S004-6 | VERIFIED | `scripts/verify-release.sh` 和 `temp/verify-release.log` 明確包含 S004 backend/full-stack Task creation marker；release gate exit 0。 |
+
+Pending verification: 無。
+
+### Verifying Quality Review
+
+Verdict: **PASS**（2026-06-05 15:37 CST）
+
+No CRITICAL / IMPORTANT / MINOR blocking findings.
+
+| Layer | Result | Detail |
+| --- | --- | --- |
+| Automated tests | PASS | `scripts/verify-release.sh` passed. Log: `temp/verify-release.log`; verdict line names frontend build, deterministic visual regression, backend tests including S004 `TaskApiTests`, and S001/S002/S003/S004 full-stack Project onboarding and Task creation. |
+| Coverage / Integration | PASS | QA strategy has no coverage target/tooling requirement yet. Verification registry and release script are in sync for S004: backend tests, visual tests and `npm run test:fullstack` all run through the canonical gate. |
+| Manual verification | N/A | S004 is fully covered by backend API tests plus Playwright UI/full-stack evidence; no manual-only AC remains. |
+| Testability gate | CLEAR | Every AC-S004-* has a Verification Binding and executable evidence. |
+| Generality gate | CLEAR | Tests use persisted DB assertions, cross-Project exclusion, missing-Project and blank-title negatives, dynamic full-stack Project/Task data and follow-up API read-back. Production code review found no canned Task create response or fixture-coupled branch. |
+
+Commands:
+
+```bash
+cd /Users/samzhu/workspace/github-samzhu/grimoAPP && scripts/verify-release.sh
+cd /Users/samzhu/workspace/github-samzhu/grimoAPP/backend && ./gradlew test --rerun-tasks --tests '*TaskApiTests' compileTestJava
+cd /Users/samzhu/workspace/github-samzhu/grimoAPP && rg -n "@DisplayName\\(\"AC-S004|AC-S004" backend/src/test/java/io/github/samzhu/grimo/task/TaskApiTests.java frontend/e2e/task-management.ui.spec.ts frontend/e2e/task-creation.fullstack.spec.ts scripts/verify-release.sh
+cd /Users/samzhu/workspace/github-samzhu/grimoAPP && rg -n "TODO|FIXME|HACK|XXX|GRM-144|S004 full-stack Task|01HZTASK|接上 Task API|補上 Task API|B hidden|A newest" backend/src/main/java frontend/src scripts
+```
+
+Evidence summary:
+
+- `TaskApiTests` latest XML: `tests=3`, `failures=0`, `errors=0`, `skipped=0`.
+- `temp/verify-release.log` latest run: 18 visual tests passed; 5 full-stack tests passed; S004 full-stack test `AC-S004-4/5 creates a Project-owned BACKLOG Task through real full-stack API wiring` passed.
+- `scripts/verify-release.sh` runs `npm run build`, `npm run test:visual`, backend `./gradlew test`, and `npm run test:fullstack`.
+
+AC verification:
+
+| AC | Classification | Evidence |
+| --- | --- | --- |
+| AC-S004-1 | VERIFIED | `TaskApiTests` verifies `201 Created`, Project-owned `BACKLOG`, `source=manual`, inherited `workflowRecipeId`, copied Task Workflow rows and no active workflow run. |
+| AC-S004-2 | VERIFIED | `TaskApiTests` verifies `CollectionResponse<TaskResponse>`, selected-Project-only rows and cross-Project exclusion. |
+| AC-S004-3 | VERIFIED | `TaskApiTests` verifies missing Project `404`, blank title `400`, unchanged row counts and SQLite FK rejection for orphan `tasks.project_id`. |
+| AC-S004-4 | VERIFIED | `task-management.ui.spec.ts` verifies selected Project create request shape, removed `建議 skill`, no `建立草稿`, returned `BACKLOG` card and no-Project create guard. `task-creation.fullstack.spec.ts` verifies the real browser create path. |
+| AC-S004-5 | VERIFIED | `task-creation.fullstack.spec.ts` uses dynamic Project/Task names, observes real `POST /api/projects/{projectId}/tasks`, checks request body excludes system/projection fields, and verifies follow-up `GET` read-back. |
+| AC-S004-6 | VERIFIED | `scripts/verify-release.sh` and `temp/verify-release.log` name S004 backend/full-stack Task creation evidence in the critical release gate. |
+
+Code quality and design sync:
+
+- `CreateTaskRequest` only accepts `title`, `body` and `labels`; server-owned fields stay in `TaskService` / `TaskResponse`.
+- `tasks` schema keeps Project ownership and does not store `step`, `score`, `workflowSummary`, `commentCount`, `acceptance`, `gaps` or `evidence` root columns.
+- `TaskWorkflowService` copies the Project workflow definition during Task creation; S004 still does not create active workflow runs.
+- Frontend keeps prototype fixture compatibility when no Project is selected, but Task creation is disabled in that state and does not call `/api/projects/*/tasks`.
+- S004 §2/§4/§5/§7 now match implementation reality: nested Project path is confirmed, no current Project is read-only for create, and roadmap sync tracks the full lifecycle rather than only planning.
+
+Pending verification: 無。
+
+Result: S004 remains ready for `/shipping-release S004`.
+
+### Final Size Re-score
+
+Estimation scale: `.agents/skills/planning-spec/references/estimation-scale.md`
+
+| Dimension | Initial | Actual | Rationale |
+| --- | ---: | ---: | --- |
+| Tech risk | 2 | 2 | Used established Spring MVC/JdbcClient/MockMvc and existing Vite/Playwright patterns; SQLite FK behavior had a POC before implementation. |
+| Uncertainty | 2 | 2 | Product questions around Project-owned Task creation, no Task-level skill/workflow selection, BACKLOG semantics and fixture fallback were resolved before implementation. |
+| Dependencies | 3 | 3 | Depends on S001/S002/S003 and establishes the Task root that S009 consumes. |
+| Scope | 3 | 3 | Shipped backend Task schema/API/service/store, Task Workflow copy path, frontend task API wiring, full-stack Playwright evidence and release gate wording. |
+| Testing | 2 | 3 | Actual verification required backend API tests, visual tests and a real browser full-stack suite that starts Spring Boot + Vite with temporary SQLite state. |
+| Reversibility | 2 | 2 | The result introduces persisted `tasks`/workflow copy rows plus public Task create/list API; revert requires coordinated schema/API/frontend cleanup. |
+| **Total** | **14 / M** | **15 / L** | Bucket shifts M to L because full-stack browser/API assembly testing became required shipping evidence. |

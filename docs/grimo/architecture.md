@@ -1,23 +1,23 @@
 # Grimo Architecture
 
-**Status:** Living architecture baseline through S003 design
-**Last updated:** 2026-06-01
+**Status:** Living architecture baseline through S009 shipping
+**Last updated:** 2026-06-05
 
-## State At Planning
+## Current Architecture Snapshot
 
-Repo 目前已有兩個可獨立啟動的 POC surface：
+Repo 目前已有兩個可獨立啟動的 local development surface：
 
 | Surface | Current state | Evidence |
 | --- | --- | --- |
-| `frontend/` | React + Vite UI POC，已有 Task workbench、Projects、Workflow、Playwright visual snapshots | `frontend/package.json`、`frontend/src/features/*`、`frontend/e2e/task-workbench.visual.spec.ts` |
-| `backend/` | Spring Boot skeleton，已有 Pollack AgentWorks / SQLite POC tests，但尚未有 production REST API | `backend/build.gradle.kts`、`backend/src/main/java/io/github/samzhu/grimo/GrimoApplication.java`、`backend/src/test/java/io/github/samzhu/grimo/poc/*` |
-| `scripts/verify-release.sh` | 目前 release gate 主要跑 frontend build 與 visual regression | `scripts/verify-release.sh` |
+| `frontend/` | React + Vite UI，已有 Project/Task board 入口、Project creation 和 deterministic Playwright visual/full-stack checks | `frontend/package.json`、`frontend/src/features/*`、`frontend/e2e/*` |
+| `backend/` | Spring Boot MVC backend，已有 Project、Task、Workflow Recipe、Task Workflow evidence REST/storage | `backend/build.gradle.kts`、`backend/src/main/java/io/github/samzhu/grimo/*`、`backend/src/test/java/io/github/samzhu/grimo/*` |
+| `scripts/verify-release.sh` | release gate 會跑 frontend build、visual regression、backend Gradle tests、S001/S002/S003/S004 full-stack checks，並標出 S009 workflow evidence tests | `scripts/verify-release.sh`、`temp/verify-release.log` |
 
 缺口：
 
-- backend 尚未提供 `Project` REST API。
-- frontend `Projects` view 仍是 fixture / local UI，不會呼叫 backend。
-- `docs/grimo/specs/spec-roadmap.md` 尚未存在；S001 會建立第一個可實作 spec。
+- Ready Gate / Dispatch Window / Review Materials 尚未實作。
+- Workflow runner 尚未實作；S009 只提供 Task Workflow copy、first Chat transition storage、summary projection 和 read-only detail API。
+- Production packaging 尚未決定。
 
 ## Packaging And Development Target
 
@@ -67,7 +67,7 @@ flowchart LR
   Backend -. "future Task execution uses stored projectPath" .-> ProjectPath
 ```
 
-Runtime facts through S003 design:
+Runtime facts through S009 shipping:
 
 - Grimo is executed locally; the browser is only the human operator UI.
 - Frontend and backend are still started separately in development.
@@ -77,6 +77,11 @@ Runtime facts through S003 design:
 - Browser-only handles are not backend-operable until a future native bridge or browser-mediated file flow exists, so S003 does not use `showDirectoryPicker()` as a projectPath source.
 - S002 stores `workspacePath` as data only; S003 renames that API intent to `projectPath`. Directory browsing lists immediate child directories but does not read file contents, run shell commands, inspect the repo, or start agent execution.
 - No Electron, Tauri, native desktop shell, or OS-level file chooser bridge is assumed in S003.
+- Task creation is Project-owned. A Task cannot be created outside a Project and does not choose a skill.
+- Creating a Task copies the Project workflow recipe into `task_workflows` / `task_workflow_steps`, but a BACKLOG Task has no active run yet.
+- The first Chat action for a BACKLOG Task transitions it to DEFINING and creates one active `task_workflow_runs` row plus copied `task_workflow_run_steps`.
+- Task board `workflowSummary` is a response projection from workflow evidence rows, not root columns on `tasks`.
+- `GET /api/projects/{projectId}/tasks/{taskId}/workflow` is a read-only workflow detail API. Public API does not expose workflow evidence write endpoints.
 
 ### Runtime Scenario: Enter Project Creation Page
 
@@ -160,6 +165,8 @@ sequenceDiagram
 | `frontend/src/domain/project` | Project frontend type、request/response shape、workflow recipe labels | 對齊 backend API 欄位名稱。 |
 | `frontend/src/shared/api` | Thin fetch client | 只處理 HTTP request/response 與 user-readable error，不放 domain rule。 |
 | `backend/src/main/java/io/github/samzhu/grimo/project` | Project domain、repository、service、REST controller | 第一個 production backend package。 |
+| `backend/src/main/java/io/github/samzhu/grimo/task` | Task root API、Project-owned Task persistence、`TaskResponse.workflowSummary` projection boundary | Task create/list 不接受 `source`、`state`、`workflowSummary`、`step` 或 `score` 作為 root write 欄位。 |
+| `backend/src/main/java/io/github/samzhu/grimo/workflow` | Task Workflow copy、first Chat transition、normalized workflow evidence、read-only workflow detail API | Workflow evidence 寫入只走 internal service/store；public API 只讀 detail。 |
 | `backend/src/main/resources` | SQLite datasource、schema migration 設定 | 本地 DB path 必須可覆寫，測試不得碰使用者真資料。 |
 
 ## Framework Dependency Table
@@ -257,6 +264,16 @@ POST /api/projects
 ```
 
 `POST /api/projects` creates a Project and returns the created row. Through S002 the path field was `workspacePath`; S003 changes the intended contract to a single `projectPath` field. `Project Home` remains internal and is not exposed as `projectDataPath`.
+
+Through S009 the backend production API also includes:
+
+```http
+GET /api/projects/{projectId}/tasks
+POST /api/projects/{projectId}/tasks
+GET /api/projects/{projectId}/tasks/{taskId}/workflow
+```
+
+`TaskResponse.workflowSummary` is response-only projection data. It is rebuilt from workflow evidence tables and must not be stored as root Task state. Workflow evidence has no public create/update/delete endpoint in S009.
 
 ### REST Response Envelope Standard
 
