@@ -1,6 +1,6 @@
 # S004: Task Creation Through Backend API
 
-> 規格：S004 | 大小：M(14) | 狀態：⏳ Design
+> 規格：S004 | 大小：M(14) | 狀態：⏳ Plan
 > 日期：2026-06-02
 > 對應：PRD §0.4, §6 MVP 範疇 4-6 / spec-roadmap row S004 / S001-S003 Project API baseline
 
@@ -15,12 +15,12 @@ S004 是 Task domain 的第一個 full-stack vertical slice。它只處理「手
 - 使用者可填 `title`、`body`、`labels`。
 - 系統自動設定 `source = manual`。
 - 系統自動設定初始 `state = BACKLOG`。
-- Task 繼承 Project 的 `workflowRecipeId`，不讓使用者在單筆 Task 選 workflow。
-- 系統在建立 Task 時複製 Project Workflow Recipe，形成該 Task 的固定 workflow snapshot。
+- Task 在 MVP 繼承 Project 的 `workflowRecipeId`，不讓使用者在單筆 Task 選 workflow。
+- 系統在建立 Task 時複製 Project Workflow Recipe 或 future workflow file，形成該 Task 的固定 Task Workflow。
 - Task 建立後能透過 `GET /api/projects/{projectId}/tasks` 讀回。
 - 使用者必須先選到真實 Project 才能建立 Task；沒有 Project owner 的孤兒 Task 不合法。
 
-S004 不做 Ready Gate、不做 agent claim、不建立完整 Task Conversation Thread message table、不做 dependencies、assignment、dispatcher、Review Materials 或 Release evidence。S004 只建立 Task 和 Task Workflow Snapshot；不啟動 active Workflow Run，也不寫 step evidence / Quality Loop attempt。Task comments 未來屬於同一條 Task Conversation Thread；看板只顯示 thread 的主要留言摘要或計數投影。這些留給 S005-S007。
+S004 不做 Ready Gate、不做 agent claim、不建立完整 Task Conversation Thread message table、不做 dependencies、assignment、dispatcher、Review Materials 或 Release evidence。S004 只建立 Task 和 Task Workflow；不啟動 active Workflow Run，也不寫 step evidence / Quality Loop attempt。Task comments 未來屬於同一條 Task Conversation Thread；看板只顯示 thread 的主要留言摘要或計數投影。這些留給 S005-S007。
 
 相依狀態：
 
@@ -38,8 +38,8 @@ S004 不做 Ready Gate、不做 agent claim、不建立完整 Task Conversation 
 
 | 來源 | 查到什麼 | 對設計的影響 |
 | --- | --- | --- |
-| `docs/grimo/PRD.md` §6 MVP 範疇 4 | 新增 Task 的可見表單欄位對齊 GitHub issue style：title、body、labels；source 由系統保存，manual 建立固定為 `manual`；status 由系統設定；workflow 由 Project 繼承。 | `CreateTaskRequest` 只接受 `title`, `body`, `labels`；不接受 `source`, `state`, `workflowRecipeId`。建立時複製 Project workflow 作為 Task Workflow Snapshot。 |
-| `docs/grimo/PRD.md` §0.4, §2 | Task 是 Project 底下的工作封包，包含 Definition Package、Workflow Evidence、Review Materials、Attachments 等未來資料。 | S004 先建立 `tasks` root table 和 Task Workflow Snapshot；future evidence tables 用 `task_id` 或 snapshot/run id 掛上。 |
+| `docs/grimo/PRD.md` §6 MVP 範疇 4 | 新增 Task 的可見表單欄位對齊 GitHub issue style：title、body、labels；source 由系統保存，manual 建立固定為 `manual`；status 由系統設定；workflow 由 Project 繼承。 | `CreateTaskRequest` 只接受 `title`, `body`, `labels`；不接受 `source`, `state`, `workflowRecipeId`。建立時複製 Project workflow 作為 Task Workflow。 |
+| `docs/grimo/PRD.md` §0.4, §2 | Task 是 Project 底下的工作封包，包含 Definition Package、Workflow Evidence、Review Materials、Attachments 等未來資料。 | S004 先建立 `tasks` root table 和 Task Workflow；future evidence tables 用 `task_id`、`task_workflow_id` 或 `workflow_run_id` 掛上。 |
 | `docs/grimo/glossary.md` | Task 是使用者想完成的一件工作；不是 Workflow Step、內部 phase 或 prompt message。 | Backend package 命名用 `task`，欄位避免把 `step` 當 board state。 |
 | `frontend/src/features/task-create/CreateTaskDialog.tsx` | 現有 dialog 已有 title/body/labels/skill UI，但 submit 只 `preventDefault()` + `onClose()`。 | S004 改 submit 為 API call；移除 `建議 skill` submit surface，避免假裝完成 assignment/Ready Gate。 |
 | `frontend/src/App.tsx` | Task board 目前直接使用 `task-fixtures.ts`，current Project 只存在於 App local state。 | S004 需要在 current Project 存在時載入 backend tasks；無 current Project 時可保留 read-only fixture/demo board，但不可建立 Task。 |
@@ -130,7 +130,7 @@ Response shape defines the Project-owned Task summary API contract. The Task boa
 
 `workflowSummary` 是 Workflow Evidence 的 summary projection，不是 Task root identity，也不是單一 JSON 欄位。Workflow 是多個 step 組成的執行結構，未來應拆成正規化的 workflow step execution / Quality Loop 資料表，再由查詢聚合出目前 step 和最新 quality score。S004 只把 Task 放進 Backlog，還沒有進入 Discuss / Explore / Dev 等 workflow step，也沒有 Quality Loop result，所以 `currentStep` 和 `qualityScore` 固定為 `null`。
 
-建立 Task 會複製 Task Workflow Snapshot，但不初始化 active Workflow Run。`BACKLOG` 只代表這件工作已保存且流程版本已固定；等使用者第一次打開這個 Task 的 `Chat`，才由 S009 的 internal transition 在同一個 transaction 內把 Task 轉成 `DEFINING`、建立 active run、複製 execution steps，並開始累積 evidence。
+建立 Task 會複製 Task Workflow，但不初始化 active Workflow Run。`BACKLOG` 只代表這件工作已保存且流程版本已固定；Task Workflow 建立後不可被後續 Project recipe 或 workflow file 修改自動改寫。等使用者第一次打開這個 Task 的 `Chat`，才由 S009 的 internal transition 在同一個 transaction 內把 Task 轉成 `DEFINING`、建立 active run、複製 execution steps，並開始累積 evidence。
 
 `acceptance`, `gaps`, `evidence` 是 workflow 逐步產生的 Task intelligence projection，不是手動建立 Task 表單的輸入。S004 只建立狀態為 `BACKLOG` 的 Task，所以三者固定回空陣列：`acceptance` 會在 `$planning-spec` / `$planning-tasks` 把 BDD、AC、欄位 contract 收斂後出現；`gaps` 會在 `$grill-with-docs` / `$planning-spec` / `$verifying-quality` 發現缺決策、缺欄位或缺測試能力時出現；`evidence` 會在 `$implementing-task` / `$verifying-quality` / `$shipping-release` 保存測試、E2E、log、screenshot 或 release gate 證據後出現。
 
@@ -181,13 +181,13 @@ This is not final pixel design and not a new design system.
 | D: Task board 全面移除 fixture，首頁立刻要求 Project context | no for S004 | 會重寫 prototype visual baseline；S004 只在 current Project 存在時使用 backend tasks；無 Project 時 fixture/demo path 可保留為 read-only，但 `新增 Task` 不可建立資料。 |
 | E: `POST /api/tasks` with `projectId` in body | no | Project 是 Task owner；URL nesting `POST /api/projects/{projectId}/tasks` 更能避免 Task 脫離 Project context。 |
 | F: labels as comma-separated string in API | no | UI 可以用 comma input，但 API 應接 `labels[]`，避免 backend 和單一輸入框格式綁死。 |
-| G: S004 同時建立 workflow execution evidence tables | no in S004; snapshot yes as paired S009 | Workflow 是多 step 結構，建立 Task 時要複製 snapshot；但 S004 只建立狀態為 `BACKLOG` 的 Task，尚未啟動 active run 或 Quality Loop evidence。正式 snapshot/run/evidence table design 放進 paired spec S009，和 S004 一起規劃資料模型但分開實作。 |
+| G: S004 同時建立 workflow execution evidence tables | no in S004; Task Workflow yes as paired S009 | Workflow 是多 step 結構，建立 Task 時要複製 immutable Task Workflow；但 S004 只建立狀態為 `BACKLOG` 的 Task，尚未啟動 active run 或 Quality Loop evidence。正式 Task Workflow / run / evidence table design 放進 paired spec S009，和 S004 一起規劃資料模型但分開實作。 |
 
 Chosen approach:
 
 - `POST /api/projects/{projectId}/tasks` creates manual Tasks in `BACKLOG`.
 - `GET /api/projects/{projectId}/tasks` lists only that Project's Tasks.
-- Creating a Task copies the Project Workflow Recipe into a Task Workflow Snapshot.
+- Creating a Task copies the Project workflow definition into a Task Workflow.
 - Frontend parses the labels text box into `labels[]` and does not render or submit `skill`.
 - Backend `TaskResponse` does not include `skill`; required skills come from the Project Workflow Recipe and later assignment/execution specs.
 - Task board uses backend tasks only when a current Project exists.
@@ -215,7 +215,7 @@ BDD / acceptance confirmation status:
 
 - 已確認：S004 採 B full-stack Task creation，但只做 manual Task creation with `state=BACKLOG`。
 - 已確認：manual Task 建立後先進 `BACKLOG`；S005 才處理第一次打開 Task `Chat` 時的 `BACKLOG -> DEFINING` 入口。
-- 已確認：建立 Task 會複製 Task Workflow Snapshot，但不初始化 active Workflow Run；run/evidence 要等第一次打開 `BACKLOG` Task 的 `Chat` 時，由 S009 的 atomic transition 連同 `BACKLOG -> DEFINING` 一起開始。
+- 已確認：建立 Task 會複製 Task Workflow，但不初始化 active Workflow Run；run/evidence 要等第一次打開 `BACKLOG` Task 的 `Chat` 時，由 S009 的 atomic transition 連同 `BACKLOG -> DEFINING` 一起開始。
 - 已確認：Task root schema 和 Workflow Evidence schema 要一起規劃；S004 實作 Task root create/list，S009 正式設計 workflow step execution / Quality Loop tables 與 `workflowSummary` projection。
 - 待使用者確認：API 是否用 nested Project path；無 current Project 時是否保留 fixture/demo board。
 
@@ -223,7 +223,7 @@ AC 覆蓋矩陣：
 
 | AC | 使用者結果 | Contract / 可觀察輸出 | Layer | State |
 | --- | --- | --- | --- | --- |
-| AC-S004-1 | 使用者送出 manual Task 後，backend 建立一筆 Project-owned Task，狀態是 `BACKLOG`，並複製該 Task 的 workflow snapshot，但不啟動 active run。 | `POST /api/projects/{projectId}/tasks` returns `201 Created` with `state=BACKLOG`, `source=manual`, inherited `workflowRecipeId`, `workflowSummary.currentStep/qualityScore = null`, workflow snapshot copied, and no active workflow run initialized。 | backend, api | proposed |
+| AC-S004-1 | 使用者送出 manual Task 後，backend 建立一筆 Project-owned Task，狀態是 `BACKLOG`，並複製該 Task 的 Task Workflow，但不啟動 active run。 | `POST /api/projects/{projectId}/tasks` returns `201 Created` with `state=BACKLOG`, `source=manual`, inherited `workflowRecipeId`, `workflowSummary.currentStep/qualityScore = null`, Task Workflow copied, and no active workflow run initialized。 | backend, api | proposed |
 | AC-S004-2 | 使用者回到 Task board 時，只看到目前 Project 的 Tasks，不混入其他 Project。 | `GET /api/projects/{projectId}/tasks` returns `CollectionResponse<TaskResponse>` sorted newest first, with nested `workflowSummary` per item。 | backend, api | proposed |
 | AC-S004-3 | 使用者填錯資料時，系統不建立壞 Task，並回可理解錯誤。 | blank title `400`, unknown project `404`, SQLite row count unchanged。 | backend, api | proposed |
 | AC-S004-4 | 使用者在已選 Project 內建立 Task 後，Task board 立即出現新卡片；未選 Project 時不能建立孤兒 Task。 | UI sends `labels[]`, no `source/state/workflowRecipeId/workflowSummary/acceptance/gaps/evidence/commentCount/skill`; returned Task card appears in `BACKLOG`; `currentProject = null` disables create or routes to Project selection。 | frontend, fullstack | proposed |
@@ -298,7 +298,7 @@ Scenario: Manual Task creation persists a Project-owned BACKLOG Task
   And the response contains workflowSummary with currentStep null and qualityScore null
   And the response contains empty acceptance, gaps, and evidence arrays
   And SQLite contains one tasks row with the returned task id and project id
-  And the Task has a copied workflow snapshot
+  And the Task has a copied Task Workflow
   And no active workflow run is initialized for the Task
   And the request cannot set source, state, workflowRecipeId, workflowSummary, acceptance, gaps, evidence, commentCount, or skill
   # 技術證據：MockMvc status/body assertion + tasks table row assertion
@@ -654,17 +654,19 @@ SQLite FK enforcement 是 connection-level 設定，不是只靠 DDL。S004 impl
 
 `tasks` 不存 `comments` 或 `comment_count`。留言內容未來應進正規化的 Task Conversation Thread message table，和完整討論 thread 混在一起；看板只取主要 comments 的 projection，例如 `commentCount` 或未來的 `primaryCommentPreview`。S004 只回 `commentCount: 0` 讓 Task card 可以顯示 summary，同時避免提前把留言模型壓成 Task root 欄位或獨立 comments aggregate。
 
-`tasks` 不存 `step`、`score` 或 `workflowSummary` JSON。建立 Task 時會複製 Task Workflow Snapshot，但 active step、quality score、fix history 仍屬於 Workflow Evidence / Quality Loop 的下一層資料，未來由 execution rows 投影成 `workflowSummary`。S004 只回 `workflowSummary.currentStep: null` 和 `workflowSummary.qualityScore: null`，也不初始化 active Workflow Run；即使 snapshot 裡已經有第一個 planned step，也不能把它投影成 `currentStep`，避免把 Backlog Task 假裝成已進入 workflow 或已被評分。
+`tasks` 不存 `step`、`score` 或 `workflowSummary` JSON。建立 Task 時會複製 Task Workflow，但 active step、quality score、fix history 仍屬於 Workflow Evidence / Quality Loop 的下一層資料，未來由 execution rows 投影成 `workflowSummary`。S004 只回 `workflowSummary.currentStep: null` 和 `workflowSummary.qualityScore: null`，也不初始化 active Workflow Run；即使 Task Workflow 裡已經有第一個 planned step，也不能把它投影成 `currentStep`，避免把 Backlog Task 假裝成已進入 workflow 或已被評分。
 
-The formal workflow table design is split into paired spec S009 (`Workflow evidence schema and summary projection`). S004 keeps the boundary note here only to protect the data model while S004 is implemented. Exact snapshot storage is an S009 design decision:
+The formal workflow table design is split into paired spec S009 (`Workflow evidence schema and summary projection`). S004 keeps the boundary note here only to protect the data model while S004 is implemented. Exact Task Workflow storage is an S009 design decision:
+
+MVP `workflowRecipeId` 是目前 Project selected recipe 的 API 欄位；S009 的 Task Workflow storage 會用 `source_type` / `source_ref` / optional `source_hash` 保存更通用的 workflow definition 來源，讓未來 workflow file 不需要重命名核心 evidence schema。Task Workflow 一旦建立就是 Task-owned immutable copy；當下複製出的 workflow rows 就是版本本體，不依賴 hash。若未來要讓舊 Task 改用新版 workflow，必須另開明確 migration / rebase 行為，而不是 update 既有 rows。
 
 | Storage concept | Purpose | Example fields |
 | --- | --- | --- |
-| Task Workflow Snapshot | 保存建立 Task 當下複製出的 workflow step metadata。 | `task_id`, `step_key`, `step_label`, `task_state`, `step_order` |
-| Workflow Run / Execution Steps | 保存第一次 Chat 進 `DEFINING` 後的 active execution state。 | `task_id` or `snapshot_id`, `step_key`, `state`, `started_at`, `completed_at` |
-| Workflow Quality Runs | 保存某個 execution step 的 review / rating / fix 品質循環結果。 | `workflow_step_id`, `attempt`, `quality_score`, `review_summary`, `created_at` |
+| Task Workflow | 保存建立 Task 當下複製出的 immutable workflow step metadata。 | `task_id`, `step_key`, `step_label`, `task_state`, `step_order` |
+| Workflow Run / Execution Steps | 保存第一次 Chat 進 `DEFINING` 後的 active execution state。 | `task_id`, `task_workflow_id`, `step_key`, `state`, `started_at`, `completed_at` |
+| Workflow Quality Runs | 保存某個 execution step 的 review / rating / fix 品質循環結果。 | `workflow_run_step_id`, `attempt`, `quality_score`, `review_summary`, `created_at` |
 
-`workflowSummary.currentStep` 應從 active execution step 中目前 active / latest step 推得；`workflowSummary.qualityScore` 應從該 step 最新的 quality run 推得。S004 不假資料；S009 要把 snapshot storage、run state、排序、current step selection、quality score projection 和 BDD 驗收正式化。
+`workflowSummary.currentStep` 應從 active execution step 中目前 active / latest step 推得；`workflowSummary.qualityScore` 應從該 step 最新的 quality run 推得。S004 不假資料；S009 要把 Task Workflow storage、run state、排序、current step selection、quality score projection 和 BDD 驗收正式化。
 
 `tasks` 也不存 `acceptance`, `gaps`, `evidence`。這三者未來應由 Definition Package、gap tracking、verification / review evidence 等正規化資料產生 projection；S004 只回空陣列，避免手動建立 Task 時假裝已完成定義、發現缺口或產生驗證證據。
 
@@ -692,7 +694,7 @@ Frontend state rule:
 
 | 檔案 | 動作 | 說明 |
 | --- | --- | --- |
-| `docs/grimo/specs/spec-roadmap.md` | modify | S004 status changes from backlog to in-design. |
+| `docs/grimo/specs/spec-roadmap.md` | modify | S004 status changes to `⏳ Plan` after task planning. |
 | `backend/src/test/java/io/github/samzhu/grimo/poc/SqliteForeignKeyEnforcementPocTests.java` | existing POC | Confirms Xerial SQLite JDBC can enforce FK ownership with `PRAGMA foreign_keys=ON` and shows why DDL alone is insufficient. |
 | `backend/src/main/resources/schema.sql` | modify | Add `tasks` table and project/updated index. |
 | `backend/src/main/java/io/github/samzhu/grimo/project/ProjectStore.java` | modify | Add `findById(String projectId)` so TaskService can inherit Project workflow and reject missing Project. |
@@ -716,4 +718,31 @@ Frontend state rule:
 
 ---
 
-<!-- Sections 6-7 added by /planning-tasks after implementation -->
+## 6. Task Plan
+
+### Planning Notes
+
+S004 和 S009 一起規劃，因為「建立 Task」必須同時建立 Task-owned workflow copy；但 S004 不啟動 workflow run，也不寫 execution evidence。實作順序固定為：
+
+1. S004 建立 Project-owned `BACKLOG` Task、Task Workflow copy、Task create/list API。
+2. S004 接 frontend 和 full-stack create/read-back。
+3. S009 在 S004 的 Task root 與 workflow copy 上，加入 first Chat transition、run/evidence tables、summary projection 和 detail API。
+
+POC evidence：`backend/src/test/java/io/github/samzhu/grimo/poc/SqliteForeignKeyEnforcementPocTests.java` 已通過 `./gradlew test --tests '*SqliteForeignKeyEnforcementPocTests'`，證明 Xerial SQLite JDBC 在 `PRAGMA foreign_keys=ON` 時會擋 orphan Task / evidence row。
+
+### Task Breakdown
+
+| Task | Scope | AC | Test File(s) | Verification |
+| --- | --- | --- | --- | --- |
+| `S004-T01 Backend Task API and Workflow Copy` | `tasks` table、Task create/list API、Project ownership、Task Workflow copy、no active run | AC-S004-1, AC-S004-2, AC-S004-3 | `backend/src/test/java/io/github/samzhu/grimo/task/TaskApiTests.java` | `./gradlew test --tests '*TaskApiTests'` in `backend/` |
+| `S004-T02 Frontend Task API Wiring` | remove draft/skill submit surface, require current Project, call `/api/projects/{projectId}/tasks`, show returned BACKLOG card | AC-S004-4 | `frontend/e2e/task-management.ui.spec.ts`, existing visual specs | `npm run build` and `npm run test:visual` in `frontend/` |
+| `S004-T03 Full-stack Task Creation Evidence` | browser creates Project + Task through real API and verifies follow-up GET read-back | AC-S004-4, AC-S004-5 | `frontend/e2e/task-creation.fullstack.spec.ts` | `npm run test:fullstack -- task-creation.fullstack.spec.ts` in `frontend/` |
+| `S004-T04 Release Gate Task Creation` | release script/log names S004 Task creation and runs backend/full-stack checks | AC-S004-6 | `scripts/verify-release.sh` | `scripts/verify-release.sh` |
+
+### Next Task
+
+Start with `docs/grimo/tasks/2026-06-04-S004-T01-backend-task-api-and-workflow-copy.md`.
+
+---
+
+<!-- Section 7 added by /planning-tasks after implementation -->

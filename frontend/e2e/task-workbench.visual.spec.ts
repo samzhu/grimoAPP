@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { taskLabelOptions } from "../src/domain/task/task-labels";
 import { tasks } from "../src/domain/task/task-fixtures";
 
@@ -16,6 +17,34 @@ const viewports = [
   { name: "mobile-390", width: 390, height: 844 },
   { name: "tablet-820", width: 820, height: 1180 },
 ] as const;
+
+const visualProject = {
+  id: "01HZVISUALPROJECT",
+  name: "visual Project",
+  description: "Task dialog visual context",
+  projectPath: "/tmp/grimo-visual-project",
+  workflowRecipeId: "web-service-development",
+  workflowRecipeName: "Web 服務開發",
+  status: "ACTIVE",
+  createdAt: "2026-06-04T00:00:00Z",
+  updatedAt: "2026-06-04T00:00:00Z",
+  workflowRoles: [],
+};
+
+async function selectVisualProject(page: Page) {
+  await page.route("**/api/projects", async (route) => {
+    await route.fulfill({ json: { content: [visualProject] } });
+  });
+  await page.route(`**/api/projects/${visualProject.id}/tasks`, async (route) => {
+    await route.fulfill({ json: { content: [] } });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "展開主選單" }).click();
+  await page.getByRole("button", { name: "專案" }).click();
+  await expect(page.locator(".project-list-card").getByText(visualProject.name, { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "展開主選單" }).click();
+  await page.getByRole("button", { name: "Task 管理" }).click();
+}
 
 test.describe("Task workbench visual gate", () => {
   for (const viewport of viewports) {
@@ -113,7 +142,7 @@ test.describe("Task workbench visual gate", () => {
 
   test("create task dialog baseline", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto("/");
+    await selectVisualProject(page);
     await page.getByRole("button", { name: "新增 Task" }).click();
     await expect(page.getByRole("dialog", { name: "新增 Task" })).toBeVisible();
     await expect(page.getByText("來源")).toHaveCount(0);

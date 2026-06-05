@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class ShortResourceIdGenerator {
 
-	String newId() {
+	public String newId() {
 		return TSID.Factory.getTsid().toString();
 	}
 }

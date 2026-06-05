@@ -9,13 +9,17 @@ export const tasks: Task[] = [
     skill: "task-forming",
     score: 0,
     step: "Discuss",
+    workflowSummary: {
+      currentStep: "Discuss",
+      qualityScore: null,
+    },
     updatedAt: "4h ago",
     description: "Chat 回覆需要 inline 顯示任務候選、Definition 補齊項與下一步，而非純文字。",
     acceptance: ["已連結 Task 時顯示更新 Task", "attachments/source chips 在 message 內"],
     gaps: ["缺任務背景", "缺期望結果"],
     evidence: ["AI Elements concept map"],
     labels: ["frontend", "enhancement"],
-    comments: 1,
+    commentCount: 1,
   },
   {
     id: "GRM-219",
@@ -25,6 +29,10 @@ export const tasks: Task[] = [
     skill: "frontend-ui",
     score: 7.3,
     step: "Prototype",
+    workflowSummary: {
+      currentStep: "Prototype",
+      qualityScore: 7.3,
+    },
     updatedAt: "2h ago",
     description:
       "Voice 應回到 Chat composer，Task detail 需要能展開 code evidence 與 screenshot evidence。",
@@ -36,7 +44,7 @@ export const tasks: Task[] = [
     gaps: ["補 voice state 邊界", "確認 screenshot evidence policy"],
     evidence: ["task-detail.tsx", "checkpoint-42", "Linear GRM-184"],
     labels: ["frontend", "design"],
-    comments: 3,
+    commentCount: 3,
   },
   {
     id: "GRM-207",
@@ -46,6 +54,10 @@ export const tasks: Task[] = [
     skill: "workflow-modeling",
     score: 8.8,
     step: "Dev",
+    workflowSummary: {
+      currentStep: "Dev",
+      qualityScore: 8.8,
+    },
     updatedAt: "45m ago",
     description:
       "外部 issue、CLI request、chat intent 需要進入同一套 Task List State。",
@@ -57,7 +69,7 @@ export const tasks: Task[] = [
     gaps: ["Jira field mapping 需要 fallback"],
     evidence: ["GitHub fixture", "Linear webhook sample"],
     labels: ["backend", "enhancement"],
-    comments: 2,
+    commentCount: 2,
   },
   {
     id: "GRM-201",
@@ -67,6 +79,10 @@ export const tasks: Task[] = [
     skill: "runtime-planning",
     score: 9.1,
     step: "Ready boundary",
+    workflowSummary: {
+      currentStep: "Ready boundary",
+      qualityScore: 9.1,
+    },
     updatedAt: "1h ago",
     description:
       "READY 任務開始前檢查 repo binding、tool availability 與 risk level。",
@@ -77,7 +93,7 @@ export const tasks: Task[] = [
     gaps: [],
     evidence: ["routing policy draft", "capability probe"],
     labels: ["backend"],
-    comments: 1,
+    commentCount: 1,
   },
   {
     id: "GRM-188",
@@ -87,6 +103,10 @@ export const tasks: Task[] = [
     skill: "review-materials",
     score: 9.4,
     step: "Review",
+    workflowSummary: {
+      currentStep: "Review",
+      qualityScore: 9.4,
+    },
     updatedAt: "12m ago",
     description:
       "Task detail 把執行結果、測試、截圖與風險整理成可審查附件。",
@@ -98,7 +118,7 @@ export const tasks: Task[] = [
     gaps: [],
     evidence: ["Playwright screenshot", "typecheck", "risk note"],
     labels: ["frontend", "documentation"],
-    comments: 5,
+    commentCount: 5,
   },
   {
     id: "GRM-176",
@@ -108,6 +128,10 @@ export const tasks: Task[] = [
     skill: "local-env",
     score: 6.6,
     step: "Prototype",
+    workflowSummary: {
+      currentStep: "Prototype",
+      qualityScore: 6.6,
+    },
     updatedAt: "3h ago",
     description:
       "本機 runner 需要以專案資料夾做 repo binding，不能假設全域 session 可用。",
@@ -115,7 +139,7 @@ export const tasks: Task[] = [
     gaps: ["repo permission probe 失敗", "需要確認 monorepo 權限與路徑"],
     evidence: ["local runner log", "repo probe result"],
     labels: ["backend", "question"],
-    comments: 4,
+    commentCount: 4,
   },
   {
     id: "GRM-160",
@@ -125,6 +149,10 @@ export const tasks: Task[] = [
     skill: "workflow-modeling",
     score: 9.8,
     step: "Wrap",
+    workflowSummary: {
+      currentStep: "Wrap",
+      qualityScore: 9.8,
+    },
     updatedAt: "yesterday",
     description: "Board 只保留 Task List State，recipe step 只在 detail 呈現。",
     acceptance: [
@@ -135,7 +163,7 @@ export const tasks: Task[] = [
     gaps: [],
     evidence: ["domain model test", "migration note"],
     labels: ["documentation", "enhancement"],
-    comments: 0,
+    commentCount: 0,
   },
 ];
 

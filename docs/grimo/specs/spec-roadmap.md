@@ -10,8 +10,8 @@ PRD Critical Path: 使用者先建立或選擇 Project，Project 決定工作流
 | Spec ID | 標題 | 點數 | 相依 | 狀態 |
 | --- | --- | ---: | --- | --- |
 | S001 | Project onboarding with workflow selection | 5 | PRD, ADR-001, architecture baseline | ✅ local verification PASS |
-| S004 | Task creation through backend API | M(14) | S001, S002, S003 | 📐 in-design |
-| S009 | Workflow evidence schema and summary projection | M(13) | S001, S002, S004 | 📐 in-design |
+| S004 | Task creation through backend API | M(14) | S001, S002, S003 | ⏳ Plan |
+| S009 | Workflow evidence schema and summary projection | M(13) | S001, S002, S004 | ⏳ Plan |
 
 ## ✅ Shipped
 

@@ -4,6 +4,8 @@ spring:
   datasource:
     url: ${GRIMO_DATASOURCE_URL:jdbc:sqlite:../temp/grimo-dev.db}
     driver-class-name: org.sqlite.JDBC
+    hikari:
+      connection-init-sql: PRAGMA foreign_keys=ON
   sql:
     init:
       mode: always

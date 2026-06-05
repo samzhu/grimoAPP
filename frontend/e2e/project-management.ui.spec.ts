@@ -57,6 +57,9 @@ async function mockProjectApis(page: Page) {
     localDirectoryRequests += 1;
     await route.fulfill({ json: { path: "/tmp", parentPath: null, directories: [] } });
   });
+  await page.route(`**/api/projects/${createdProject.id}/tasks`, async (route) => {
+    await route.fulfill({ json: { content: [] } });
+  });
 
   return {
     createBodies,

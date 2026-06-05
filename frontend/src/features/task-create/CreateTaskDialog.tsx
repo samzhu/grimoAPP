@@ -1,7 +1,38 @@
 import { X } from "@phosphor-icons/react";
+import { useState } from "react";
+import type { FormEvent } from "react";
 import { taskLabelOptions } from "../../domain/task/task-labels";
+import type { CreateTaskInput } from "../task-board/task-api";
 
-export function CreateTaskDialog({ onClose }: { onClose: () => void }) {
+export function CreateTaskDialog({
+  onClose,
+  onSubmit,
+}: {
+  onClose: () => void;
+  onSubmit: (input: CreateTaskInput) => Promise<void>;
+}) {
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const submitTask = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setError("");
+    setIsSubmitting(true);
+    try {
+      await onSubmit({
+        title: String(form.get("title") ?? "").trim(),
+        body: String(form.get("body") ?? "").trim(),
+        labels: parseLabels(String(form.get("labels") ?? "")),
+      });
+      onClose();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "建立 Task 失敗");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="task-workspace-modal" role="presentation">
       <section
@@ -13,7 +44,7 @@ export function CreateTaskDialog({ onClose }: { onClose: () => void }) {
         <div className="task-workspace-head">
           <div>
             <h2 id="create-task-title">新增 Task</h2>
-            <p>先建立可進入 DEFINING 的工作草稿；後續再補 acceptance 與缺口。</p>
+            <p>先把任務放進 BACKLOG；第一次 Chat 才進入 workflow。</p>
           </div>
           <button className="icon-button" type="button" aria-label="關閉新增 Task" onClick={onClose}>
             <X />
@@ -21,10 +52,7 @@ export function CreateTaskDialog({ onClose }: { onClose: () => void }) {
         </div>
         <form
           className="task-workspace-body task-create-form"
-          onSubmit={(event) => {
-            event.preventDefault();
-            onClose();
-          }}
+          onSubmit={submitTask}
         >
           <div className="task-workspace-grid">
             <div className="task-workspace-stack">
@@ -66,20 +94,13 @@ export function CreateTaskDialog({ onClose }: { onClose: () => void }) {
                     ))}
                   </datalist>
                 </div>
-                <div className="form-field">
-                  <label htmlFor="task-skill">建議 skill</label>
-                  <select className="text-control" id="task-skill" name="skill">
-                    <option>frontend-ui</option>
-                    <option>workflow-modeling</option>
-                    <option>runtime-planning</option>
-                  </select>
-                </div>
               </div>
             </aside>
           </div>
+          {error && <p className="form-message error">{error}</p>}
           <div className="task-workspace-actions">
-            <button className="primary-button" type="submit">
-              建立草稿
+            <button className="primary-button" type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "建立中..." : "建立 Task"}
             </button>
             <button className="icon-text-button" type="button" onClick={onClose}>
               取消
@@ -89,4 +110,11 @@ export function CreateTaskDialog({ onClose }: { onClose: () => void }) {
       </section>
     </div>
   );
+}
+
+function parseLabels(value: string) {
+  return [...new Set(value
+    .split(",")
+    .map((label) => label.trim())
+    .filter(Boolean))];
 }

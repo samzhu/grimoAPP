@@ -1,6 +1,6 @@
 # S009: Workflow step evidence schema and summary projection
 
-> 規格：S009 | 大小：M(13) | 狀態：📐 in-design
+> 規格：S009 | 大小：M(13) | 狀態：⏳ Plan
 > 日期：2026-06-03
 > 最後更新：2026-06-03
 > 對應：PRD §0.4, §0.5, §2, §4 P6/P7/P15, §6 AC4 / S004 `workflowSummary` projection boundary / `docs/grimo/glossary.md`
@@ -11,12 +11,13 @@
 
 使用者在 Task board 上只需要快速知道「這件工作現在跑到哪個 workflow step、目前品質分數是多少」；進 Task detail 時，才需要看到每個 step 的 output、review findings、quality score 和 fix history。S009 要把這些 Workflow Evidence 存成正規化資料，不把 `step`、`score` 或整包 `workflowSummary` 塞回 `tasks` root row。
 
-技術上，S009 新增 Task 底下的 workflow evidence storage 和 read model：
+技術上，S009 新增 Task 底下的 workflow copy、execution evidence storage 和 read model：
 
-- Task Workflow Snapshot：Task 建立時從 Project Workflow Recipe 複製出的固定 workflow 版本。
+- `task_workflows`：Task 建立時從 Project Workflow Recipe 或 workflow file 複製出的固定 workflow 副本。
+- `task_workflow_steps`：該 Task workflow 副本底下的 planned steps。
 - `task_workflow_runs`：一個 Task 的一次 workflow 執行脈絡。
-- `task_workflow_steps`：該 run 底下的多個 ordered Workflow Steps。
-- `task_workflow_quality_runs`：每個 step 的 sub-Review -> sub-Rating -> sub-Fix 嘗試紀錄。
+- `task_workflow_run_steps`：該 run 底下的多個 ordered execution steps。
+- `task_workflow_quality_runs`：每個 run step 的 sub-Review -> sub-Rating -> sub-Fix 嘗試紀錄。
 - `TaskResponse.workflowSummary`：從上述表查出的 board projection。
 - `GET /api/projects/{projectId}/tasks/{taskId}/workflow`：Task detail 讀取完整 step evidence 的 read-only API。
 
@@ -24,9 +25,9 @@ S009 不實作完整 workflow runner、agent execution、Ready Gate、Dispatch W
 
 Assumptions:
 
-- S004 會先建立 `tasks` root table、Task Workflow Snapshot、`GET /api/projects/{projectId}/tasks` / `POST /api/projects/{projectId}/tasks`；S009 依賴 S004 的 Task root API、snapshot 與 `workflowSummary` response field。
-- S004 建立的 `BACKLOG` Task 有 Task Workflow Snapshot，但沒有 active workflow run；S009 的 first Chat transition 必須在同一個 transaction 內完成 `BACKLOG -> DEFINING`、active run creation、execution step copy 和 opening step activation。
-- Project-level `WorkflowRecipeCatalog.steps[]` 是 workflow step order 的來源；S009 會把 selected recipe 的 step metadata snapshot 到 Task-owned workflow snapshot，避免日後 recipe wording 改動時污染舊 Task。
+- S004 會先建立 `tasks` root table、Task Workflow、`GET /api/projects/{projectId}/tasks` / `POST /api/projects/{projectId}/tasks`；S009 依賴 S004 的 Task root API、workflow copy 與 `workflowSummary` response field。
+- S004 建立的 `BACKLOG` Task 有 Task Workflow，但沒有 active workflow run；S009 的 first Chat transition 必須在同一個 transaction 內完成 `BACKLOG -> DEFINING`、active run creation、execution step copy 和 opening step activation。
+- Project-level `WorkflowRecipeCatalog.steps[]` 或 future workflow file 是 workflow step order 的來源；S009 會把 selected workflow definition 的 step metadata 複製到 Task-owned immutable workflow copy，避免日後 recipe wording 或檔案內容改動時污染舊 Task。
 - `qualityScore` 是 JSON number，允許小數；通過條件沿用 PRD 的 `quality_score > 9`。
 - `acceptance`、`gaps`、`evidence` 仍是未來 Definition Package / gap tracking / verification evidence 的 projection，不屬於 S009 的 request field。
 
@@ -34,13 +35,13 @@ Assumptions:
 
 | 相依 | 類型 | 狀態 | 對 S009 的影響 |
 | --- | --- | --- | --- |
-| S001/S002 | Code-level | shipped | Project 和 Workflow Recipe 已存在；S009 直接使用 Project 的 selected `workflowRecipeId` 與 recipe steps。 |
-| S004 | Code-level | in-design | S009 需要 `tasks` table、Task API package、`TaskResponse.workflowSummary`；implementation 必須等 S004 root Task API 完成後才能動工。 |
+| S001/S002 | Code-level | shipped | Project 和 Workflow Recipe 已存在；S009 先把 selected `workflowRecipeId` 視為 `source_type=RECIPE` / `source_ref=web-service-development` 來源，再複製成 Task Workflow。 |
+| S004 | Code-level | planned | S009 需要 `tasks` table、Task API package、`TaskResponse.workflowSummary`；implementation 必須等 S004 root Task API 完成後才能動工。 |
 | S005/S006/S007 | Downstream | backlog | Task-forming chat、Ready/Dispatch、Review flow 都會寫入或讀取 S009 evidence；S009 要先固定欄位與 projection。 |
 
 Spec overlap scan:
 
-- S004 只建立狀態為 `BACKLOG` 的 manual Task、Project-scoped Task list，以及 Task Workflow Snapshot；S009 接手 S004 留下的 snapshot/run/evidence 與 `workflowSummary` 正規化設計，沒有重疊超過 50%。
+- S004 只建立狀態為 `BACKLOG` 的 manual Task、Project-scoped Task list，以及 Task Workflow；S009 接手 S004 留下的 workflow copy、run、evidence 與 `workflowSummary` 正規化設計，沒有重疊超過 50%。
 - S005 會建立或推進 defining Task，但不應自行發明 step evidence schema；S005 應使用 S009 internal service。
 - S006/S007 會改 workflow state transition 和 review outcome，但不應改寫 S009 的 storage contract，除非另開 migration spec。
 
@@ -52,9 +53,9 @@ Spec overlap scan:
 | --- | --- | --- |
 | `docs/grimo/PRD.md` §0.4, §2, §6 AC4 | 使用者要能在 Task detail 看到每個 workflow step 的 output、review findings、quality score、fix history 和 worker log。 | Evidence 必須可持久化、可回放，不應只是 transient UI state。 |
 | `docs/grimo/glossary.md` | Task State Machine 是 board/list 的外層狀態；Workflow Step 和 Quality Loop 是 Task detail evidence。 | `Discuss`, `Explore`, `Dev` 不是 board column；`workflowSummary` 只是 board projection。 |
-| S004 spec | `tasks` 不存 `step`、`score`、`workflowSummary` JSON；建立 `BACKLOG` Task 時會複製 Task Workflow Snapshot，但 `workflowSummary.currentStep/qualityScore` 為 `null`。 | S009 必須設計 snapshot、run、quality evidence source tables 和 projection query，不能讓 S004 實作固定假資料。 |
+| S004 spec | `tasks` 不存 `step`、`score`、`workflowSummary` JSON；建立 `BACKLOG` Task 時會複製 Task Workflow，但 `workflowSummary.currentStep/qualityScore` 為 `null`。 | S009 必須設計 workflow copy、run、quality evidence source tables 和 projection query，不能讓 S004 實作固定假資料。 |
 | `backend/src/main/resources/schema.sql` | 目前只有 `projects` 和 `project_workflow_roles`；Task root table 由 S004 新增。 | S009 只 append schema，不改 Project storage。 |
-| `backend/src/main/java/io/github/samzhu/grimo/project/WorkflowRecipeCatalog.java` | `web-service-development` recipe 已有 step key、label、Task State metadata。 | 建立 Task 時 snapshot `step_key`, `step_label`, `task_state`, `step_order`；第一次 Chat 進 `DEFINING` 時再啟動 run/evidence。 |
+| `backend/src/main/java/io/github/samzhu/grimo/project/WorkflowRecipeCatalog.java` | `web-service-development` recipe 已有 step key、label、Task State metadata；未來 workflow definition 也可能來自檔案。 | 建立 Task 時複製 `step_key`, `step_label`, `task_state`, `step_order` 到 `task_workflow_steps`；第一次 Chat 進 `DEFINING` 時再啟動 run/evidence。 |
 | Spring Framework JDBC docs | `JdbcClient` 提供 named/positional parameter 的 fluent JDBC API。 | 延續 ProjectStore pattern；S009 不引入 Spring Data JDBC repository 或 ORM。 |
 | SQLite foreign key docs | SQLite foreign key 可用來維持 parent-child 關聯，但 application 必須在 runtime 啟用 `PRAGMA foreign_keys` 才會 enforce。 | Workflow run -> step -> quality run 用 FK；implementation 必須啟用 connection-level FK enforcement，測試要用 temporary database 驗證不寫使用者真資料。 |
 | SQLite CREATE INDEX docs | `UNIQUE INDEX` 可拒絕 duplicate key。 | 用 unique index 保證同一 run 內 step key/order 不重複、同一 step 的 attempt 不重複。 |
@@ -84,7 +85,9 @@ Chosen approach: B。
 ```mermaid
 flowchart LR
   Task["tasks row<br/>Project-owned Task"] --> Run["task_workflow_runs<br/>one workflow run"]
-  Run --> Steps["task_workflow_steps<br/>Discuss, Explore, Dev..."]
+  Task --> Copy["task_workflows<br/>Task workflow copy"]
+  Copy --> Planned["task_workflow_steps<br/>planned steps"]
+  Run --> Steps["task_workflow_run_steps<br/>Discuss, Explore, Dev..."]
   Steps --> Quality["task_workflow_quality_runs<br/>attempt history"]
 
   Steps --> Summary["TaskResponse.workflowSummary"]
@@ -109,7 +112,11 @@ flowchart LR
   "taskId": "01JZ9E3K7M2Q4",
   "projectId": "01JZ9DPROJECT1",
   "workflowRunId": "01JZ9RUN00001",
-  "workflowRecipeId": "web-service-development",
+  "workflowSource": {
+    "type": "RECIPE",
+    "ref": "web-service-development",
+    "hash": null
+  },
   "steps": [
     {
       "stepKey": "discuss",
@@ -145,7 +152,7 @@ flowchart LR
 Current step selection:
 
 1. 只看該 Task 目前 active workflow run；若沒有 active run，`currentStep = null` 且 `qualityScore = null`。
-2. 不可從 Task Workflow Snapshot 的第一個 planned step 推出 `currentStep`，因為 snapshot 不是 active execution。
+2. 不可從 Task Workflow 的第一個 planned step 推出 `currentStep`，因為 workflow copy 不是 active execution。
 3. 若有 `BLOCKED` step，選最小 `step_order` 的 blocked step，讓使用者先看到卡住點。
 4. 否則若有 `ACTIVE` step，選最小 `step_order` 的 active step。
 5. 否則若 run 還有 `PENDING` step，選最小 `step_order` 的 pending step，表示下一個要跑的 step。
@@ -158,10 +165,10 @@ Current step selection:
 | --- | --- | --- | --- |
 | Task outer state | `tasks.state` | workflow step row | Board/list 用 `BACKLOG/DEFINING/READY/RUNNING/REVIEW/DONE/BLOCKED` 掃描使用者進度。 |
 | Task ownership | `tasks.project_id` | workflow evidence tables | Task 是 Project ownership anchor；workflow evidence 透過 Task 回查 Project，避免 duplicated project ownership。 |
-| Task Workflow Snapshot | Task-owned snapshot storage | active run/evidence rows | 建立 Task 時固定 workflow 版本；不是 execution evidence。 |
-| `BACKLOG` Task | `tasks` + Task Workflow Snapshot | active `task_workflow_runs` | `BACKLOG` 代表工作已保存且 workflow 已複製，但 execution 尚未啟動；不能預先製造 pending evidence。 |
+| Task Workflow | `task_workflows` + `task_workflow_steps` | active run/evidence rows | 建立 Task 時固定 immutable workflow 副本；不是 execution evidence，也不跟著 live definition 變動。 |
+| `BACKLOG` Task | `tasks` + Task Workflow | active `task_workflow_runs` | `BACKLOG` 代表工作已保存且 workflow 已複製，但 execution 尚未啟動；不能預先製造 pending evidence。 |
 | Workflow run | `task_workflow_runs` | `tasks.workflowSummary` JSON | 一個 Task 可能未來有 rerun/history；run 是 evidence owner。 |
-| Workflow step | `task_workflow_steps` | `tasks.step` | Step 是 run 底下多筆 ordered evidence，不是 Task root identity。 |
+| Workflow run step | `task_workflow_run_steps` | `tasks.step` | Step 是 run 底下多筆 ordered evidence，不是 Task root identity。 |
 | Quality score | `task_workflow_quality_runs.quality_score` | `tasks.score` | Score 屬於某個 step 的某次 Review/Rating/Fix attempt。 |
 | Board summary | API query projection | DB root column | 看板只需要 current projection，不應覆蓋 evidence history。 |
 | Step output/review/fix | `task_workflow_quality_runs` attempt row | raw chat transcript only | 每次 attempt 要可讀回、可測試、可追溯。 |
@@ -175,22 +182,22 @@ Feature: Workflow Step Evidence
 
 | AC | 使用者結果 | 可觀察證據 | Layer | 狀態 |
 | --- | --- | --- | --- | --- |
-| AC-S009-1 | 建立 Task 時先保存 Task Workflow Snapshot；使用者第一次打開 `BACKLOG` Task 的 `Chat` 後，Task 以單一 transition 進入 workflow，系統保存一個 active run，且不允許孤兒 workflow evidence。 | S004-created `BACKLOG` Task 有 `task_workflow_snapshots` / `task_workflow_snapshot_steps` rows，但沒有 active workflow run；第一次 Chat 入口後同一個 transaction 內完成 Task `DEFINING`、active run/evidence rows、step key/order 來自 Task Workflow Snapshot；orphan snapshot/run/step/quality row insert 在 FK enforcement 下失敗。 | backend | proposed |
+| AC-S009-1 | 建立 Task 時先保存 immutable Task Workflow；使用者第一次打開 `BACKLOG` Task 的 `Chat` 後，Task 以單一 transition 進入 workflow，系統保存一個 active run，且不允許孤兒 workflow evidence。 | S004-created `BACKLOG` Task 有 `task_workflows` / `task_workflow_steps` rows，但沒有 active workflow run；第一次 Chat 入口後同一個 transaction 內完成 Task `DEFINING`、`task_workflow_runs` / `task_workflow_run_steps` rows、step key/order 來自 Task Workflow；orphan copy/run/run-step/quality row insert 在 FK enforcement 下失敗。 | backend | proposed |
 | AC-S009-2 | Task board 顯示目前 workflow step 和最新 quality score，不靠 root fake fields。 | `GET /api/projects/{projectId}/tasks` 回 `workflowSummary.currentStep/qualityScore`；`tasks` row 沒有 `step/score/workflow_summary` columns。 | backend, api | proposed |
 | AC-S009-3 | Task detail 可以讀到每個 step 的 Quality Loop 嘗試紀錄。 | `GET /api/projects/{projectId}/tasks/{taskId}/workflow` 回 ordered `steps[]` 和 nested `qualitySummary`。 | backend, api | proposed |
 | AC-S009-4 | Project isolation 防止別的 Project 讀到 workflow evidence。 | 用 Project A URL 讀 Project B Task workflow 回 404；Task list 不混入其他 Project 的 summary。 | backend, api | proposed |
 | AC-S009-5 | Evidence 寫入不是 public client contract。 | 沒有 public `POST/PUT /workflow` endpoint；backend tests 透過 internal service/fixture 寫入，再從 API 讀回。 | backend, security | proposed |
 | AC-S009-6 | Release gate 會跑 S009 backend evidence tests。 | `scripts/verify-release.sh` 執行 backend tests；log 可回查 S009 AC。 | automation | proposed |
 
-### Rule: Task creation snapshots ordered recipe steps before workflow starts
+### Rule: Task creation copies ordered workflow steps before workflow starts
 
 使用者結果：
-建立 Task 時，Grimo 會先固定這張 Task 要走的 workflow 版本。等使用者第一次打開 `Chat` 讓 Task 進入 `DEFINING` 後，Task detail 才開始顯示這次執行中的 steps。這個入口必須是單一 transaction，避免使用者看到 Task 已是 `DEFINING` 但沒有 workflow run，或 run 已建立但 Task 仍停在 `BACKLOG`。就算未來 recipe 文字或順序調整，舊 Task 仍保留建立當下的 workflow snapshot。
+建立 Task 時，Grimo 會先把 Project 選定的 workflow definition 複製成這張 Task 自己的 immutable workflow copy。等使用者第一次打開 `Chat` 讓 Task 進入 `DEFINING` 後，Task detail 才開始顯示這次執行中的 steps。這個入口必須是單一 transaction，避免使用者看到 Task 已是 `DEFINING` 但沒有 workflow run，或 run 已建立但 Task 仍停在 `BACKLOG`。就算未來 recipe 文字、順序或 workflow file 調整，舊 Task 仍保留建立當下的 workflow copy；若要改用新版 workflow，必須另開 explicit migration / rebase。
 
 Internal command example:
 
 ```java
-taskWorkflowSnapshotService.copyFromProjectRecipe(taskId);
+taskWorkflowService.copyFromProjectWorkflow(taskId);
 taskWorkflowTransitionService.openChatForBacklogTask(taskId);
 ```
 
@@ -201,10 +208,10 @@ DB rows:
   "task_workflow_runs": {
     "id": "01JZ9RUN00001",
     "task_id": "01JZ9E3K7M2Q4",
-    "workflow_recipe_id": "web-service-development",
+    "task_workflow_id": "01JZ9WFLOW001",
     "state": "ACTIVE"
   },
-  "task_workflow_steps": [
+  "task_workflow_run_steps": [
     {
       "workflow_run_id": "01JZ9RUN00001",
       "step_key": "discuss",
@@ -230,16 +237,18 @@ DB rows:
 @ac:AC-S009-1
 @layer:backend
 @state:proposed
-Scenario: Starting workflow evidence snapshots ordered recipe steps
-  Given a BACKLOG Task exists under a Project with workflowRecipeId "web-service-development"
-  And SQLite contains one task_workflow_snapshots row for the Task
-  And SQLite contains ordered task_workflow_snapshot_steps rows copied from the selected Project recipe
+Scenario: Starting workflow evidence from copied ordered workflow steps
+  Given a BACKLOG Task exists under a Project with workflow source type "RECIPE" and ref "web-service-development"
+  And SQLite contains one task_workflows row for the Task
+  And SQLite contains immutable ordered task_workflow_steps rows copied from the selected Project workflow
+  And source_hash may be null because copied task_workflow_steps define the workflow version
   And the Task has no active workflow run
   When the user opens Chat for that BACKLOG Task for the first time
   And the backend handles the first Chat transition in one transaction
   Then SQLite contains one active task_workflow_runs row for the Task
   And the Task state is DEFINING
-  And SQLite contains ordered execution step rows copied from the Task Workflow Snapshot
+  And SQLite contains ordered task_workflow_run_steps rows copied from the Task Workflow
+  And later workflow definition changes do not modify the copied task_workflow_steps rows
   And "discuss" is ACTIVE while the next recipe step is PENDING
   And a second ACTIVE workflow run cannot be initialized for the same Task
   And no step/order data is written into the tasks root row
@@ -300,7 +309,7 @@ Field contract:
 | 欄位 | 型別/格式 | 規則 | 來源 | 設計理由 | BDD 要驗什麼 |
 | --- | --- | --- | --- | --- | --- |
 | `workflowSummary` | object | response-only, never accepted in request | query projection | Board 要掃描進度，但不應污染 root identity。 | response exists; create/update request cannot set it。 |
-| `workflowSummary.currentStep` | string or null | active/blocked/pending selection rule；Task 尚未開始 workflow 時為 null | `task_workflow_steps` | 使用者快速知道目前卡在哪個內部 step。 | two different Tasks return different currentStep from stored rows。 |
+| `workflowSummary.currentStep` | string or null | active/blocked/pending selection rule；Task 尚未開始 workflow 時為 null | `task_workflow_run_steps` | 使用者快速知道目前卡在哪個內部 step。 | two different Tasks return different currentStep from stored rows。 |
 | `workflowSummary.qualityScore` | number or null | selected step latest attempt score；無 attempt 時 null | `task_workflow_quality_runs` | 使用者快速判斷目前 output 是否過品質門檻。 | latest attempt wins; score is not hardcoded to 10。 |
 
 ```gherkin
@@ -348,7 +357,11 @@ Response:
   "taskId": "01JZ9E3K7M2Q4",
   "projectId": "01JZ9DPROJECT1",
   "workflowRunId": "01JZ9RUN00001",
-  "workflowRecipeId": "web-service-development",
+  "workflowSource": {
+    "type": "RECIPE",
+    "ref": "web-service-development",
+    "hash": null
+  },
   "steps": [
     {
       "stepKey": "discuss",
@@ -378,11 +391,11 @@ Field contract:
 | `taskId` | TSID string | path Task id | URL + Task row | Detail 要明確屬於哪件 Task。 | unknown Task 404；cross-project 404。 |
 | `projectId` | TSID string | path Project id | URL + Task row | 防止讀到其他 Project evidence。 | Project A URL 不可讀 Project B Task。 |
 | `workflowRunId` | TSID string or null | Task 尚未開始 workflow 時可為 null | `task_workflow_runs` | 把一次 workflow execution 作為 evidence owner。 | Backlog Task returns null run and empty steps。 |
-| `workflowRecipeId` | string | Task inherited recipe id | Task row / run row | 使用者知道 evidence 依哪個 recipe 產生。 | matches Project/Task recipe。 |
-| `steps[]` | array | ordered by `stepOrder ASC` | `task_workflow_steps` | Detail 要能回放 step sequence。 | response order matches DB order。 |
-| `steps[].stepKey` | kebab/string | unique within run | recipe snapshot | machine-stable step identity。 | duplicate step key rejected。 |
-| `steps[].stepLabel` | string | display label snapshot | recipe snapshot | 使用者看到可讀名稱。 | label is from snapshot, not recomputed from current fixture during read。 |
-| `steps[].taskState` | enum string | `DEFINING/RUNNING/REVIEW/...` | recipe snapshot | 讓 detail 知道 step 屬於哪個 outer state。 | `Dev` maps to `RUNNING`。 |
+| `workflowSource` | object | `type`, `ref`, optional `hash` | `task_workflows` | 使用者知道 Task Workflow 最初從哪個 definition 複製；真正版本以已複製的 `task_workflow_steps` 為準。 | matches Task Workflow source; hash may be null even for file source。 |
+| `steps[]` | array | ordered by `stepOrder ASC` | `task_workflow_run_steps` | Detail 要能回放 step sequence。 | response order matches DB order。 |
+| `steps[].stepKey` | kebab/string | unique within run | Task Workflow | machine-stable step identity。 | duplicate step key rejected。 |
+| `steps[].stepLabel` | string | copied display label | Task Workflow | 使用者看到可讀名稱。 | label is from Task Workflow, not recomputed from current fixture during read。 |
+| `steps[].taskState` | enum string | `DEFINING/RUNNING/REVIEW/...` | Task Workflow | 讓 detail 知道 step 屬於哪個 outer state。 | `Dev` maps to `RUNNING`。 |
 | `steps[].state` | enum string | `PENDING/ACTIVE/PASSED/BLOCKED/SKIPPED` | workflow evidence service | 使用者知道 step 進度。 | blocked step appears before active in summary selection。 |
 | `qualitySummary` | object or null | latest attempt only | `task_workflow_quality_runs` | Detail summary 先顯示最新 loop result；完整 history 可由後續 spec 擴充。 | latest attempt selected; no attempt returns null。 |
 
@@ -474,7 +487,7 @@ Verification Bindings:
 
 | 分類 | 對應驗收 | 說明 |
 | --- | --- | --- |
-| Performance | AC-S009-2, AC-S009-3 | 本機 MVP 預期 small list；仍需加 `(task_id)`、`(workflow_run_id, step_order)`、`(workflow_step_id, attempt DESC)` index，避免 Task board 每張卡做 N+1 scan。 |
+| Performance | AC-S009-2, AC-S009-3 | 本機 MVP 預期 small list；仍需加 `(task_id)`、`(workflow_run_id, step_order)`、`(workflow_run_step_id, attempt DESC)` index，避免 Task board 每張卡做 N+1 scan。 |
 | Security | AC-S009-4, AC-S009-5 | MVP permit-all 下不開 public evidence write API；Project path isolation 由 nested URL + Task ownership 查詢保護。 |
 | Reliability | AC-S009-1, AC-S009-2 | SQLite FK/unique indexes + persisted read-back 防止 orphan quality runs、duplicate attempts 和 hardcoded projection；FK tests 必須證明 `PRAGMA foreign_keys=ON` 已在 Grimo datasource 生效。 |
 | Usability | AC-S009-2, AC-S009-3 | Board summary 保持短；detail API 保留完整 step evidence，避免把內部流程塞滿看板。 |
@@ -529,12 +542,13 @@ Internal write rules:
 
 | Rule | Behavior |
 | --- | --- |
-| `copyFromProjectRecipe` | Creates a Task Workflow Snapshot when the Task is created; copies recipe step key/label/taskState/order without creating active evidence。 |
-| `openChatForBacklogTask` | Runs in one transaction; moves the Task from `BACKLOG` to `DEFINING`, creates one active run, copies steps from Task Workflow Snapshot, sets execution steps `PENDING`, and marks the opening step `ACTIVE`。 |
+| `copyFromProjectWorkflow` | Creates an immutable Task Workflow when the Task is created; copies workflow step key/label/taskState/order without creating active evidence。 |
+| Task Workflow immutability | Existing `task_workflows` / `task_workflow_steps` rows are not updated by later recipe or workflow file edits; copied rows are the workflow version, and changing a Task's workflow requires future migration/rebase behavior。 |
+| `openChatForBacklogTask` | Runs in one transaction; moves the Task from `BACKLOG` to `DEFINING`, creates one active run, copies steps from Task Workflow, sets execution steps `PENDING`, and marks the opening step `ACTIVE`。 |
 | `initializeRun` | Internal helper used by `openChatForBacklogTask`; not callable as a separate product transition because it would allow half-created workflow state。 |
 | active run guard | If the Task already has an `ACTIVE` run, service rejects a second active run; future rerun support must first complete or cancel the current run。 |
 | `startStep` | Marks selected step `ACTIVE`, fills `started_at`, and leaves other pending steps untouched；transition validation remains future S006/S007 work。 |
-| `recordQualityRun` | Inserts immutable attempt row; duplicate `(workflow_step_id, attempt)` fails。 |
+| `recordQualityRun` | Inserts immutable attempt row; duplicate `(workflow_run_step_id, attempt)` fails。 |
 | `summarizeTask` | Read-only projection for Task list; no write side effects。 |
 | `findWorkflowDetail` | Verifies Project owns Task before returning detail。 |
 
@@ -561,8 +575,14 @@ record TaskWorkflowDetailResponse(
         String taskId,
         String projectId,
         String workflowRunId,
-        String workflowRecipeId,
+        WorkflowSourceResponse workflowSource,
         List<WorkflowStepEvidenceResponse> steps
+) {}
+
+record WorkflowSourceResponse(
+        String type,
+        String ref,
+        String hash
 ) {}
 
 record WorkflowStepEvidenceResponse(
@@ -590,43 +610,45 @@ record WorkflowQualitySummaryResponse(
 
 Storage contract rule: every table in this section includes a SQL comment block that names the product purpose, owner, boundary, and sample data below. Future edits must keep the comments and sample rows in sync with the schema.
 
-Task Workflow Snapshot uses dedicated snapshot tables. `BACKLOG` Tasks have snapshot rows, but no `task_workflow_runs` row until first Chat moves the Task into `DEFINING`.
+Task Workflow uses dedicated immutable copy tables. `BACKLOG` Tasks have `task_workflows` and planned `task_workflow_steps` rows, but no `task_workflow_runs` row until first Chat moves the Task into `DEFINING`.
 
 ```sql
--- table: task_workflow_snapshots
--- 用途: 保存 Task 建立當下複製出的 workflow version，讓後續執行不受 Project recipe 修改影響。
--- owner: tasks.id。每個 Task 在 S004 建立時取得一份 snapshot。
+-- table: task_workflows
+-- 用途: 保存 Task 建立當下複製出的 immutable workflow copy，讓後續執行不受 Project recipe 或 workflow file 修改影響。
+-- owner: tasks.id。每個 Task 在 S004 建立時取得一份 workflow copy。
 -- 不存: active execution state、quality score attempt details、Task outer state。
-CREATE TABLE IF NOT EXISTS task_workflow_snapshots (
+CREATE TABLE IF NOT EXISTS task_workflows (
     id TEXT PRIMARY KEY,
     task_id TEXT NOT NULL UNIQUE,
-    workflow_recipe_id TEXT NOT NULL,
+    source_type TEXT NOT NULL CHECK (source_type IN ('RECIPE', 'FILE')),
+    source_ref TEXT NOT NULL,
+    source_hash TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     FOREIGN KEY (task_id) REFERENCES tasks(id)
 );
 
--- table: task_workflow_snapshot_steps
--- 用途: 保存 Task Workflow Snapshot 底下的 ordered step metadata，例如 Discuss、Explore、Dev。
--- owner: task_workflow_snapshots.id。step label / task_state 來自建立 Task 當下的 Project recipe。
+-- table: task_workflow_steps
+-- 用途: 保存 Task Workflow 底下的 immutable ordered step metadata，例如 Discuss、Explore、Dev。
+-- owner: task_workflows.id。step label / task_state 來自建立 Task 當下的 Project workflow definition。
 -- 不存: active execution state、Quality Loop attempt details、chat comments。
-CREATE TABLE IF NOT EXISTS task_workflow_snapshot_steps (
+CREATE TABLE IF NOT EXISTS task_workflow_steps (
     id TEXT PRIMARY KEY,
-    workflow_snapshot_id TEXT NOT NULL,
+    task_workflow_id TEXT NOT NULL,
     step_key TEXT NOT NULL,
     step_label TEXT NOT NULL,
     task_state TEXT NOT NULL,
     step_order INTEGER NOT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
-    FOREIGN KEY (workflow_snapshot_id) REFERENCES task_workflow_snapshots(id)
+    FOREIGN KEY (task_workflow_id) REFERENCES task_workflows(id)
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_task_workflow_snapshot_steps_key
-ON task_workflow_snapshot_steps(workflow_snapshot_id, step_key);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_task_workflow_steps_key
+ON task_workflow_steps(task_workflow_id, step_key);
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_task_workflow_snapshot_steps_order
-ON task_workflow_snapshot_steps(workflow_snapshot_id, step_order);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_task_workflow_steps_order
+ON task_workflow_steps(task_workflow_id, step_order);
 
 -- table: task_workflow_runs
 -- 用途: 保存一個 Task 的一次 workflow execution context，讓舊 evidence 可回放。
@@ -635,15 +657,14 @@ ON task_workflow_snapshot_steps(workflow_snapshot_id, step_order);
 CREATE TABLE IF NOT EXISTS task_workflow_runs (
     id TEXT PRIMARY KEY,
     task_id TEXT NOT NULL,
-    workflow_snapshot_id TEXT NOT NULL,
-    workflow_recipe_id TEXT NOT NULL,
-    state TEXT NOT NULL,
+    task_workflow_id TEXT NOT NULL,
+    state TEXT NOT NULL CHECK (state IN ('ACTIVE', 'PASSED', 'BLOCKED', 'CANCELLED')),
     started_at TEXT NOT NULL,
     completed_at TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     FOREIGN KEY (task_id) REFERENCES tasks(id),
-    FOREIGN KEY (workflow_snapshot_id) REFERENCES task_workflow_snapshots(id)
+    FOREIGN KEY (task_workflow_id) REFERENCES task_workflows(id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_task_workflow_runs_task
@@ -652,18 +673,18 @@ ON task_workflow_runs(task_id, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_task_workflow_runs_task_state
 ON task_workflow_runs(task_id, state, updated_at DESC);
 
--- table: task_workflow_steps
--- 用途: 保存 workflow run 底下的 ordered step snapshot，例如 Discuss、Explore、Dev。
--- owner: task_workflow_runs.id。step label / task_state 來自 recipe snapshot，讀取時不重新從 catalog 推算。
+-- table: task_workflow_run_steps
+-- 用途: 保存 workflow run 底下的 ordered execution steps，例如 Discuss、Explore、Dev。
+-- owner: task_workflow_runs.id。step label / task_state 來自 Task Workflow，讀取時不重新從 catalog 或 workflow file 推算。
 -- 不存: Quality Loop attempt details、chat comments、Review Materials artifact body。
-CREATE TABLE IF NOT EXISTS task_workflow_steps (
+CREATE TABLE IF NOT EXISTS task_workflow_run_steps (
     id TEXT PRIMARY KEY,
     workflow_run_id TEXT NOT NULL,
     step_key TEXT NOT NULL,
     step_label TEXT NOT NULL,
     task_state TEXT NOT NULL,
     step_order INTEGER NOT NULL,
-    state TEXT NOT NULL,
+    state TEXT NOT NULL CHECK (state IN ('PENDING', 'ACTIVE', 'PASSED', 'BLOCKED', 'SKIPPED')),
     started_at TEXT,
     completed_at TEXT,
     created_at TEXT NOT NULL,
@@ -671,22 +692,22 @@ CREATE TABLE IF NOT EXISTS task_workflow_steps (
     FOREIGN KEY (workflow_run_id) REFERENCES task_workflow_runs(id)
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_task_workflow_steps_run_key
-ON task_workflow_steps(workflow_run_id, step_key);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_task_workflow_run_steps_run_key
+ON task_workflow_run_steps(workflow_run_id, step_key);
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_task_workflow_steps_run_order
-ON task_workflow_steps(workflow_run_id, step_order);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_task_workflow_run_steps_run_order
+ON task_workflow_run_steps(workflow_run_id, step_order);
 
-CREATE INDEX IF NOT EXISTS idx_task_workflow_steps_run_state_order
-ON task_workflow_steps(workflow_run_id, state, step_order);
+CREATE INDEX IF NOT EXISTS idx_task_workflow_run_steps_run_state_order
+ON task_workflow_run_steps(workflow_run_id, state, step_order);
 
 -- table: task_workflow_quality_runs
--- 用途: 保存某個 workflow step 的 sub-Review -> sub-Rating -> sub-Fix 嘗試紀錄。
--- owner: task_workflow_steps.id。每個 attempt 是 immutable evidence row。
+-- 用途: 保存某個 workflow run step 的 sub-Review -> sub-Rating -> sub-Fix 嘗試紀錄。
+-- owner: task_workflow_run_steps.id。每個 attempt 是 immutable evidence row。
 -- 不存: 大型 artifact 內容、完整 Task Conversation Thread、final Review Materials bundle。
 CREATE TABLE IF NOT EXISTS task_workflow_quality_runs (
     id TEXT PRIMARY KEY,
-    workflow_step_id TEXT NOT NULL,
+    workflow_run_step_id TEXT NOT NULL,
     attempt INTEGER NOT NULL,
     output_summary TEXT NOT NULL DEFAULT '',
     output_ref TEXT,
@@ -695,32 +716,33 @@ CREATE TABLE IF NOT EXISTS task_workflow_quality_runs (
     fix_summary TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
-    FOREIGN KEY (workflow_step_id) REFERENCES task_workflow_steps(id)
+    FOREIGN KEY (workflow_run_step_id) REFERENCES task_workflow_run_steps(id)
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_task_workflow_quality_runs_step_attempt
-ON task_workflow_quality_runs(workflow_step_id, attempt);
+ON task_workflow_quality_runs(workflow_run_step_id, attempt);
 
 CREATE INDEX IF NOT EXISTS idx_task_workflow_quality_runs_step_latest
-ON task_workflow_quality_runs(workflow_step_id, attempt DESC);
+ON task_workflow_quality_runs(workflow_run_step_id, attempt DESC);
 ```
 
 Schema field rationale:
 
 | Table | Field | 型別/格式 | 規則 | 設計理由 |
 | --- | --- | --- | --- | --- |
-| `task_workflow_snapshots` | `task_id` | TEXT FK unique | required | 每個 Task 建立時只有一份 workflow snapshot。 |
-| `task_workflow_snapshots` | `workflow_recipe_id` | string | copied from Project/Task at create time | 回放 Task 時知道 snapshot 依哪個 recipe 產生。 |
-| `task_workflow_snapshot_steps` | `step_key` / `step_label` / `task_state` / `step_order` | snapshot metadata | copied from Project recipe at Task create time | 固定 Task 建立當下的 workflow step 版本。 |
+| `task_workflows` | `task_id` | TEXT FK unique | required | 每個 Task 建立時只有一份 immutable workflow copy。 |
+| `task_workflows` | `source_type` | enum string | `RECIPE/FILE` | 回放 Task 時知道 copy 來自內建 recipe 或檔案。 |
+| `task_workflows` | `source_ref` | string | recipe id or file path/ref | 保存 workflow definition 來源，不把 schema 鎖死在 recipe-only；不作為 workflow copy 的版本本體。 |
+| `task_workflows` | `source_hash` | string nullable | optional diagnostics | hash 只是輔助診斷；即使 `source_type=FILE` 也可為 null，因為當下複製出的 `task_workflow_steps` 才是 source of truth。 |
+| `task_workflow_steps` | `step_key` / `step_label` / `task_state` / `step_order` | immutable copy metadata | copied from Project workflow at Task create time | 固定 Task 建立當下的 workflow step 版本，後續 definition 變更不可自動改寫。 |
 | `task_workflow_runs` | `task_id` | TEXT FK | required | Evidence belongs to a Task; Project ownership is verified through the Task's `project_id`。 |
-| `task_workflow_runs` | `workflow_snapshot_id` | TEXT FK | required | Active run must execute from a Task Workflow Snapshot, not from live Project recipe。 |
-| `task_workflow_runs` | `workflow_recipe_id` | string | copied from Task Workflow Snapshot at run init | 回放 evidence 時知道使用哪個 recipe。 |
+| `task_workflow_runs` | `task_workflow_id` | TEXT FK | required | Active run must execute from a Task Workflow, not from live Project recipe。 |
 | `task_workflow_runs` | `state` | enum string | `ACTIVE/PASSED/BLOCKED/CANCELLED` | 表示整次 workflow run 狀態，不等同 board state。 |
-| `task_workflow_steps` | `step_key` | string | unique per run | Machine-stable identity；e.g. `discuss`, `dev`。 |
-| `task_workflow_steps` | `step_label` | string | snapshot | UI display label，不依賴日後 recipe 改名。 |
-| `task_workflow_steps` | `task_state` | enum string | snapshot | step 執行時對應外層 Task state。 |
-| `task_workflow_steps` | `step_order` | integer | 10, 20, 30... | 方便 future insert step，不必重排所有 rows。 |
-| `task_workflow_steps` | `state` | enum string | `PENDING/ACTIVE/PASSED/BLOCKED/SKIPPED` | Detail 顯示 step progress。 |
+| `task_workflow_run_steps` | `step_key` | string | unique per run | Machine-stable identity；e.g. `discuss`, `dev`。 |
+| `task_workflow_run_steps` | `step_label` | string | copied from Task Workflow | UI display label，不依賴日後 recipe 或 workflow file 改名。 |
+| `task_workflow_run_steps` | `task_state` | enum string | copied from Task Workflow | step 執行時對應外層 Task state。 |
+| `task_workflow_run_steps` | `step_order` | integer | 10, 20, 30... | 方便 future insert step，不必重排所有 rows。 |
+| `task_workflow_run_steps` | `state` | enum string | `PENDING/ACTIVE/PASSED/BLOCKED/SKIPPED` | Detail 顯示 step progress。 |
 | `task_workflow_quality_runs` | `attempt` | integer | starts at 1, unique per step | 保存 Review/Rating/Fix history。 |
 | `task_workflow_quality_runs` | `output_summary` | text | required default empty | 該 attempt 被 review 的 step output 摘要。 |
 | `task_workflow_quality_runs` | `output_ref` | text nullable | future local path / attachment ref | 大型 artifact 不直接塞 DB。 |
@@ -736,27 +758,27 @@ Context row from S004 `tasks` table:
 | --- | --- | --- | --- | --- |
 | `01JZ9E3K7M2Q4` | `01JZ9DPROJECT1` | `整理 Task API 驗收` | `DEFINING` | `web-service-development` |
 
-`task_workflow_snapshots`:
+`task_workflows`:
 
-| `id` | `task_id` | `workflow_recipe_id` |
-| --- | --- | --- |
-| `01JZ9SNAP0001` | `01JZ9E3K7M2Q4` | `web-service-development` |
+| `id` | `task_id` | `source_type` | `source_ref` | `source_hash` |
+| --- | --- | --- | --- | --- |
+| `01JZ9WFLOW001` | `01JZ9E3K7M2Q4` | `RECIPE` | `web-service-development` | `null` |
 
-`task_workflow_snapshot_steps`:
+`task_workflow_steps`:
 
-| `id` | `workflow_snapshot_id` | `step_key` | `step_label` | `task_state` | `step_order` |
+| `id` | `task_workflow_id` | `step_key` | `step_label` | `task_state` | `step_order` |
 | --- | --- | --- | --- | --- | ---: |
-| `01JZ9SSTEP001` | `01JZ9SNAP0001` | `discuss` | `Discuss` | `DEFINING` | 10 |
-| `01JZ9SSTEP002` | `01JZ9SNAP0001` | `explore` | `Explore` | `DEFINING` | 20 |
-| `01JZ9SSTEP007` | `01JZ9SNAP0001` | `dev` | `Dev` | `RUNNING` | 70 |
+| `01JZ9WSTEP001` | `01JZ9WFLOW001` | `discuss` | `Discuss` | `DEFINING` | 10 |
+| `01JZ9WSTEP002` | `01JZ9WFLOW001` | `explore` | `Explore` | `DEFINING` | 20 |
+| `01JZ9WSTEP007` | `01JZ9WFLOW001` | `dev` | `Dev` | `RUNNING` | 70 |
 
 `task_workflow_runs`:
 
-| `id` | `task_id` | `workflow_snapshot_id` | `workflow_recipe_id` | `state` | `started_at` | `completed_at` |
-| --- | --- | --- | --- | --- | --- | --- |
-| `01JZ9RUN00001` | `01JZ9E3K7M2Q4` | `01JZ9SNAP0001` | `web-service-development` | `ACTIVE` | `2026-06-03T02:00:00Z` | `null` |
+| `id` | `task_id` | `task_workflow_id` | `state` | `started_at` | `completed_at` |
+| --- | --- | --- | --- | --- | --- |
+| `01JZ9RUN00001` | `01JZ9E3K7M2Q4` | `01JZ9WFLOW001` | `ACTIVE` | `2026-06-03T02:00:00Z` | `null` |
 
-`task_workflow_steps`:
+`task_workflow_run_steps`:
 
 | `id` | `workflow_run_id` | `step_key` | `step_label` | `task_state` | `step_order` | `state` |
 | --- | --- | --- | --- | --- | ---: | --- |
@@ -766,22 +788,22 @@ Context row from S004 `tasks` table:
 
 `task_workflow_quality_runs`:
 
-| `id` | `workflow_step_id` | `attempt` | `output_summary` | `review_summary` | `quality_score` | `fix_summary` |
+| `id` | `workflow_run_step_id` | `attempt` | `output_summary` | `review_summary` | `quality_score` | `fix_summary` |
 | --- | --- | ---: | --- | --- | ---: | --- |
 | `01JZ9QRUN0001` | `01JZ9STEP0001` | 1 | `初版 Task API 驗收條件` | `缺少欄位層級範例與反向案例` | 7.0 | `補 request/response shape` |
 | `01JZ9QRUN0002` | `01JZ9STEP0001` | 2 | `補完欄位 contract 的驗收條件` | `仍需說明 commentCount 與 thread 邊界` | 8.5 | `補 projection boundary` |
 
 BDD read-back expectation:
 
-- `GET /api/projects/01JZ9DPROJECT1/tasks` should project `workflowSummary.currentStep = "Discuss"` and `workflowSummary.qualityScore = 8.5` from the active run/evidence rows, not from snapshot rows alone.
-- `GET /api/projects/01JZ9DPROJECT1/tasks/01JZ9E3K7M2Q4/workflow` should return three ordered active execution steps copied from the snapshot; `Discuss.qualitySummary.latestAttempt = 2`, `Explore.qualitySummary = null`, and `Dev.taskState = "RUNNING"`。
+- `GET /api/projects/01JZ9DPROJECT1/tasks` should project `workflowSummary.currentStep = "Discuss"` and `workflowSummary.qualityScore = 8.5` from the active run/evidence rows, not from workflow copy rows alone.
+- `GET /api/projects/01JZ9DPROJECT1/tasks/01JZ9E3K7M2Q4/workflow` should return three ordered active execution steps copied from the Task Workflow; `Discuss.qualitySummary.latestAttempt = 2`, `Explore.qualitySummary = null`, and `Dev.taskState = "RUNNING"`。
 - A hardcoded summary that always returns `Discuss` or `10` must fail because this sample contains multiple step labels and non-10 scores.
 
 Task list projection query rule:
 
 - `TaskStore` or `TaskQueryService` should fetch Task rows and workflow summaries in one project-scoped query or a batched second query, not one SQL query per Task.
 - Projection must read only rows owned by Tasks in the requested Project.
-- If a Task has no active workflow run, return `workflowSummary.currentStep = null` and `workflowSummary.qualityScore = null` to preserve S004 Backlog behavior; do not use snapshot rows as planned current progress.
+- If a Task has no active workflow run, return `workflowSummary.currentStep = null` and `workflowSummary.qualityScore = null` to preserve S004 Backlog behavior; do not use workflow copy rows as planned current progress.
 
 Frontend contract:
 
@@ -789,6 +811,12 @@ Frontend contract:
 export type WorkflowSummary = {
   currentStep: string | null;
   qualityScore: number | null;
+};
+
+export type WorkflowSource = {
+  type: "RECIPE" | "FILE";
+  ref: string;
+  hash: string | null;
 };
 
 export type WorkflowQualitySummary = {
@@ -815,7 +843,7 @@ export type TaskWorkflowDetail = {
   taskId: string;
   projectId: string;
   workflowRunId: string | null;
-  workflowRecipeId: string;
+  workflowSource: WorkflowSource;
   steps: WorkflowStepEvidence[];
 };
 ```
@@ -826,17 +854,17 @@ S009 不要求新增 visible UI screen。若 implementation 順手調整 fronten
 
 | 檔案 | 動作 | 說明 |
 | --- | --- | --- |
-| `docs/grimo/specs/spec-roadmap.md` | modify | Move S009 from Backlog to active planning index with `📐 in-design` and M(13)。 |
+| `docs/grimo/specs/spec-roadmap.md` | modify | Move S009 to `⏳ Plan` after task planning. |
 | `backend/src/test/java/io/github/samzhu/grimo/poc/SqliteForeignKeyEnforcementPocTests.java` | existing POC | Confirms Xerial SQLite JDBC can enforce FK ownership with `PRAGMA foreign_keys=ON`; S009 backend tests must keep the guarantee at Grimo datasource level. |
-| `backend/src/main/resources/schema.sql` | modify | Add `task_workflow_snapshots`, `task_workflow_snapshot_steps`, `task_workflow_runs`, `task_workflow_steps`, `task_workflow_quality_runs` tables and indexes。 |
-| `backend/src/main/java/io/github/samzhu/grimo/workflow/TaskWorkflowSnapshotService.java` | new | Copies Project workflow recipe into a Task-owned snapshot during Task creation。 |
+| `backend/src/main/resources/schema.sql` | modify | Add `task_workflows`, `task_workflow_steps`, `task_workflow_runs`, `task_workflow_run_steps`, `task_workflow_quality_runs` tables and indexes。 |
+| `backend/src/main/java/io/github/samzhu/grimo/workflow/TaskWorkflowService.java` | new | Copies Project workflow definition into a Task-owned immutable workflow copy during Task creation。 |
 | `backend/src/main/java/io/github/samzhu/grimo/workflow/TaskWorkflowTransitionService.java` | new | Handles first Chat transition atomically: Task `BACKLOG -> DEFINING`, active run creation, execution step copy, and opening step activation。 |
 | `backend/src/main/java/io/github/samzhu/grimo/workflow/WorkflowEvidenceService.java` | new | Internal write/read orchestration for active workflow evidence。 |
-| `backend/src/main/java/io/github/samzhu/grimo/workflow/WorkflowEvidenceStore.java` | new | JdbcClient-backed snapshot, run, evidence persistence and projection queries。 |
-| `backend/src/main/java/io/github/samzhu/grimo/workflow/TaskWorkflowSnapshotRecord.java` | new | DB row shape for Task Workflow Snapshot。 |
-| `backend/src/main/java/io/github/samzhu/grimo/workflow/TaskWorkflowSnapshotStepRecord.java` | new | DB row shape for snapshot step metadata。 |
+| `backend/src/main/java/io/github/samzhu/grimo/workflow/WorkflowEvidenceStore.java` | new | JdbcClient-backed workflow copy, run, evidence persistence and projection queries。 |
+| `backend/src/main/java/io/github/samzhu/grimo/workflow/TaskWorkflowRecord.java` | new | DB row shape for Task Workflow。 |
+| `backend/src/main/java/io/github/samzhu/grimo/workflow/TaskWorkflowStepRecord.java` | new | DB row shape for copied workflow step metadata。 |
 | `backend/src/main/java/io/github/samzhu/grimo/workflow/WorkflowRunRecord.java` | new | DB row shape for workflow run。 |
-| `backend/src/main/java/io/github/samzhu/grimo/workflow/WorkflowStepRecord.java` | new | DB row shape for workflow step。 |
+| `backend/src/main/java/io/github/samzhu/grimo/workflow/WorkflowRunStepRecord.java` | new | DB row shape for workflow run step。 |
 | `backend/src/main/java/io/github/samzhu/grimo/workflow/WorkflowQualityRunRecord.java` | new | DB row shape for quality attempt。 |
 | `backend/src/main/java/io/github/samzhu/grimo/workflow/TaskWorkflowDetailResponse.java` | new | Detail API response DTO。 |
 | `backend/src/main/java/io/github/samzhu/grimo/workflow/WorkflowEvidenceController.java` | new | Read-only `GET /api/projects/{projectId}/tasks/{taskId}/workflow`。 |
@@ -849,18 +877,28 @@ S009 不要求新增 visible UI screen。若 implementation 順手調整 fronten
 | `frontend/src/features/task-board/task-api.ts` | modify if exists | Add optional `getTaskWorkflowDetail(projectId, taskId)` client only if needed by downstream UI。 |
 | `scripts/verify-release.sh` | verify/modify | Confirm backend tests are part of CRITICAL release gate and log S009 test names。 |
 
-## 6. Task Plan Preview
+## 6. Task Plan
 
-`/planning-tasks S009` 應把 implementation 切成可獨立驗證的 BDD tasks：
+### Planning Notes
 
-| Layer | Task | 主要 AC | 測試檔 | 驗證命令 |
+S009 depends on S004-T01 because workflow run/evidence rows need a real `tasks` parent and a Task Workflow copy to execute. S009 does not add a visible workflow detail screen; it only adds backend storage, transition service, summary projection and read-only detail API. If a later UI spec wants to render workflow detail, it must consume the API without adding public evidence write endpoints.
+
+POC evidence：`backend/src/test/java/io/github/samzhu/grimo/poc/SqliteForeignKeyEnforcementPocTests.java` 已通過 `./gradlew test --tests '*SqliteForeignKeyEnforcementPocTests'`，所以 S009 implementation 可以依賴 SQLite FK + Grimo datasource PRAGMA test 來防止 orphan workflow run/step/quality row。
+
+### Task Breakdown
+
+| Task | Scope | AC | Test File(s) | Verification |
 | --- | --- | --- | --- | --- |
-| Backend BDD | `S009-T01 Workflow evidence storage BDD` | AC-S009-1 | `backend/src/test/java/io/github/samzhu/grimo/workflow/WorkflowEvidenceStoreTests.java` | `./gradlew test --tests '*WorkflowEvidenceStoreTests'` in `backend/` |
-| Backend/API BDD | `S009-T02 Workflow summary projection BDD` | AC-S009-2 | `WorkflowSummaryProjectionTests.java`, `TaskApiTests.java` | `./gradlew test --tests '*WorkflowSummaryProjectionTests' --tests '*TaskApiTests'` in `backend/` |
-| Backend/API BDD | `S009-T03 Workflow detail read API BDD` | AC-S009-3, AC-S009-4, AC-S009-5 | `WorkflowEvidenceApiTests.java` | `./gradlew test --tests '*WorkflowEvidenceApiTests'` in `backend/` |
-| Automation | `S009-T04 Release gate evidence` | AC-S009-6 | `scripts/verify-release.sh` | `scripts/verify-release.sh` |
+| `S009-T01 Workflow Run Storage and First Chat Transition` | run/evidence schema、FK/unique constraints、`BACKLOG -> DEFINING` atomic transition、one active run | AC-S009-1 | `backend/src/test/java/io/github/samzhu/grimo/workflow/WorkflowEvidenceStoreTests.java` | `./gradlew test --tests '*WorkflowEvidenceStoreTests'` in `backend/` |
+| `S009-T02 Workflow Summary Projection` | `TaskResponse.workflowSummary` comes from active run/evidence, not Task root or workflow copy rows | AC-S009-2 | `backend/src/test/java/io/github/samzhu/grimo/workflow/WorkflowSummaryProjectionTests.java`, `backend/src/test/java/io/github/samzhu/grimo/task/TaskApiTests.java` | `./gradlew test --tests '*WorkflowSummaryProjectionTests' --tests '*TaskApiTests'` in `backend/` |
+| `S009-T03 Workflow Detail Read API Boundary` | read-only `GET /workflow`, ordered step evidence, quality attempts, project isolation, no public evidence write | AC-S009-3, AC-S009-4, AC-S009-5 | `backend/src/test/java/io/github/samzhu/grimo/workflow/WorkflowEvidenceApiTests.java` | `./gradlew test --tests '*WorkflowEvidenceApiTests'` in `backend/` |
+| `S009-T04 Release Gate Workflow Evidence` | release script/log makes S009 backend evidence tests traceable through the critical gate | AC-S009-6 | `scripts/verify-release.sh` | `scripts/verify-release.sh` |
 
-Full-stack E2E is not required in S009 because this spec does not add a visible UI workflow screen. If `/planning-tasks` decides to expose workflow detail in the browser, it must either add a frontend/full-stack task or return to `/planning-spec S009` to expand §3/§4 UI contract first.
+### Next Task
+
+After S004-T01 passes, continue with `docs/grimo/tasks/2026-06-04-S009-T01-workflow-run-storage-and-first-chat-transition.md`.
+
+Full-stack E2E is not required in S009 because this spec does not add a visible UI workflow screen. The S004 full-stack test proves browser-to-backend Task creation; S009 is verified through backend/API read-back.
 
 ---
 

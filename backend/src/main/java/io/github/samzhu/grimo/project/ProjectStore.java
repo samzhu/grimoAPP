@@ -4,6 +4,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -35,6 +36,17 @@ public class ProjectStore {
 						""")
 				.query(ProjectStore::mapProject)
 				.list();
+	}
+
+	public Optional<ProjectRecord> findById(String projectId) {
+		return jdbcClient.sql("""
+						SELECT id, name, description, workspace_path, workflow_recipe_id, status, created_at, updated_at
+						FROM projects
+						WHERE id = :projectId
+						""")
+				.param("projectId", projectId)
+				.query(ProjectStore::mapProject)
+				.optional();
 	}
 
 	public boolean existsByProjectPath(String projectPath) {

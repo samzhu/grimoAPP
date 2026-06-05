@@ -1,4 +1,4 @@
-import { useMemo, useReducer, useState } from "react";
+import { useEffect, useMemo, useReducer, useState } from "react";
 import { List } from "@phosphor-icons/react";
 import { Navigation } from "./app/Navigation";
 import { RuntimeProvider } from "./app/RuntimeProvider";
@@ -9,6 +9,8 @@ import { taskMatchesQuery } from "./domain/task/task-selectors";
 import { Blockers } from "./features/blockers/Blockers";
 import { Projects } from "./features/projects/Projects";
 import { TaskWorkbench } from "./features/task-board/TaskWorkbench";
+import { createTask, listTasks } from "./features/task-board/task-api";
+import type { CreateTaskInput } from "./features/task-board/task-api";
 import {
   createInitialTaskWorkbenchState,
   taskWorkbenchReducer,
@@ -18,18 +20,45 @@ import { Workflow } from "./features/workflow/Workflow";
 
 export function App() {
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
+  const [projectTasks, setProjectTasks] = useState(tasks);
+  const [taskLoadError, setTaskLoadError] = useState("");
   const [workbench, dispatch] = useReducer(
     taskWorkbenchReducer,
     createInitialTaskWorkbenchState(),
   );
 
+  useEffect(() => {
+    if (!currentProject) {
+      setProjectTasks(tasks);
+      setTaskLoadError("");
+      return;
+    }
+    let isMounted = true;
+    listTasks(currentProject.id)
+      .then((loadedTasks) => {
+        if (isMounted) {
+          setProjectTasks(loadedTasks);
+          setTaskLoadError("");
+        }
+      })
+      .catch((caught: unknown) => {
+        if (isMounted) {
+          setProjectTasks([]);
+          setTaskLoadError(caught instanceof Error ? caught.message : "Task 載入失敗");
+        }
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [currentProject]);
+
   const filteredTasks = useMemo(
-    () => tasks.filter((task) => taskMatchesQuery(task, workbench.query)),
-    [workbench.query],
+    () => projectTasks.filter((task) => taskMatchesQuery(task, workbench.query)),
+    [projectTasks, workbench.query],
   );
 
   const selectedTask = workbench.selectedTaskId
-    ? tasks.find((task) => task.id === workbench.selectedTaskId) ?? null
+    ? projectTasks.find((task) => task.id === workbench.selectedTaskId) ?? null
     : null;
   const workspaceClassName = [
     "workspace-shell",
@@ -41,6 +70,13 @@ export function App() {
   const openTaskChat = (taskId: string) => {
     dispatch({ type: "task.selected", taskId });
     dispatch({ type: "view.selected", view: "chat" });
+  };
+  const submitTask = async (input: CreateTaskInput) => {
+    if (!currentProject) {
+      throw new Error("請先選擇 Project");
+    }
+    const task = await createTask(currentProject.id, input);
+    setProjectTasks((current) => [task, ...current]);
   };
 
   return (
@@ -103,10 +139,13 @@ export function App() {
                 onCloseTaskPage={() => dispatch({ type: "taskPage.closed" })}
                 onOpenCreateTask={() => dispatch({ type: "createTask.opened" })}
                 onCloseCreateTask={() => dispatch({ type: "createTask.closed" })}
+                onCreateTask={submitTask}
                 onOpenChat={openTaskChat}
+                canCreateTask={Boolean(currentProject)}
+                taskLoadError={taskLoadError}
               />
             )}
-            {workbench.view === "blockers" && <Blockers tasks={tasks} onOpenChat={openTaskChat} />}
+            {workbench.view === "blockers" && <Blockers tasks={projectTasks} onOpenChat={openTaskChat} />}
             {workbench.view === "projects" && <Projects onCurrentProjectChange={setCurrentProject} />}
             {workbench.view === "chat" && <AssistantChat selectedTask={selectedTask} />}
             {workbench.view === "workflow" && <Workflow />}

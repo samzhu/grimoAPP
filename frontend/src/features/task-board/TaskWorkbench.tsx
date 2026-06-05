@@ -10,6 +10,7 @@ import type { Task, TaskState } from "../../domain/task/task-types";
 import { stateColumns } from "../../domain/task/task-fixtures";
 import { Badge } from "../../shared/ui/Badge";
 import { CreateTaskDialog } from "../task-create/CreateTaskDialog";
+import type { CreateTaskInput } from "./task-api";
 import { TaskDetail } from "../task-detail/TaskDetail";
 import { TaskDetailPage } from "../task-detail/TaskDetailPage";
 
@@ -42,7 +43,10 @@ export function TaskWorkbench({
   onCloseTaskPage,
   onOpenCreateTask,
   onCloseCreateTask,
+  onCreateTask,
   onOpenChat,
+  canCreateTask,
+  taskLoadError,
 }: {
   filteredTasks: Task[];
   query: string;
@@ -61,7 +65,10 @@ export function TaskWorkbench({
   onCloseTaskPage: () => void;
   onOpenCreateTask: () => void;
   onCloseCreateTask: () => void;
+  onCreateTask: (input: CreateTaskInput) => Promise<void>;
   onOpenChat: (taskId: string) => void;
+  canCreateTask: boolean;
+  taskLoadError: string;
 }) {
   const attentionTasks = filteredTasks.filter((task) => attentionStates.has(task.state));
   const hasAttentionTasks = attentionTasks.length > 0;
@@ -99,12 +106,18 @@ export function TaskWorkbench({
                 placeholder="搜尋任務 / 關鍵字"
               />
             </label>
-            <button className="create-task-button" type="button" onClick={onOpenCreateTask}>
+            <button
+              className="create-task-button"
+              type="button"
+              disabled={!canCreateTask}
+              onClick={onOpenCreateTask}
+            >
               <Plus aria-hidden="true" />
               新增 Task
             </button>
           </div>
         </div>
+        {taskLoadError && <p className="form-message error">{taskLoadError}</p>}
 
         {hasAttentionTasks && (
           <section
@@ -222,13 +235,13 @@ export function TaskWorkbench({
                       </div>
                       <div className="task-meta-row">
                         <span>updated {task.updatedAt}</span>
-                        {task.comments > 0 && (
+                        {task.commentCount > 0 && (
                           <span
                             className="task-comment-count"
-                            aria-label={`${task.comments} 則留言`}
+                            aria-label={`${task.commentCount} 則留言`}
                           >
                             <ChatCircleText aria-hidden="true" />
-                            {task.comments}
+                            {task.commentCount}
                           </span>
                         )}
                       </div>
@@ -284,13 +297,13 @@ export function TaskWorkbench({
                       <div className="mobile-task-meta">
                         <span>updated {task.updatedAt}</span>
                         <b>{task.score > 0 ? task.score.toFixed(1) : "未評分"}</b>
-                        {task.comments > 0 && (
+                        {task.commentCount > 0 && (
                           <span
                             className="task-comment-count"
-                            aria-label={`${task.comments} 則留言`}
+                            aria-label={`${task.commentCount} 則留言`}
                           >
                             <ChatCircleText aria-hidden="true" />
-                            {task.comments}
+                            {task.commentCount}
                           </span>
                         )}
                       </div>
@@ -313,7 +326,12 @@ export function TaskWorkbench({
           onOpenChat={() => onOpenChat(selectedTask.id)}
         />
       )}
-      {isCreateTaskOpen && <CreateTaskDialog onClose={onCloseCreateTask} />}
+      {isCreateTaskOpen && (
+        <CreateTaskDialog
+          onClose={onCloseCreateTask}
+          onSubmit={onCreateTask}
+        />
+      )}
     </section>
   );
 }
