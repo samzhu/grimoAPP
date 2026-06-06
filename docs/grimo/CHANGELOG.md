@@ -4,6 +4,7 @@
 
 ### Added
 
+- S010: 新增正式產品啟動流程與 Project session restore；第一次打開會先建立第一個 Project，有 open session 時恢復上次 Project，`Close Project` 後回到 Project selection gate。Topbar 目前 Project 現在是 Project Switcher，可切換 Project、建立/管理 Project、Close Project；沒有 active Project 時 Task 管理、待處理、Chat 不再顯示 fixture data。
 - S001: 完成 Project onboarding 第一條 full-stack vertical slice；使用者可以建立 Project、選擇 workflow recipe，前端透過 real `/api` 走 Vite proxy 呼叫 Spring Boot，backend 以 SQLite 保存 Project，release gate 納入 backend 與 full-stack Playwright 驗證。後續 S002/S003 已將 live API 演進為 `CollectionResponse<T>` 與 `projectPath` 合約。
 - S004: 新增 Project-owned manual Task 建立與列表 API；使用者在已選 Project 內可建立 `BACKLOG` Task，backend 會保存 SQLite `tasks` row、複製 Task Workflow、不啟動 active run，frontend 只送 `title/body/labels`，未選 Project 時不可建立孤兒 Task。
 - S009: 新增 Task Workflow copy、workflow run/step/Quality Loop evidence 的 SQLite 正規化儲存；Task board 的 `workflowSummary` 由 evidence rows 投影，Task detail 可讀 `GET /api/projects/{projectId}/tasks/{taskId}/workflow`，且 public API 不開 workflow evidence write endpoint。

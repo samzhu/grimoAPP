@@ -39,7 +39,35 @@ Grimo frontend design work should leave a durable context trail. When requiremen
   **Evidence:** `npm run build`, `npm run test:visual:update`, `npm run test:visual`.
   **Status:** active
 
+- **Decision:** Page-flow changes require a Screen Flow Contract before wireframe or implementation.
+  **Why:** User feedback on 2026-06-06 identified that frontend pages can become inconsistent when first-run, empty, loading, error, success, navigation, and CTA behavior are designed only inside individual screens. The contract keeps PRD critical path, page state, and verification evidence aligned before pixels or code.
+  **Evidence:** `docs/grimo/design/screen-flow-contract.md`, `docs/grimo/design/ui-ux-workflow.md`.
+  **Status:** active
+
 ## 3. Page Context
+
+### App Shell / Project Startup
+
+**Purpose:** App first load must establish a real Project context before showing Task, attention, or Chat work surfaces.
+
+**Current layout decisions:**
+
+- First-run with no Projects shows `建立第一個 Project` and a single primary `建立 Project` action.
+- Existing Projects without an open session show `選擇或建立 Project`; Project card selection is the main action and `建立 Project` is secondary.
+- A stale `lastActiveProjectId` stops at the selection gate with `上次開啟的 Project 已不存在或無法載入，請選擇 Project。`; the app must not silently select another Project.
+- Topbar Project context is a Project Switcher when a Project is active. It lists Projects and exposes `新增 Project`, `管理 Projects`, and `Close Project`.
+- `Close Project` is a frontend session command: it writes `isClosed=true`, clears the active Project from the UI, and does not delete backend Project data.
+- Task 管理、待處理、Chat are Project-gated. With no active Project, they render the Project selection gate instead of fixture tasks, attention cards, or a generic blank Chat.
+
+**Responsive behavior:**
+
+- Selection gate and Project Switcher have deterministic Playwright snapshots for `1366x768`, `1440x900`, `390x844`, and `820x1180`.
+- The topbar keeps the existing 52px row height. Long Project paths truncate inside the switcher trigger and wrap inside Project cards/menu rows when needed.
+
+**Verification:**
+
+- `frontend/e2e/project-startup.ui.spec.ts` covers bootstrap, restore, stale session, close, switch, no-context gating, and startup visual snapshots.
+- `frontend/e2e/project-startup.fullstack.spec.ts` covers create/select through real `/api` wiring.
 
 ### Task Workbench
 
@@ -126,6 +154,7 @@ Grimo frontend design work should leave a durable context trail. When requiremen
 
 **Current layout decisions:**
 
+- First-run Project setup must be planned with `docs/grimo/design/screen-flow-contract.md` before changing app bootstrap or Project onboarding screens.
 - Project management starts on a list-first view. Users should see existing Projects or an empty state before seeing create fields.
 - `新增專案` opens a separate create view with `返回列表`; the create form is not permanently shown beside the Project list.
 - Project Path is a simple optional text field. Users can paste `/Users/.../repo`; when left blank, Grimo creates a default project path under `~/.grimo/projects/<projectId>`.
@@ -253,6 +282,13 @@ Grimo frontend design work should leave a durable context trail. When requiremen
 - **Verification:** Playwright test `attention page baseline` asserts `優先處理`, absence of `審查材料` / `查看缺口`, and visible `Chat`; snapshot `attention-page-chromium-darwin.png`.
 
 ## 5. Visual Gate Log
+
+### 2026-06-07 — S010 Project Startup Gate And Switcher
+
+- **Commands:** `npm --prefix frontend run test:visual:update`, `npm --prefix frontend run test:visual`, `npm --prefix frontend run test:fullstack`
+- **Result:** passed; visual gate now has 34 Playwright checks, including S010 Project startup, API failure retry, and switcher screenshots.
+- **Snapshots changed:** Added `project-selection-gate-*` and `project-switcher-*` snapshots for desktop, mobile, and tablet viewports; updated Task Workbench snapshots because the topbar now shows real Project context instead of the old fixture fallback.
+- **Reason:** App first load now requires a real Project context. First-run/closed/stale sessions show a Project gate, active sessions restore the matching Project, and the topbar current Project becomes the Project Switcher.
 
 ### 2026-05-28 — Task Workbench Round 1
 

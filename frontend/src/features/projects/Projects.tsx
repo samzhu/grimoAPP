@@ -6,6 +6,9 @@ import { Panel } from "../../shared/ui/Panel";
 import { createProject, listProjects, listWorkflowRecipes } from "./project-api";
 
 type ProjectsProps = {
+  initialViewMode?: "list" | "create";
+  projects?: Project[];
+  onProjectsChange?: (projects: Project[]) => void;
   onCurrentProjectChange: (project: Project) => void;
 };
 
@@ -18,18 +21,37 @@ const emptyForm = {
 
 const defaultWorkflowRecipeId = "web-service-development";
 
-export function Projects({ onCurrentProjectChange }: ProjectsProps) {
-  const [projects, setProjects] = useState<Project[]>([]);
+export function Projects({
+  initialViewMode = "list",
+  projects: appProjects,
+  onProjectsChange,
+  onCurrentProjectChange,
+}: ProjectsProps) {
+  const [projects, setProjects] = useState<Project[]>(appProjects ?? []);
   const [recipes, setRecipes] = useState<WorkflowRecipe[]>([]);
   const [form, setForm] = useState(emptyForm);
-  const [viewMode, setViewMode] = useState<"list" | "create">("list");
-  const [isLoading, setIsLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<"list" | "create">(initialViewMode);
+  const [isLoading, setIsLoading] = useState(!appProjects);
   const [isWorkflowLoading, setIsWorkflowLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
+    setViewMode(initialViewMode);
+  }, [initialViewMode]);
+
+  useEffect(() => {
+    if (appProjects) {
+      setProjects(appProjects);
+      setIsLoading(false);
+    }
+  }, [appProjects]);
+
+  useEffect(() => {
+    if (appProjects) {
+      return;
+    }
     let isMounted = true;
     listProjects()
       .then((projectList) => {
@@ -37,9 +59,7 @@ export function Projects({ onCurrentProjectChange }: ProjectsProps) {
           return;
         }
         setProjects(projectList);
-        if (projectList[0]) {
-          onCurrentProjectChange(projectList[0]);
-        }
+        onProjectsChange?.(projectList);
       })
       .catch((caught: unknown) => {
         if (isMounted) {
@@ -54,7 +74,7 @@ export function Projects({ onCurrentProjectChange }: ProjectsProps) {
     return () => {
       isMounted = false;
     };
-  }, [onCurrentProjectChange]);
+  }, [appProjects, onProjectsChange]);
 
   const selectedRecipe = recipes.find((recipe) => recipe.id === form.workflowRecipeId);
   const canSubmit =
@@ -64,10 +84,7 @@ export function Projects({ onCurrentProjectChange }: ProjectsProps) {
   const preferredWorkflowRecipeId = (recipeList: WorkflowRecipe[]) =>
     recipeList.find((recipe) => recipe.id === defaultWorkflowRecipeId)?.id || recipeList[0]?.id || "";
 
-  const startProjectCreation = async () => {
-    setError("");
-    setMessage("");
-    setViewMode("create");
+  const loadWorkflowRecipesForForm = async () => {
     if (recipes.length > 0) {
       setForm((current) => ({
         ...current,
@@ -90,6 +107,18 @@ export function Projects({ onCurrentProjectChange }: ProjectsProps) {
     }
   };
 
+  const startProjectCreation = () => {
+    setError("");
+    setMessage("");
+    setViewMode("create");
+  };
+
+  useEffect(() => {
+    if (viewMode === "create") {
+      void loadWorkflowRecipesForForm();
+    }
+  }, [viewMode]);
+
   const submitProject = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!canSubmit) {
@@ -106,7 +135,9 @@ export function Projects({ onCurrentProjectChange }: ProjectsProps) {
         ...(projectPath ? { projectPath } : {}),
         workflowRecipeId: form.workflowRecipeId,
       });
-      setProjects((current) => [project, ...current]);
+      const nextProjects = [project, ...projects];
+      setProjects(nextProjects);
+      onProjectsChange?.(nextProjects);
       onCurrentProjectChange(project);
       setForm(emptyForm);
       setViewMode("list");

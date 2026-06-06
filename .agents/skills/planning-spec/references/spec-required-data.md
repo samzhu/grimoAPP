@@ -31,6 +31,7 @@ Sections 6-7 are reserved for `/planning-tasks` and implementation results.
 - Approach comparison with selected option and rejected alternatives.
 - Confidence classification for load-bearing decisions: Validated, Hypothesis, or Unknown.
 - User journey or data-flow diagram when the behavior crosses multiple states, services, APIs, or screens.
+- Screen Flow Contract when the spec changes frontend page flow, navigation, onboarding, empty state, error state, success destination, CTA hierarchy, or cross-page transition. Must follow `docs/grimo/design/screen-flow-contract.md` and include Flow Header, State Matrix, Flow Steps, low-fidelity wireflow, CTA/navigation rules, and Verification Mapping.
 - Domain language and glossary impact; update glossary when introducing new product concepts.
 - Task-boundary hints: future task name, target file/class, positive scenario, negative scenario, and POC need.
 
@@ -54,6 +55,10 @@ Any API, DTO, DB row, event payload, command output, UI form data, file format, 
 - Per-field table: field, type/format, rule, source, design rationale, and what BDD asserts.
 - System-owned fields that clients must not set, such as `id`, `state`, `source`, `workflowRecipeId`, `createdAt`, workflow transition fields, or projections.
 - Error/negative cases with exact status, body, UI text, command output, or DB state.
+
+For UI flow contracts, include exact visible text or role for loading, empty,
+ready, error, and success states. If one of these states is intentionally not
+possible, write `N/A - <reason>` rather than silently skipping it.
 
 ### 5. Storage Contract
 
@@ -98,6 +103,7 @@ CREATE TABLE IF NOT EXISTS <table_name> (
 - Every production file to add/modify.
 - Every test file to add/modify.
 - Documentation, roadmap, changelog, QA, or release-gate file changes.
+- Screen flow documentation changes when frontend page flow changes: active spec UI subsection plus any durable update to `docs/grimo/design/screen-flow-contract.md`, `docs/grimo/design/ui-ux-workflow.md`, or `docs/grimo/design/frontend-design-context.md`.
 - Action per file: new, modify, verify, or delete.
 - Why each file is in scope; avoid placeholder files for downstream specs.
 

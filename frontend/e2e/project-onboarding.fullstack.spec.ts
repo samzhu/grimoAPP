@@ -95,7 +95,7 @@ test("AC-S003-3 creates Project with generated projectPath when projectPath is b
   expect(createdProject.backendPathReady).toBeUndefined();
   expect(createdProject.projectDataPath).toBeUndefined();
 
-  await expect(page.getByText(`${projectName} 已建立並設為目前專案`)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "任務工作台" })).toBeVisible();
   await expect(page.locator(".project-context")).toContainText(projectName);
   await expect(page.getByRole("button", { name: new RegExp(projectName) })).toContainText(
     createdProject.projectPath,

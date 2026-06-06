@@ -60,18 +60,20 @@ async function mockTaskApis(page: Page) {
   };
 }
 
-async function selectProjectThenOpenTasks(page: Page) {
+async function openSelectedProjectTasks(page: Page) {
+  await page.addInitScript((projectId) => {
+    window.localStorage.setItem(
+      "grimo.projectSession",
+      JSON.stringify({ lastActiveProjectId: projectId, isClosed: false }),
+    );
+  }, selectedProject.id);
   await page.goto("/");
-  await page.getByRole("button", { name: "展開主選單" }).click();
-  await page.getByRole("button", { name: "專案" }).click();
-  await expect(page.locator(".project-list-card").getByText(selectedProject.name, { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "展開主選單" }).click();
-  await page.getByRole("button", { name: "Task 管理" }).click();
+  await expect(page.getByRole("heading", { name: "任務工作台" })).toBeVisible();
 }
 
 test("AC-S004-4: selected Project can create a Task through the backend API shape", async ({ page }) => {
   const api = await mockTaskApis(page);
-  await selectProjectThenOpenTasks(page);
+  await openSelectedProjectTasks(page);
 
   await test.step("When the user opens Create Task", async () => {
     await page.getByRole("button", { name: "新增 Task" }).click();
@@ -115,6 +117,9 @@ test("AC-S004-4: selected Project can create a Task through the backend API shap
 
 test("AC-S004-4: without a current Project the Task board cannot create an orphan Task", async ({ page }) => {
   let taskApiRequests = 0;
+  await page.route("**/api/projects", async (route) => {
+    await route.fulfill({ json: { content: [] } });
+  });
   await page.route("**/api/projects/*/tasks", async (route) => {
     taskApiRequests += 1;
     await route.fulfill({ json: { content: [] } });
@@ -122,8 +127,7 @@ test("AC-S004-4: without a current Project the Task board cannot create an orpha
 
   await page.goto("/");
 
-  const createButton = page.getByRole("button", { name: "新增 Task" });
-  await expect(createButton).toBeDisabled();
-  await createButton.click({ force: true });
+  await expect(page.getByRole("heading", { name: "建立第一個 Project" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "新增 Task" })).toHaveCount(0);
   expect(taskApiRequests).toBe(0);
 });

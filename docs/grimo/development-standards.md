@@ -81,6 +81,7 @@ JSON:
 
 - 產品語言與行為以 `docs/grimo/PRD.md` 為準。
 - BDD 行為規格以 `docs/grimo/bdd-contract.md` 為準；spec 使用框架無關的 BDD Contract，測試實作用 JUnit、MockMvc、Playwright 等各自 idiom 對應。
+- 前端頁面流程以 `docs/grimo/design/screen-flow-contract.md` 為準；新增或改動 onboarding、navigation、empty/error/success state、CTA hierarchy 或跨頁跳轉時，必須先在 spec 寫 Flow Header、State Matrix、Flow Steps、low-fidelity wireflow 和 Verification Mapping。
 - UI layout、spacing、component states 以 `docs/grimo/ui/prototype/index.html` 和 `docs/grimo/ui/prototype/DESIGN-HANDOFF.md` 為準。
 - 前端 UI/UX 作業流程與設計語言保存規則以 `docs/grimo/design/ui-ux-workflow.md` 為準。
 - 可命名的設計決策先放進 `docs/grimo/design/tokens.json`，再映射到 CSS custom properties。

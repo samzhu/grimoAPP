@@ -28,12 +28,6 @@ async function openProjectCreate(page: Page) {
   await expect(page.getByRole("heading", { name: "新增專案", level: 1 })).toBeVisible();
 }
 
-async function openTaskBoard(page: Page) {
-  await page.getByRole("button", { name: "展開主選單" }).click();
-  await page.getByRole("button", { name: "Task 管理" }).click();
-  await expect(page.getByRole("heading", { name: "任務工作台" })).toBeVisible();
-}
-
 test("AC-S004-4/5 creates a Project-owned BACKLOG Task through real full-stack API wiring", async ({
   page,
 }) => {
@@ -57,9 +51,7 @@ test("AC-S004-4/5 creates a Project-owned BACKLOG Task through real full-stack A
   const createdProject = (await (await projectCreateResponsePromise).json()) as {
     id: string;
   };
-  await expect(page.getByText(`${projectName} 已建立並設為目前專案`)).toBeVisible();
-
-  await openTaskBoard(page);
+  await expect(page.getByRole("heading", { name: "任務工作台" })).toBeVisible();
   await expect(page.getByRole("button", { name: "新增 Task" })).toBeEnabled();
   await page.getByRole("button", { name: "新增 Task" }).click();
   await expect(page.getByRole("dialog", { name: "新增 Task" })).toBeVisible();

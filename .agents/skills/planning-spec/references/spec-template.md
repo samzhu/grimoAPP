@@ -27,6 +27,58 @@ File: `docs/grimo/specs/YYYY-MM-DD-<spec-id>-<topic>.md`
 
 [說明共同介面、資料流、module 邊界。若很多檢查項目輸入輸出相同，先設計共用 interface，讓 runtime 用同一介面操作全部實作。]
 
+### 2.x Screen Flow Contract
+
+[若本 spec 改 frontend page flow、navigation、onboarding、empty state、error state、success destination、CTA hierarchy 或跨頁跳轉，必填本段並套用 `docs/grimo/design/screen-flow-contract.md`。若不適用，寫 `N/A — <reason>`。]
+
+Flow Header:
+
+| 欄位 | 內容 |
+| --- | --- |
+| Flow name |  |
+| Persona |  |
+| User goal |  |
+| Entry point |  |
+| Success endpoint |  |
+| Out of scope |  |
+
+State Matrix:
+
+| State | Data condition | 使用者看到什麼 | Primary action | Forbidden behavior | Evidence |
+| --- | --- | --- | --- | --- | --- |
+| loading |  |  |  |  |  |
+| empty |  |  |  |  |  |
+| ready |  |  |  |  |  |
+| error |  |  |  |  |  |
+| success |  |  |  |  |  |
+
+Flow Steps:
+
+| Step | Outcome | Screen / surface | User action | System response | Next state | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 |  |  |  |  |  |  |
+
+Low-fidelity wireflow:
+
+```text
+[ASCII wireflow or Mermaid flow]
+```
+
+CTA/navigation rules:
+
+- Primary action:
+- Secondary actions:
+- Cancel/back/retry:
+- Success destination:
+- No-context behavior:
+- Duplicate primary CTA check:
+
+Verification Mapping:
+
+| Behavior | Required evidence |
+| --- | --- |
+|  |  |
+
 ### 2.3 做法比較
 
 | 做法 | 採用 | 理由 |

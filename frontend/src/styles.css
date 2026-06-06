@@ -177,6 +177,113 @@ svg {
   font-size: 12px;
 }
 
+.project-switcher {
+  position: relative;
+  min-width: 0;
+}
+
+.project-switcher-trigger {
+  grid-template-columns: auto minmax(0, auto) minmax(180px, 520px) auto;
+  width: min(680px, 100%);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg);
+  padding: 4px 8px;
+  text-align: left;
+}
+
+.project-switcher-trigger:hover,
+.project-switcher-trigger[aria-expanded="true"] {
+  border-color: var(--border);
+  background: var(--surface-soft);
+}
+
+.project-switcher-trigger svg {
+  align-self: center;
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
+}
+
+.project-switcher-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  right: 0;
+  display: grid;
+  width: min(420px, calc(100vw - 24px));
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.project-switcher-list,
+.project-switcher-actions {
+  display: grid;
+}
+
+.project-switcher-list {
+  max-height: 280px;
+  overflow: auto;
+  padding: 6px;
+}
+
+.project-switcher-item,
+.project-switcher-actions button {
+  display: grid;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+}
+
+.project-switcher-item {
+  grid-template-columns: minmax(96px, 0.8fr) minmax(0, 1.2fr) minmax(96px, 0.8fr);
+  align-items: center;
+  gap: 8px;
+  border-radius: var(--radius-sm);
+  padding: 8px;
+}
+
+.project-switcher-item:hover,
+.project-switcher-item[aria-current="true"] {
+  background: var(--surface-soft);
+}
+
+.project-switcher-item span,
+.project-switcher-item small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+}
+
+.project-switcher-actions {
+  border-top: 1px solid var(--border);
+  padding: 6px;
+}
+
+.project-switcher-actions button {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  border-radius: var(--radius-sm);
+  padding: 8px;
+}
+
+.project-switcher-actions button:hover {
+  background: var(--surface-soft);
+}
+
+.project-switcher-actions svg {
+  width: 15px;
+  height: 15px;
+  color: var(--muted);
+}
+
 .workspace-shell {
   position: relative;
   display: grid;
@@ -1677,6 +1784,38 @@ textarea.task-body-input {
 
 .project-list-card:hover {
   border-color: color-mix(in oklch, var(--accent) 42%, var(--border));
+}
+
+.project-selection-gate {
+  min-height: calc(100dvh - 52px);
+  background: var(--bg);
+}
+
+.project-selection-inner {
+  display: grid;
+  gap: 12px;
+}
+
+.project-selection-head {
+  background: color-mix(in oklch, var(--surface) 72%, var(--bg));
+}
+
+.project-selection-list {
+  display: grid;
+  gap: 10px;
+  padding: 14px 18px;
+}
+
+.project-selection-card {
+  grid-template-columns: minmax(130px, 0.8fr) minmax(0, 1.4fr) minmax(120px, 0.8fr);
+  align-items: center;
+}
+
+.project-selection-card span,
+.project-selection-card small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--muted);
 }
 
 .directory-browser,

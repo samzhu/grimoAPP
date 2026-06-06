@@ -31,26 +31,65 @@ const visualProject = {
   workflowRoles: [],
 };
 
-async function selectVisualProject(page: Page) {
+function toTaskResponse(task: (typeof tasks)[number]) {
+  return {
+    id: task.id,
+    projectId: visualProject.id,
+    title: task.title,
+    body: task.body ?? task.description,
+    description: task.description,
+    state: task.state,
+    source: task.source,
+    workflowRecipeId: visualProject.workflowRecipeId,
+    workflowSummary: task.workflowSummary,
+    updatedAt: "2026-06-04T00:00:00Z",
+    acceptance: task.acceptance,
+    gaps: task.gaps,
+    evidence: task.evidence,
+    labels: task.labels,
+    commentCount: task.commentCount,
+  };
+}
+
+async function openVisualTaskWorkbench(page: Page) {
+  await page.route("**/api/projects", async (route) => {
+    await route.fulfill({ json: { content: [visualProject] } });
+  });
+  await page.route(`**/api/projects/${visualProject.id}/tasks`, async (route) => {
+    await route.fulfill({ json: { content: tasks.map(toTaskResponse) } });
+  });
+  await page.addInitScript((projectId) => {
+    window.localStorage.setItem(
+      "grimo.projectSession",
+      JSON.stringify({ lastActiveProjectId: projectId, isClosed: false }),
+    );
+  }, visualProject.id);
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "任務工作台" })).toBeVisible();
+}
+
+async function openEmptyVisualProject(page: Page) {
   await page.route("**/api/projects", async (route) => {
     await route.fulfill({ json: { content: [visualProject] } });
   });
   await page.route(`**/api/projects/${visualProject.id}/tasks`, async (route) => {
     await route.fulfill({ json: { content: [] } });
   });
+  await page.addInitScript((projectId) => {
+    window.localStorage.setItem(
+      "grimo.projectSession",
+      JSON.stringify({ lastActiveProjectId: projectId, isClosed: false }),
+    );
+  }, visualProject.id);
   await page.goto("/");
-  await page.getByRole("button", { name: "展開主選單" }).click();
-  await page.getByRole("button", { name: "專案" }).click();
-  await expect(page.locator(".project-list-card").getByText(visualProject.name, { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "展開主選單" }).click();
-  await page.getByRole("button", { name: "Task 管理" }).click();
+  await expect(page.getByRole("heading", { name: "任務工作台" })).toBeVisible();
 }
 
 test.describe("Task workbench visual gate", () => {
   for (const viewport of viewports) {
     test(`board baseline ${viewport.name}`, async ({ page }) => {
       await page.setViewportSize(viewport);
-      await page.goto("/");
+      await openVisualTaskWorkbench(page);
       await expect(page.getByRole("heading", { name: "任務工作台" })).toBeVisible();
       await expect(page.getByRole("button", { name: "新增 Task" })).toBeVisible();
       await expect(page.getByPlaceholder("搜尋任務 / 關鍵字")).toBeVisible();
@@ -69,7 +108,7 @@ test.describe("Task workbench visual gate", () => {
 
   test("main navigation overlays until pinned", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto("/");
+    await openVisualTaskWorkbench(page);
 
     await page.getByRole("button", { name: "展開主選單" }).click();
     await expect(page.locator(".workspace-shell.nav-open")).toHaveCount(1);
@@ -81,7 +120,7 @@ test.describe("Task workbench visual gate", () => {
 
   test("attention focus can collapse and expand", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto("/");
+    await openVisualTaskWorkbench(page);
 
     await expect(page.getByRole("heading", { name: "待處理焦點" })).toBeVisible();
     await expect(page.getByRole("button", { name: "查看焦點任務 GRM-188" })).toBeVisible();
@@ -96,7 +135,7 @@ test.describe("Task workbench visual gate", () => {
 
   test("chat action returns to task-forming chat", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto("/");
+    await openVisualTaskWorkbench(page);
 
     await expect(page.getByText("補上下文")).toHaveCount(0);
     await page.locator(".focus-task-card").first().getByRole("button", { name: "Chat", exact: true }).click();
@@ -107,7 +146,7 @@ test.describe("Task workbench visual gate", () => {
 
   test("desktop board is viewport bounded", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto("/");
+    await openVisualTaskWorkbench(page);
 
     const metrics = await page.evaluate(() => {
       const columnBody = document.querySelector(".column-body");
@@ -127,7 +166,7 @@ test.describe("Task workbench visual gate", () => {
 
   test("selected task opens detail drawer", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto("/");
+    await openVisualTaskWorkbench(page);
     await page.getByRole("button", { name: /執行前設定與本機能力力檢查|執行前設定與本機能力檢查/ }).click();
     await expect(page.getByRole("heading", { name: "任務詳情" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "執行前設定與本機能力檢查" })).toBeVisible();
@@ -142,7 +181,7 @@ test.describe("Task workbench visual gate", () => {
 
   test("create task dialog baseline", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await selectVisualProject(page);
+    await openEmptyVisualProject(page);
     await page.getByRole("button", { name: "新增 Task" }).click();
     await expect(page.getByRole("dialog", { name: "新增 Task" })).toBeVisible();
     await expect(page.getByText("來源")).toHaveCount(0);
@@ -153,7 +192,7 @@ test.describe("Task workbench visual gate", () => {
 
   test("attention page baseline", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto("/");
+    await openVisualTaskWorkbench(page);
     await page.getByRole("button", { name: "展開主選單" }).click();
     await page.getByRole("button", { name: "待處理" }).click();
 
@@ -171,7 +210,7 @@ test.describe("Task workbench visual gate", () => {
 
   test("full page detail baseline", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto("/");
+    await openVisualTaskWorkbench(page);
     await page.getByRole("button", { name: /Task detail 顯示審查附件與人工核准/ }).click();
     await page.getByRole("button", { name: "在完整頁開啟" }).click();
     await expect(page.getByRole("heading", { name: /Task detail 顯示審查附件與人工核准/ })).toBeVisible();

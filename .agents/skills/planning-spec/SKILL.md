@@ -115,6 +115,14 @@ contract must include examples and per-field rationale; every new or modified
 DB table must include table comments, ownership/boundary notes, field
 rationale, realistic sample rows, and BDD read-back expectations.
 
+For any spec that changes frontend page flow, navigation, onboarding, empty
+state, error state, success destination, CTA hierarchy, or cross-page
+transition, also read `docs/grimo/design/screen-flow-contract.md` before
+designing §2. The spec must include a Screen Flow Contract subsection with
+Flow Header, State Matrix, Flow Steps, low-fidelity wireflow,
+CTA/navigation rules, and Verification Mapping before it can be considered
+ready for `/planning-tasks`.
+
 ## Contract
 
 ```
@@ -227,6 +235,13 @@ Phase 2 — Research (BLOCKING GATE — must complete before Phase 3)
 Phase 3 — Clarify + Design (user interaction)
 - [ ] Clarify — grill-me loop with user (research findings inform questions)
 - [ ] Explore — 2-3 approaches with trade-offs (based on research FACTS, not assumptions)
+- [ ] Screen flow contract checkpoint — if the spec changes page flow,
+      navigation, onboarding, empty state, error state, success destination,
+      CTA hierarchy, or cross-page transitions, read
+      `docs/grimo/design/screen-flow-contract.md` and add a Screen Flow
+      Contract subsection before low-fidelity sketches. It must define Flow
+      Header, State Matrix, Flow Steps, CTA/navigation rules, and
+      Verification Mapping. Do not treat a UI sketch alone as enough.
 - [ ] UI sketch checkpoint — if the spec touches UI/UX/CSS/layout or
       user-visible workflow screens, draw low-fidelity sketches before
       asking for final approach confirmation. Use ASCII wireframes or Mermaid
@@ -302,6 +317,15 @@ If the spec changes any user-facing screen, the designer must create a
 `Low-Fidelity UI Sketches` subsection before final confirmation. This applies
 to frontend pages, modals, forms, tabs, tables, cards, empty states,
 responsive layout, CSS-only polish, copy/layout changes, and navigation.
+
+If the change also affects page flow, first-run/onboarding behavior,
+navigation, empty/error/success states, CTA hierarchy, or cross-page
+transitions, the UI sketch must be preceded by a Screen Flow Contract
+subsection based on `docs/grimo/design/screen-flow-contract.md`. The flow
+contract answers what screen the user starts on, what data state they are in,
+what action is primary, where they go after success/failure, and what evidence
+proves each state. The low-fidelity sketch then visualizes that confirmed
+contract.
 
 The sketch may be ASCII wireframe, Mermaid flow, or a compact text layout, but
 it must show concrete UI elements rather than abstract component names:

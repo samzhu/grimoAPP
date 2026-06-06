@@ -5,7 +5,7 @@
 Grimo UI work must preserve product intent, designer layout decisions, and verifiable implementation evidence. The working rule is:
 
 ```text
-PRD language -> design source -> design language tokens -> component states -> browser evidence
+PRD language -> screen flow contract -> design source -> design language tokens -> component states -> browser evidence
 ```
 
 This prevents the frontend from drifting into "looks close enough" implementation.
@@ -15,6 +15,7 @@ This prevents the frontend from drifting into "looks close enough" implementatio
 | Layer | Source | Owns | Change rule |
 | --- | --- | --- | --- |
 | Product behavior | `docs/grimo/PRD.md` | workflows, task states, user gates | Product/spec change required |
+| Screen flow | `docs/grimo/design/screen-flow-contract.md` + spec UI subsection | entry points, page states, CTAs, navigation, empty/error/success flow | Required before UI spec handoff when a page flow changes |
 | Design source | `docs/grimo/ui/prototype/index.html` | layout geometry, copy, visual states | Compare exported CSS before implementation |
 | Design language | `docs/grimo/design/tokens.json` | named visual decisions | Token change requires reason and visual baseline update |
 | Implementation | `frontend/src/features/*`, `frontend/src/styles.css` | React surfaces and CSS mapping | Must use product names and token mapping |
@@ -26,11 +27,13 @@ This prevents the frontend from drifting into "looks close enough" implementatio
 Before coding frontend UI:
 
 1. Identify the user-facing surface: `task-board`, `task-detail`, `task-create`, `task-forming-chat`, `projects`, `blockers`, or `workflow`.
-2. Find the matching prototype selector and CSS token in `docs/grimo/ui/prototype/index.html`.
-3. Decide whether the task changes behavior, layout, responsive behavior, or design language.
-4. Translate human UI feedback into one of: product behavior, design language, component state, or review prompt.
-5. If it changes layout, update or add Playwright visual coverage before marking done.
-6. If it claims prototype parity, run Webwright as a second reviewer and keep artifacts with the spec evidence.
+2. Decide whether the task changes page flow, navigation, onboarding, empty state, error state, success destination, or CTA hierarchy.
+3. If page flow changes, write or update a Screen Flow Contract before wireframe or implementation. Minimum required content: Flow Header, State Matrix, Flow Steps, low-fidelity wireflow, CTA/navigation rules, and Verification Mapping.
+4. Find the matching prototype selector and CSS token in `docs/grimo/ui/prototype/index.html`.
+5. Decide whether the task changes behavior, layout, responsive behavior, or design language.
+6. Translate human UI feedback into one of: product behavior, screen flow, design language, component state, review prompt, or regression proof.
+7. If it changes layout, update or add Playwright visual coverage before marking done.
+8. If it claims prototype parity, run Webwright as a second reviewer and keep artifacts with the spec evidence.
 
 ## Default Interaction Principles
 
@@ -38,6 +41,8 @@ Before coding frontend UI:
 - A selected task must show a subtle border/inset accent only while the selected task is the active work context.
 - Drawer state and selected-card state must not contradict each other. If the drawer is closed by the user, clear selection unless another surface still owns the task context.
 - Empty/default states are first-class states. They should describe what the user can do next without pretending a record is selected.
+- First-run and no-context states must not show fixture data as if it were real user data. If a page needs Project context, the screen flow must define whether it redirects, disables actions, or shows a context-setting empty state.
+- One screen context should have one primary CTA. Secondary links can support recovery or docs, but they must not compete with the main action.
 - `新增 Task` opens task creation; it must not be a dead button.
 - `在完整頁開啟` opens a full task page; it must not be a dead button.
 
@@ -59,6 +64,7 @@ User feedback about frontend screens must not remain only in chat history.
 | Feedback type | Store it in | Example |
 | --- | --- | --- |
 | Product behavior | `docs/grimo/PRD.md`, spec, or this workflow doc | Board entry has no selected task. |
+| Page flow / onboarding | `docs/grimo/design/screen-flow-contract.md` and the active spec | First app load with no Project shows Project setup before Task Workbench. |
 | Persistent UI rule | `docs/grimo/development-standards.md` | Selected task uses subtle inset accent. |
 | Reusable visual check | `docs/grimo/design/webwright-prompts.md` | Check initial board has zero selected task cards. |
 | Numeric design decision | `docs/grimo/design/tokens.json` | Rail width, topbar height, card padding. |
@@ -80,11 +86,12 @@ Token tiers:
 Use this order for UI work:
 
 1. **Capture**: point to the prototype selector, screenshot, or product requirement.
-2. **Name**: add or reuse a token name before scattering values in CSS.
-3. **Implement**: update feature/component code with the minimum surface change.
-4. **Verify**: run `scripts/verify-release.sh`.
-5. **Review**: inspect Playwright diff. If prototype parity is claimed, run Webwright and keep artifacts.
-6. **Record**: mention token changes, screenshots, and remaining visual risk in the spec/task result.
+2. **Contract**: when page flow changes, write the Screen Flow Contract before drawing final UI or editing production code.
+3. **Name**: add or reuse a token name before scattering values in CSS.
+4. **Implement**: update feature/component code with the minimum surface change.
+5. **Verify**: run `scripts/verify-release.sh`.
+6. **Review**: inspect Playwright diff. If prototype parity is claimed, run Webwright and keep artifacts.
+7. **Record**: mention flow contract, token changes, screenshots, and remaining visual risk in the spec/task result.
 
 ## Research Notes
 
