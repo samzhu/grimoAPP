@@ -85,7 +85,7 @@ svg {
   grid-template-rows: 52px 1fr;
 }
 
-.topbar {
+.app-header {
   position: sticky;
   top: 0;
   z-index: 10;
@@ -99,7 +99,7 @@ svg {
   backdrop-filter: blur(14px);
 }
 
-.topbar-menu,
+.app-header-menu,
 .icon-button {
   display: grid;
   width: 34px;
@@ -112,7 +112,7 @@ svg {
   padding: 0;
 }
 
-.topbar-menu:hover,
+.app-header-menu:hover,
 .icon-button:hover {
   color: var(--fg);
   border-color: color-mix(in oklch, var(--accent) 45%, var(--border));
@@ -295,7 +295,7 @@ svg {
   grid-template-columns: 172px minmax(0, 1fr);
 }
 
-.rail {
+.side-navigation {
   position: fixed;
   top: 52px;
   left: 0;
@@ -312,7 +312,7 @@ svg {
   padding: 12px 8px;
 }
 
-.workspace-shell.nav-pinned .rail {
+.workspace-shell.nav-pinned .side-navigation {
   position: sticky;
   left: auto;
   z-index: 8;
@@ -321,16 +321,16 @@ svg {
   box-shadow: none;
 }
 
-.rail-controls {
+.side-navigation-controls {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 34px;
   gap: 6px;
   margin-bottom: 4px;
 }
 
-.rail-control,
-.rail-pin,
-.rail-item {
+.side-navigation-control,
+.side-navigation-pin,
+.side-navigation-item {
   display: flex;
   align-items: center;
   gap: 9px;
@@ -343,43 +343,43 @@ svg {
   text-align: left;
 }
 
-.rail-control {
+.side-navigation-control {
   justify-content: space-between;
   min-height: 34px;
 }
 
-.rail-control,
-.rail-pin {
+.side-navigation-control,
+.side-navigation-pin {
   border-color: var(--border);
   background: var(--surface);
 }
 
-.rail-item.active,
-.rail-item:hover,
-.rail-control:hover,
-.rail-pin:hover,
-.rail-pin.active {
+.side-navigation-item.active,
+.side-navigation-item:hover,
+.side-navigation-control:hover,
+.side-navigation-pin:hover,
+.side-navigation-pin.active {
   border-color: var(--border);
   background: var(--surface);
   color: var(--fg);
 }
 
-.rail-pin {
+.side-navigation-pin {
   justify-content: center;
   width: 34px;
   min-height: 34px;
   padding: 0;
 }
 
-.rail-item {
+.side-navigation-item {
   width: 100%;
 }
 
-.rail-section {
+.side-navigation-section {
   display: none;
 }
 
-.main-surface {
+.main-content-area {
   min-width: 0;
   padding: 0;
 }
@@ -396,7 +396,7 @@ svg {
 }
 
 .board-pane,
-.detail-pane,
+.task-details-pane,
 .chat-main,
 .chat-side,
 .split-page,
@@ -819,7 +819,7 @@ svg {
   display: none;
 }
 
-.detail-pane {
+.task-details-pane {
   position: fixed;
   top: 52px;
   right: 0;
@@ -836,7 +836,7 @@ svg {
   padding: 0 14px 14px;
 }
 
-.task-workbench.detail-pinned .detail-pane {
+.task-workbench.detail-pinned .task-details-pane {
   position: static;
   width: auto;
   height: auto;
@@ -1793,11 +1793,33 @@ textarea.task-body-input {
 
 .project-selection-inner {
   display: grid;
-  gap: 12px;
+  min-height: calc(100dvh - 52px);
+  align-content: start;
+  gap: 14px;
 }
 
-.project-selection-head {
+.project-setup-hero {
+  display: grid;
+  min-height: min(420px, calc(100dvh - 52px));
+  align-content: center;
+  justify-items: start;
+  gap: 18px;
+  border-bottom: 1px solid var(--border);
   background: color-mix(in oklch, var(--surface) 72%, var(--bg));
+  padding: clamp(36px, 8dvh, 92px) clamp(18px, 6vw, 76px);
+}
+
+.project-setup-hero h1 {
+  max-width: 720px;
+  font-size: 46px;
+  line-height: 1.02;
+}
+
+.project-setup-hero p {
+  max-width: 620px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 16px;
 }
 
 .project-selection-list {
@@ -1954,7 +1976,7 @@ textarea.task-body-input {
 }
 
 @media (max-width: 920px) {
-  .topbar {
+  .app-header {
     align-items: start;
     height: auto;
     min-height: 52px;
@@ -1979,7 +2001,7 @@ textarea.task-body-input {
     grid-template-columns: 1fr;
   }
 
-  .rail {
+  .side-navigation {
     position: static;
     top: 0;
     left: auto;
@@ -1994,14 +2016,30 @@ textarea.task-body-input {
     padding: 8px 10px;
   }
 
-  .rail-controls {
+  .side-navigation-controls {
     display: none;
   }
 
-  .rail-item {
+  .side-navigation-item {
     flex: 0 0 auto;
     width: auto;
     min-width: 118px;
+  }
+
+  .project-setup-hero {
+    min-height: 360px;
+    padding: 34px 18px;
+  }
+
+  .project-setup-hero h1 {
+    font-size: 32px;
+    line-height: 1.08;
+  }
+
+  .project-selection-card {
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: 6px;
   }
 
   .section-head,
@@ -2172,7 +2210,7 @@ textarea.task-body-input {
     display: block;
   }
 
-  .detail-pane {
+  .task-details-pane {
     top: auto;
     bottom: 0;
     width: 100%;

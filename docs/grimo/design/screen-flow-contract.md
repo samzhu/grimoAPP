@@ -8,7 +8,7 @@ Screen Flow Contract 是 Grimo 前端頁面設計的流程合約。它放在 `do
 
 - 新增或改動 frontend page、modal、drawer、navigation、onboarding、empty state、error state。
 - 一個頁面會因資料狀態顯示不同內容，例如沒有 Project、有 Project、loading、error、empty list。
-- 一個 action 會跨頁或跨 surface，例如 `建立專案` 成功後進入 Task Workbench。
+- 一個 action 會跨頁或跨 surface，例如 `建立 Project` 成功後進入 Task Workbench。
 - 使用者回饋「一開始應該看到什麼」「這頁流程怪怪的」「按完應該去哪」。
 
 不適用時機：
@@ -26,6 +26,10 @@ Screen Flow Contract 是 Grimo 前端頁面設計的流程合約。它放在 `do
 | Atlassian Customer Journey Mapping — https://www.atlassian.com/team-playbook/plays/customer-journey-mapping | Journey map 應限定 single persona、single scenario、single goal，否則太泛會漏掉真正問題。 | Grimo flow contract 一次只處理一個 persona/scenario/goal；跨角色或跨大流程要拆多份。 |
 | GitLab Empty States — https://design.gitlab.com/patterns/empty-states/ | Empty state 應提供下一步，且同一 context 盡量只有一個 primary action。 | Grimo empty state 必須寫出使用者下一步；不能同一畫面放多個同級 primary CTA。 |
 | Carbon Empty States — https://carbondesignsystem.com/patterns/empty-states-pattern/ | Empty state 要放在原本會顯示資料的位置；多個 empty state 同時出現時要避免多個 primary action。 | Grimo 不用假資料填空；沒有資料的位置直接顯示對應 empty state。 |
+| Carbon Global Header — https://carbondesignsystem.com/patterns/global-header/ | UI shell 可依資訊架構組合 header 與 left panel；global header 幫助使用者定位目前狀態。 | Grimo 的 App Header 顯示 Project context，Side Navigation 承擔 page view 切換，Project onboarding 不塞進 App Header。 |
+| Microsoft NavigationView — https://learn.microsoft.com/en-us/windows/apps/develop/ui/controls/navigationview | NavigationView 定義 top-level navigation、left pane、content area，且窄版可用 LeftMinimal overlay。 | Grimo 的 Side Navigation 可收合/覆蓋主內容；Main Content Area 仍是頁面內容，不把 navigation 和 content 混成同一層。 |
+| Atlassian Designing Messages — https://atlassian.design/foundations/content/designing-messages/ | Empty state 可出現在 full-screen、panel、table 等容器；不同訊息類型要選對 component 和 tone。 | Project list failure 是 error hero；first-run no data 是 setup hero，兩者文案和 action 不混用。 |
+| Material Layout — https://m2.material.io/design/layout/understanding-layout.html | App layouts 有 app bar、navigation、body regions；文字可讀性應控制 line length。 | S011 hero body 限制寬度與短文案，mobile card 改單欄以避免窄欄文字擠壓。 |
 | Material Empty States — https://m1.material.io/patterns/empty-states.html | Empty state 需要避免使用者困惑；教育內容要簡短，starter content 必須可刪除替換。 | Grimo first-run 不用不可刪的假 Task；測試 fixture 不可變成使用者真狀態。 |
 
 ## Required Contract Shape
@@ -63,7 +67,7 @@ Screen Flow Contract 是 Grimo 前端頁面設計的流程合約。它放在 `do
 
 | Step | Outcome | Screen / surface | User action | System response | Next state | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | 使用者知道還沒有 Project | App first load | open app | 顯示 Project setup empty state | first-run empty | `frontend/e2e/...` |
+| 1 | 使用者知道還沒有 Project | App first load | open app | 顯示 `Project Setup Hero` | first-run empty | `frontend/e2e/...` |
 | 2 | 使用者建立 Project | Project create | submit form | `POST /api/projects` 成功 | current Project ready | full-stack E2E |
 
 ### 4. Wireflow
@@ -77,7 +81,7 @@ App first load, no Project
 +------------------------------------------+
 | 建立第一個 Project                       |
 | Project 會決定 Task 工作流和品質基準。   |
-| [建立專案]                               |
+| [建立 Project]                           |
 +------------------------------------------+
           | click
           v
@@ -86,7 +90,7 @@ Project Creation Page
 | 專案名稱 [________________]              |
 | 專案路徑 [選填 /Users/.../repo]          |
 | 專案工作流 [Web 服務開發 v]              |
-| [建立專案]                               |
+| [建立 Project]                           |
 +------------------------------------------+
           | success
           v
@@ -125,9 +129,10 @@ Wireflow 必須明確說它不是 final pixels、不是新 design system、也�
 1. 讀 `docs/grimo/PRD.md`，確認 product critical path。
 2. 查 `docs/grimo/design/frontend-design-context.md`，確認既有 page rules。
 3. 寫或更新 Screen Flow Contract。
-4. 畫 low-fidelity wireflow。
-5. 產出 BDD Contract 和 Verification Bindings。
-6. 才能進入 task planning 或 frontend implementation。
+4. 查 `docs/grimo/design/README.md`，確認是否已有對應設計文件入口。
+5. 畫 low-fidelity wireflow。
+6. 產出 BDD Contract 和 Verification Bindings。
+7. 才能進入 task planning 或 frontend implementation。
 
 如果 spec 只有畫面草圖、沒有 state matrix 和 verification mapping，不算 ready for `/planning-tasks`。
 
@@ -147,6 +152,6 @@ State Matrix：
 | State | Data condition | 使用者看到什麼 | Primary action | Forbidden behavior | Evidence |
 | --- | --- | --- | --- | --- | --- |
 | loading | `GET /api/projects` pending | 載入 Project context | none | 不顯示 `grimo/web` 假專案 | Playwright |
-| empty | `GET /api/projects` 回 `content=[]` | 建立第一個 Project 的 empty state | `建立專案` | 不顯示 fixture tasks | Playwright |
-| ready | Project exists | topbar 顯示真 Project，Task Workbench 讀該 Project tasks | `新增 Task` | 不用 fallback project path | full-stack E2E |
+| empty | `GET /api/projects` 回 `content=[]` | `Project Setup Hero`，heading 是 `建立第一個 Project` | `建立 Project` | 不顯示 fixture tasks | Playwright |
+| ready | Project exists | App Header 顯示真 Project，Task Workbench 讀該 Project tasks | `新增 Task` | 不用 fallback project path | full-stack E2E |
 | error | Project list failed | 專案載入失敗與 retry/recovery | `重試` | 不把 fixture 當成功資料 | Playwright |

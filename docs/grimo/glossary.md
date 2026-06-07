@@ -36,9 +36,37 @@ _Avoid_: Main product positioning
 給使用者指派工作的薄角色入口，包含名稱、用途、runtime、skills 和 assignment rules；MVP 先服務 coding work，但角色模型可延伸到行銷、財務、營運等非開發工作。
 _Avoid_: Thick AI coworker, independent persona, separate inbox, coding-only role model
 
+**App Header**:
+Grimo 畫面最上方的全域區域，顯示品牌、主選單入口、目前 Project context 和 Project switcher；它不承載 first-run onboarding 或 page 主要內容。
+_Avoid_: Topbar as product term, Project Selection Gate, Project Setup Hero, page body
+
+**Side Navigation**:
+Grimo 左側可收合導覽，用來切換 `Task 管理`、`待處理`、`專案`、`Chat`、`Workflow` 這些主要 page view。
+_Avoid_: Navigation rail, Activity Bar, Project list, Task Details Pane, page content
+
+**Main Content Area**:
+App Header 下方的主要工作區，顯示目前 page view、Project Selection Gate、Task Workbench、Project list、Chat 或 Workflow reference。
+_Avoid_: Main surface as product term, App Header, Side Navigation, app chrome
+
+**Task Details Pane**:
+選到 Task 後顯示該 Task 摘要、品質、evidence、下一步和入口操作的輔助內容區；固定在右側時是 pane，浮出覆蓋時才是 drawer。
+_Avoid_: Task Chat, Review Materials, full Task detail page, generic side panel
+
+**Task Details Drawer**:
+Task Details Pane 以浮出覆蓋方式顯示的狀態，適合未固定或窄版畫面。
+_Avoid_: Permanent details pane, full Task detail page
+
 **Project Creation Page**:
 使用者從功能列表按「建立專案」後進入的頁面，負責填寫專案名稱、專案描述、Project Path、工作流下拉選單，並預覽隨工作流切換的角色列表；只有頁面上的 submit action 才真正建立 Project。
 _Avoid_: Treating the feature-list entry button as the submit action, always-visible inline Project form
+
+**Project Selection Gate**:
+沒有 active Project context 時顯示在 Main Content Area 裡的狀態頁，負責阻止使用者進入需要 Project context 的 Task 管理、待處理或 Chat，並引導建立或選擇 Project。
+_Avoid_: App Header status, Project Creation Page, generic empty page, fixture Task fallback
+
+**Project Setup Hero**:
+Project Selection Gate 裡的大主視覺區塊，用來說明為什麼要先建立 Project，並提供單一主要操作，例如 `建立 Project`。`建立第一個 Project` 是 first-run variant 的 heading，不是整個區塊名稱。
+_Avoid_: Project Selection Gate, App Header, Project Creation Page, page header only, generic empty state
 
 **Project Path**:
 Project 的主要開發目錄，是 backend 可驗證、可保存、可操作的 repo / codebase path。S003 起，使用者不填專案路徑時，Grimo 會在 `~/.grimo/projects/<projectId>` 建立預設 `projectPath`；使用者也可以手動輸入既有 repo path。

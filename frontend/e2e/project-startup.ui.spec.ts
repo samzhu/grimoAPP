@@ -53,6 +53,107 @@ test("AC-S010-1: first-run Project gate does not show fake Project or fixture ta
   await expect(page.getByText("執行前設定與本機能力檢查")).toHaveCount(0);
 });
 
+test("AC-S011-1: first-run Project Setup Hero is inside Main Content Area", async ({
+  page,
+}) => {
+  await routeProjectList(page, []);
+  await page.goto("/");
+
+  const hero = page.locator(
+    ".main-content-area .project-selection-gate .project-setup-hero",
+  );
+  await expect(hero).toBeVisible();
+  await expect(hero.getByRole("heading", { name: "建立第一個 Project" })).toBeVisible();
+  await expect(hero.getByRole("button", { name: "建立 Project" })).toBeVisible();
+  await expect(page.getByText("grimo/web")).toHaveCount(0);
+  await expect(page.getByText("執行前設定與本機能力檢查")).toHaveCount(0);
+});
+
+test("AC-S011-3: existing Projects make Project cards the primary path", async ({
+  page,
+}) => {
+  const taskRequests: string[] = [];
+  await routeProjectList(page, [projectA, projectB]);
+  await page.route("**/api/projects/*/tasks", async (route) => {
+    taskRequests.push(route.request().url());
+    await route.fulfill({ json: { content: [] } });
+  });
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "grimo.projectSession",
+      JSON.stringify({ lastActiveProjectId: "01HZPROJECT001", isClosed: true }),
+    );
+  });
+
+  await page.goto("/");
+
+  const hero = page.locator(".project-setup-hero");
+  await expect(hero.getByRole("heading", { name: "選擇或建立 Project" })).toBeVisible();
+  await expect(hero.getByRole("button", { name: "建立 Project" })).toHaveClass(
+    /icon-text-button/,
+  );
+  await expect(hero.locator(".primary-button")).toHaveCount(0);
+  await expect(page.locator(".project-selection-card")).toHaveCount(2);
+
+  await page.getByRole("button", { name: /grimoAPP/ }).click();
+
+  await expect(page.getByRole("heading", { name: "任務工作台" })).toBeVisible();
+  await expect.poll(() => taskRequests).toContainEqual(
+    expect.stringContaining("/api/projects/01HZPROJECT001/tasks"),
+  );
+});
+
+test("AC-S011-4: Projects and Workflow remain available without active Project", async ({
+  page,
+}) => {
+  await routeProjectList(page, [projectA, projectB]);
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "grimo.projectSession",
+      JSON.stringify({ lastActiveProjectId: "01HZPROJECT001", isClosed: true }),
+    );
+  });
+
+  await page.goto("/");
+
+  await page.getByLabel("展開主選單").click();
+  await page.getByRole("button", { name: "專案" }).click();
+  await expect(page.getByRole("heading", { name: "專案管理" })).toBeVisible();
+  await expect(page.locator(".project-context")).toContainText("尚未開啟 Project");
+
+  await page.goto("/");
+  await page.getByLabel("展開主選單").click();
+  await page.getByRole("button", { name: "Workflow" }).click();
+  await expect(page.getByRole("heading", { name: "Workflow 設計" })).toBeVisible();
+  await expect(page.locator(".project-context")).toContainText("尚未開啟 Project");
+});
+
+test("AC-S011-6: app shell uses canonical layout selectors", async ({ page }) => {
+  await routeProjectList(page, []);
+  await page.goto("/");
+
+  await expect(page.locator(".app-header")).toBeVisible();
+  await expect(page.locator(".main-content-area")).toBeVisible();
+
+  await page.getByLabel("展開主選單").click();
+
+  await expect(page.locator(".side-navigation")).toBeVisible();
+});
+
+test("AC-S011-7: Project list failure uses an error hero", async ({ page }) => {
+  await page.route("**/api/projects", async (route) => {
+    await route.fulfill({ status: 500, json: { error: "Project 載入失敗" } });
+  });
+
+  await page.goto("/");
+
+  const hero = page.locator(".main-content-area .project-setup-hero");
+  await expect(hero.getByRole("heading", { name: "無法載入 Project context" })).toBeVisible();
+  await expect(hero.getByText("Project 載入失敗")).toBeVisible();
+  await expect(hero.getByRole("button", { name: "重試" })).toBeVisible();
+  await expect(hero.getByRole("heading", { name: "建立第一個 Project" })).toHaveCount(0);
+});
+
 test("AC-S010-2: open session restores the matching Project and calls only its task API", async ({
   page,
 }) => {

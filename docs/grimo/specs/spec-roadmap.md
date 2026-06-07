@@ -14,6 +14,7 @@ PRD Critical Path: 使用者先建立或選擇 Project，Project 決定工作流
 
 | Spec ID | 標題 | 點數 | 版本 |
 | --- | --- | ---: | --- |
+| S011 | Project Setup Hero in Main Content Area | L(15) | — |
 | S010 | Formal product startup flow and Project session restore | M(13) | v0.1.0 |
 | S001 | Project onboarding with workflow selection | L(15) | v0.1.0 |
 | S002 | Workflow recipe role defaults | M(14) | v0.1.0 |

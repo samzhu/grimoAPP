@@ -52,6 +52,26 @@ _Avoid_: Backlog Task, Task root record, draft
 Task 建立時從 Project Workflow Recipe 或 workflow file 複製出來、歸屬於該 Task 的固定流程副本。
 _Avoid_: Active Workflow Run, live Project recipe, workflow evidence
 
+**App Header**:
+Grimo 畫面最上方的全域區域，顯示品牌、主選單入口和目前 Project context。
+_Avoid_: Project onboarding area, page body, Topbar as product term
+
+**Side Navigation**:
+Grimo 用來切換主要 page view 的可收合側邊導覽。
+_Avoid_: Navigation rail, Activity Bar, Project list, page content
+
+**Main Content Area**:
+App Header 下方顯示目前 page view 或 Project Selection Gate 的主要工作區。
+_Avoid_: App Header, Side Navigation, page chrome, generic surface
+
+**Task Details Pane**:
+選到 Task 後顯示該 Task 摘要、品質、證據和下一步的輔助內容區。
+_Avoid_: Task Chat, Review Materials, full Task page
+
+**Task Details Drawer**:
+Task Details Pane 以浮出覆蓋方式顯示的狀態。
+_Avoid_: Permanent details pane, full Task page
+
 ## Relationships
 
 - A **Project** has one primary **Project Path** in MVP.
@@ -68,6 +88,8 @@ _Avoid_: Active Workflow Run, live Project recipe, workflow evidence
 - **Auto-Review** happens before **Human Review**.
 - **Human Review** is the user-facing decision point inside **Human Review State**.
 - **Auto-Review** is still agent work; **Human Review State** starts only after Review Materials are ready.
+- The **App Header** and **Side Navigation** frame the app; the selected page is shown in the **Main Content Area**.
+- A **Task Details Pane** belongs to the selected **Task** and may appear as a **Task Details Drawer** when it floats over the **Main Content Area**.
 
 ## Example dialogue
 
@@ -97,6 +119,12 @@ _Avoid_: Active Workflow Run, live Project recipe, workflow evidence
 >
 > **Dev:** "Does a file-based Workflow Definition require a content hash to define the Task Workflow version?"
 > **Domain expert:** "No. The copied Task Workflow rows are the version. A hash is optional diagnostic metadata, not the source of truth."
+>
+> **Dev:** "Should the first-run Project setup message go in the **App Header**?"
+> **Domain expert:** "No. The **App Header** shows global Project context; onboarding belongs in the **Main Content Area**."
+>
+> **Dev:** "Is the left menu a navigation rail?"
+> **Domain expert:** "No. It is **Side Navigation** because it expands with labels and switches page views."
 
 ## Flagged ambiguities
 
@@ -111,3 +139,4 @@ _Avoid_: Active Workflow Run, live Project recipe, workflow evidence
 - "`workflowSummary.currentStep` from copied workflow" was considered; resolved: no active run means `currentStep = null`, even when Task Workflow steps exist.
 - "Updating copied Task Workflow when definition changes" was considered; resolved: Task Workflow is immutable, and changes require explicit migration/rebase.
 - "Requiring `source_hash` for file-based workflow definitions" was considered; resolved: no, the copied Task Workflow rows are sufficient source of truth, and hash remains optional diagnostics.
+- "Topbar / Rail / Main surface" were used as mixed design and implementation terms; resolved: product language uses **App Header**, **Side Navigation**, and **Main Content Area**.

@@ -94,7 +94,7 @@ test.describe("Task workbench visual gate", () => {
       await expect(page.getByRole("button", { name: "新增 Task" })).toBeVisible();
       await expect(page.getByPlaceholder("搜尋任務 / 關鍵字")).toBeVisible();
       if (viewport.width > 920) {
-        await expect(page.locator(".topbar")).toHaveJSProperty("offsetHeight", 52);
+        await expect(page.locator(".app-header")).toHaveJSProperty("offsetHeight", 52);
         await expect(page.locator(".brand-mark img")).toHaveJSProperty("offsetHeight", 38);
       }
       await expect(page.locator(".task-card.selected")).toHaveCount(0);
@@ -116,6 +116,15 @@ test.describe("Task workbench visual gate", () => {
 
     await page.getByRole("button", { name: "固定主選單" }).click();
     await expect(page.locator(".workspace-shell.nav-pinned")).toHaveCount(1);
+  });
+
+  test("AC-S011-6: Task Details Pane uses canonical selector", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openVisualTaskWorkbench(page);
+
+    await page.locator(".task-card").first().click();
+
+    await expect(page.locator(".task-details-pane")).toBeVisible();
   });
 
   test("attention focus can collapse and expand", async ({ page }) => {

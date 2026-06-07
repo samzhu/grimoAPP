@@ -27,7 +27,7 @@ export function TaskDetail({
   onOpenChat: () => void;
 }) {
   return (
-    <aside className="detail-pane">
+    <aside className="task-details-pane">
       <div className="detail-toolbar">
         <h2>任務詳情</h2>
         <div className="detail-actions">

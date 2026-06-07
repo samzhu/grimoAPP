@@ -32,14 +32,14 @@ export function Navigation({
   ];
 
   return (
-    <nav className="rail" aria-label="主要頁面">
-      <div className="rail-controls">
-        <button className="rail-control" type="button" onClick={onClose}>
+    <nav className="side-navigation" aria-label="主要頁面">
+      <div className="side-navigation-controls">
+        <button className="side-navigation-control" type="button" onClick={onClose}>
           <span>主選單</span>
           <CaretLeft />
         </button>
         <button
-          className={isPinned ? "rail-pin active" : "rail-pin"}
+          className={isPinned ? "side-navigation-pin active" : "side-navigation-pin"}
           type="button"
           aria-label={isPinned ? "取消固定主選單" : "固定主選單"}
           aria-pressed={isPinned}
@@ -51,7 +51,7 @@ export function Navigation({
       {items.map(([key, label, icon]) => (
         <button
           key={key}
-          className={active === key ? "rail-item active" : "rail-item"}
+          className={active === key ? "side-navigation-item active" : "side-navigation-item"}
           type="button"
           onClick={() => onSelect(key)}
         >

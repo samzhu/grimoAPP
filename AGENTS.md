@@ -117,6 +117,11 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 | `docs/grimo/development-standards.md` | Code conventions, package layout, testing rules (§7), forbidden patterns |
 | `docs/grimo/qa-strategy.md` | Test pipeline, verification commands (ecosystem-native preferred) |
 | `docs/grimo/glossary.md` | Bilingual (zh-TW + English) domain terms |
+| `docs/grimo/design/README.md` | Frontend design docs index — UI/UX work starts here after PRD |
+| `docs/grimo/design/frontend-design-context.md` | Current frontend UI/UX decisions, page semantics, visual evidence |
+| `docs/grimo/design/screen-flow-contract.md` | Required flow contract for onboarding, empty/error/success state, navigation, CTA changes |
+| `docs/grimo/design/tokens.json` | Current design token names and values |
+| `docs/grimo/design/webwright-prompts.md` | Reusable Webwright visual review prompts |
 | `docs/grimo/specs/spec-roadmap.md` | Live roadmap — all specs, milestones, Backlog |
 | `docs/grimo/specs/YYYY-MM-DD-S<NNN>-<slug>.md` | In-flight spec (§1-5 design, §6 task plan, §7 results) |
 | `docs/grimo/specs/archive/` | Shipped specs — permanent record |

@@ -207,9 +207,9 @@ export function App() {
   return (
     <RuntimeProvider>
       <div className="app-shell">
-        <header className="topbar">
+        <header className="app-header">
           <button
-            className="topbar-menu"
+            className="app-header-menu"
             type="button"
             aria-expanded={workbench.isNavOpen}
             aria-label={workbench.isNavOpen ? "收合主選單" : "展開主選單"}
@@ -255,7 +255,7 @@ export function App() {
               onTogglePin={() => dispatch({ type: "nav.pinToggled" })}
             />
           )}
-          <main className="main-surface">
+          <main className="main-content-area">
             {shouldShowProjectGate ? projectGate : null}
             {!shouldShowProjectGate && workbench.view === "tasks" && (
               currentProject ? (

@@ -15,6 +15,7 @@ This prevents the frontend from drifting into "looks close enough" implementatio
 | Layer | Source | Owns | Change rule |
 | --- | --- | --- | --- |
 | Product behavior | `docs/grimo/PRD.md` | workflows, task states, user gates | Product/spec change required |
+| Design index | `docs/grimo/design/README.md` | frontend design document map and reading order | Update when adding/removing durable design docs |
 | Screen flow | `docs/grimo/design/screen-flow-contract.md` + spec UI subsection | entry points, page states, CTAs, navigation, empty/error/success flow | Required before UI spec handoff when a page flow changes |
 | Design source | `docs/grimo/ui/prototype/index.html` | layout geometry, copy, visual states | Compare exported CSS before implementation |
 | Design language | `docs/grimo/design/tokens.json` | named visual decisions | Token change requires reason and visual baseline update |
@@ -56,6 +57,7 @@ Grimo stores design language in repo, not only in screenshots.
 - `docs/grimo/design/webwright-prompts.md`: repeatable prompts for agent-assisted UI review.
 - Playwright screenshots: implementation baseline, not design source.
 - Webwright artifacts: review evidence and reproducible browser script, not token source.
+- `AGENTS.md` / `CLAUDE.md`: agent startup indexes only. Keep them short and point to this design folder instead of duplicating design rationale.
 
 ## Feedback Capture Rule
 
@@ -67,7 +69,7 @@ User feedback about frontend screens must not remain only in chat history.
 | Page flow / onboarding | `docs/grimo/design/screen-flow-contract.md` and the active spec | First app load with no Project shows Project setup before Task Workbench. |
 | Persistent UI rule | `docs/grimo/development-standards.md` | Selected task uses subtle inset accent. |
 | Reusable visual check | `docs/grimo/design/webwright-prompts.md` | Check initial board has zero selected task cards. |
-| Numeric design decision | `docs/grimo/design/tokens.json` | Rail width, topbar height, card padding. |
+| Numeric design decision | `docs/grimo/design/tokens.json` | Side Navigation width, App Header height, card padding. |
 | Regression proof | `frontend/e2e/*` | Playwright assertion or screenshot baseline. |
 
 When a user says a screen "looks wrong", first name the rule, then decide where it belongs. If the rule affects repeatable review, add it to the Webwright prompt library. If the rule affects shipping correctness, also add deterministic Playwright coverage.
@@ -78,8 +80,8 @@ Token tiers:
 | --- | --- | --- |
 | Primitive | `color.green.55`, `space.2`, `radius.6` | Raw values; rarely used directly in feature CSS |
 | Semantic | `color.bg`, `color.surface`, `color.accent`, `color.border` | Product-wide roles |
-| Component | `taskCard.selectedInset`, `topbar.height`, `rail.width` | Layout/state decisions from prototype |
-| Surface | `taskBoard.columnMinWidth`, `detailDrawer.width` | View-level geometry that must match screenshots |
+| Component | `taskCard.selectedInset`, `appHeader.height`, `sideNavigation.width` | Layout/state decisions from prototype |
+| Surface | `taskBoard.columnMinWidth`, `taskDetailsDrawer.width` | View-level geometry that must match screenshots |
 
 ## Design Change Protocol
 

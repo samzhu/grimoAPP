@@ -386,7 +386,7 @@ Main files:
 | Surface | Current implementation |
 | --- | --- |
 | App shell and routing state | `frontend/src/App.tsx` |
-| Navigation rail | `frontend/src/app/Navigation.tsx` |
+| Side Navigation | `frontend/src/app/Navigation.tsx` |
 | Task board | `frontend/src/features/task-board/TaskWorkbench.tsx` |
 | Task detail drawer | `frontend/src/features/task-detail/TaskDetail.tsx` |
 | Full task detail page | `frontend/src/features/task-detail/TaskDetailPage.tsx` |
@@ -411,9 +411,9 @@ Workflow
 
 Current app shell:
 
-- Topbar with menu button, `G` brand mark, `Grimo`, current project label, project name, and repo path.
-- Optional left rail navigation.
-- Main surface changes by selected view.
+- App Header with menu button, `G` brand mark, `Grimo`, current project label, project name, and repo path.
+- Optional Side Navigation.
+- Main Content Area changes by selected view.
 
 Current limitation:
 
@@ -471,7 +471,7 @@ Design notes:
 - At narrow desktop widths, horizontal board scrolling exists but is not strongly signaled.
 - For redesign, consider whether `REVIEW` and `BLOCKED` need inbox-style prominence beyond columns.
 
-### 8.2 Task Detail Drawer
+### 8.2 Task Details Pane / Drawer
 
 Current purpose:
 
@@ -691,7 +691,7 @@ Current CSS tokens in `frontend/src/styles.css` mirror `docs/grimo/design/tokens
 | Token | Current value | Role |
 | --- | --- | --- |
 | `--bg` | `oklch(98% 0.004 245)` | App background. |
-| `--surface` | `oklch(100% 0 0)` | Main surface and cards. |
+| `--surface` | `oklch(100% 0 0)` | Main Content Area and cards. |
 | `--surface-soft` | `oklch(96.5% 0.004 245)` | Subtle panels and chips. |
 | `--fg` | `oklch(18% 0.012 245)` | Primary text. |
 | `--muted` | `oklch(49% 0.018 245)` | Secondary text. |
@@ -733,10 +733,10 @@ Design direction note:
 
 Current behavior:
 
-- Topbar height is normally `52px`.
-- At widths below `920px`, topbar wraps and project path can occupy a second line.
-- Expanded nav rail width is `172px`.
-- At widths below `920px`, rail becomes horizontal.
+- App Header height is normally `52px`.
+- At widths below `920px`, App Header wraps and project path can occupy a second line.
+- Expanded Side Navigation width is `172px`.
+- At widths below `920px`, Side Navigation becomes horizontal.
 - Board columns are `repeat(6, minmax(184px, 1fr))`.
 - At widths below `920px`, board becomes single-column vertical.
 - Detail drawer is fixed on desktop; at widths below `920px`, it becomes a bottom sheet with height `min(72vh, 620px)`.
@@ -772,7 +772,7 @@ Why it matters:
 
 ### Issue 2. Project Context Is Hardcoded And Verbose
 
-Current topbar shows:
+Current App Header shows:
 
 ```text
 目前專案 grimo/web /Users/samzhu/workspace/github-samzhu/grimo/apps/web
@@ -1063,7 +1063,7 @@ Design should account for:
 
 Current implementation already uses some accessible labels:
 
-- Topbar menu has `收合主選單` / `展開主選單`.
+- App Header menu has `收合主選單` / `展開主選單`.
 - Detail actions have labels such as `固定任務詳情`, `關閉任務詳情`.
 - Create dialog uses `role="dialog"` and `aria-modal="true"`.
 

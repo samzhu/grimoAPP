@@ -24,7 +24,7 @@ Then run Webwright from repo root:
 
 ## Task Board Prototype Parity
 
-Use after changing task board layout, task card state, toolbar, rail, or detail drawer behavior.
+Use after changing task board layout, task card state, toolbar, Side Navigation, or Task Details Pane / Drawer behavior.
 
 ```text
 Compare the local Grimo task workbench against docs/grimo/ui/prototype/index.html.
@@ -36,13 +36,13 @@ Viewport requirements:
 Product behavior rules:
 - Initial board entry must have no selected task card.
 - A task card becomes selected only after the user clicks it or an explicit deep link opens it.
-- Closing the detail drawer must clear the selected-card presentation unless another visible task context owns it.
+- Closing the Task Details Drawer must clear the selected-card presentation unless another visible task context owns it.
 - 新增 Task must open the task creation dialog.
 - 在完整頁開啟 must open the full task detail page.
 
 Layout checks:
-- Compare topbar height, brand alignment, project context alignment, and horizontal rhythm.
-- Compare nav rail width, collapse control alignment, and active item spacing.
+- Compare App Header height, brand alignment, project context alignment, and horizontal rhythm.
+- Compare Side Navigation width, collapse control alignment, and active item spacing.
 - Compare section head alignment, search field position, and 新增 Task button size/position.
 - Compare board column widths, gaps, header alignment, card padding, card metadata alignment, and selected-card inset accent.
 - Flag any overlap, inconsistent spacing, off-grid alignment, text clipping, or visual state that contradicts the prototype.
@@ -62,9 +62,9 @@ Review only the Grimo task board initial and selected-task states.
 
 Check these rules:
 - On first load at http://127.0.0.1:5173, no task card should have selected styling.
-- The detail drawer should be closed on first load.
-- After clicking one task card, exactly one card should show selected styling and the detail drawer should describe that same task.
-- After closing the detail drawer, no task card should remain visually selected.
+- The Task Details Drawer should be closed on first load.
+- After clicking one task card, exactly one card should show selected styling and the Task Details Drawer should describe that same task.
+- After closing the Task Details Drawer, no task card should remain visually selected.
 
 Output concrete findings with screenshots and selectors. Do not review unrelated layout issues unless they block these checks.
 ```
