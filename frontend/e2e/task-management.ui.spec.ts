@@ -127,7 +127,7 @@ test("AC-S004-4: without a current Project the Task board cannot create an orpha
 
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: "建立第一個 Project" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "建立 Project 工作台" })).toBeVisible();
   await expect(page.getByRole("button", { name: "新增 Task" })).toHaveCount(0);
   expect(taskApiRequests).toBe(0);
 });

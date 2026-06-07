@@ -46,30 +46,41 @@ test("AC-S010-1: first-run Project gate does not show fake Project or fixture ta
   await routeProjectList(page, []);
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: "建立第一個 Project" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "建立 Project" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "建立 Project 工作台" })).toBeVisible();
+  await expect(page.getByText("新手引導")).toBeVisible();
+  await expect(page.getByText("把本機 repo 變成 Grimo Project")).toBeVisible();
+  await expect(page.getByText("Project Setup Copilot")).toBeVisible();
+  await expect(page.getByText("用目前 repo 建立 Project")).toBeVisible();
+  await expect(page.getByRole("button", { name: "建立新 Project" })).toBeVisible();
   await expect(page.locator(".primary-button")).toHaveCount(1);
+  await expect(page.locator(".project-picker")).toHaveCount(0);
+  await expect(page.locator(".project-selection-card")).toHaveCount(0);
   await expect(page.getByText("grimo/web")).toHaveCount(0);
   await expect(page.getByText("執行前設定與本機能力檢查")).toHaveCount(0);
 });
 
-test("AC-S011-1: first-run Project Setup Hero is inside Main Content Area", async ({
+test("AC-S011-1: first-run Project setup panel is inside Main Content Area", async ({
   page,
 }) => {
   await routeProjectList(page, []);
   await page.goto("/");
 
-  const hero = page.locator(
-    ".main-content-area .project-selection-gate .project-setup-hero",
+  const setupPanel = page.locator(
+    ".main-content-area .project-selection-gate .project-setup-copilot",
   );
-  await expect(hero).toBeVisible();
-  await expect(hero.getByRole("heading", { name: "建立第一個 Project" })).toBeVisible();
-  await expect(hero.getByRole("button", { name: "建立 Project" })).toBeVisible();
+  await expect(setupPanel).toBeVisible();
+  await expect(setupPanel.getByText("新手引導")).toBeVisible();
+  await expect(setupPanel.getByRole("heading", { name: "建立 Project 工作台" })).toBeVisible();
+  await expect(setupPanel.getByText("把本機 repo 變成 Grimo Project")).toBeVisible();
+  await expect(setupPanel.getByText("建立前先把 repo、workflow 和第一批 Task context 對齊。")).toBeVisible();
+  await expect(setupPanel.getByRole("button", { name: "建立新 Project" })).toBeVisible();
+  await expect(page.locator(".project-picker")).toHaveCount(0);
+  await expect(page.locator(".project-selection-card")).toHaveCount(0);
   await expect(page.getByText("grimo/web")).toHaveCount(0);
   await expect(page.getByText("執行前設定與本機能力檢查")).toHaveCount(0);
 });
 
-test("AC-S011-3: existing Projects make Project cards the primary path", async ({
+test("AC-S011-3: closed session starts on Project list and does not load tasks", async ({
   page,
 }) => {
   const taskRequests: string[] = [];
@@ -87,20 +98,12 @@ test("AC-S011-3: existing Projects make Project cards the primary path", async (
 
   await page.goto("/");
 
-  const hero = page.locator(".project-setup-hero");
-  await expect(hero.getByRole("heading", { name: "選擇或建立 Project" })).toBeVisible();
-  await expect(hero.getByRole("button", { name: "建立 Project" })).toHaveClass(
-    /icon-text-button/,
-  );
-  await expect(hero.locator(".primary-button")).toHaveCount(0);
-  await expect(page.locator(".project-selection-card")).toHaveCount(2);
-
-  await page.getByRole("button", { name: /grimoAPP/ }).click();
-
-  await expect(page.getByRole("heading", { name: "任務工作台" })).toBeVisible();
-  await expect.poll(() => taskRequests).toContainEqual(
-    expect.stringContaining("/api/projects/01HZPROJECT001/tasks"),
-  );
+  await expect(page.getByRole("heading", { name: "專案管理" })).toBeVisible();
+  await expect(page.locator(".project-context")).toContainText("尚未開啟 Project");
+  await expect(page.getByRole("button", { name: /grimoAPP/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /skills-hub/ })).toBeVisible();
+  await expect(page.locator(".project-selection-gate")).toHaveCount(0);
+  expect(taskRequests).toHaveLength(0);
 });
 
 test("AC-S011-4: Projects and Workflow remain available without active Project", async ({
@@ -116,8 +119,9 @@ test("AC-S011-4: Projects and Workflow remain available without active Project",
 
   await page.goto("/");
 
+  await expect(page.getByRole("heading", { name: "專案管理" })).toBeVisible();
   await page.getByLabel("展開主選單").click();
-  await page.getByRole("button", { name: "專案" }).click();
+  await page.getByRole("button", { name: "專案", exact: true }).click();
   await expect(page.getByRole("heading", { name: "專案管理" })).toBeVisible();
   await expect(page.locator(".project-context")).toContainText("尚未開啟 Project");
 
@@ -140,18 +144,18 @@ test("AC-S011-6: app shell uses canonical layout selectors", async ({ page }) =>
   await expect(page.locator(".side-navigation")).toBeVisible();
 });
 
-test("AC-S011-7: Project list failure uses an error hero", async ({ page }) => {
+test("AC-S011-7: Project list failure uses an error setup panel", async ({ page }) => {
   await page.route("**/api/projects", async (route) => {
     await route.fulfill({ status: 500, json: { error: "Project 載入失敗" } });
   });
 
   await page.goto("/");
 
-  const hero = page.locator(".main-content-area .project-setup-hero");
-  await expect(hero.getByRole("heading", { name: "無法載入 Project context" })).toBeVisible();
-  await expect(hero.getByText("Project 載入失敗")).toBeVisible();
-  await expect(hero.getByRole("button", { name: "重試" })).toBeVisible();
-  await expect(hero.getByRole("heading", { name: "建立第一個 Project" })).toHaveCount(0);
+  const setupPanel = page.locator(".main-content-area .project-setup-error");
+  await expect(setupPanel.getByRole("heading", { name: "無法載入 Project context" })).toBeVisible();
+  await expect(setupPanel.getByText("Project 載入失敗")).toBeVisible();
+  await expect(setupPanel.getByRole("button", { name: "重試" })).toBeVisible();
+  await expect(setupPanel.getByRole("heading", { name: "建立 Project 工作台" })).toHaveCount(0);
 });
 
 test("AC-S010-2: open session restores the matching Project and calls only its task API", async ({
@@ -201,9 +205,11 @@ test("AC-S010-5: stale Project session shows selection gate and does not auto-se
   await page.goto("/");
 
   await expect(
-    page.getByText("上次開啟的 Project 已不存在或無法載入，請選擇 Project。"),
+    page.getByText("上次開啟的 Project 已不存在或無法載入。你可以建立新 Project。"),
   ).toBeVisible();
-  await expect(page.getByRole("heading", { name: "選擇或建立 Project" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "建立 Project 工作台" })).toBeVisible();
+  await expect(page.locator(".project-picker")).toHaveCount(0);
+  await expect(page.locator(".project-selection-card")).toHaveCount(0);
   await expect(page.locator(".project-context")).toContainText("尚未開啟 Project");
   expect(taskRequests).toHaveLength(0);
 });
@@ -230,11 +236,11 @@ test("AC-S010-5: Project list failure shows retry without fixture fallback", asy
 
   await page.getByRole("button", { name: "重試" }).click();
 
-  await expect(page.getByRole("heading", { name: "建立第一個 Project" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "建立 Project" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "建立 Project 工作台" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "建立新 Project" })).toBeVisible();
 });
 
-test("AC-S010-3: closed session shows Project selection gate with existing Projects", async ({
+test("AC-S010-3: closed session opens Project list", async ({
   page,
 }) => {
   const taskRequests: string[] = [];
@@ -253,10 +259,10 @@ test("AC-S010-3: closed session shows Project selection gate with existing Proje
 
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: "選擇或建立 Project" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "專案管理" })).toBeVisible();
   await expect(page.getByRole("button", { name: /grimoAPP/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /skills-hub/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: "建立 Project" })).toBeVisible();
+  await expect(page.locator(".project-selection-gate")).toHaveCount(0);
   await expect(page.locator(".project-context")).toContainText("尚未開啟 Project");
   expect(taskRequests).toHaveLength(0);
 });
@@ -274,18 +280,18 @@ test("AC-S010-6: no active Project gates Task, attention, and Chat surfaces", as
 
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: "選擇或建立 Project" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "專案管理" })).toBeVisible();
   await expect(page.getByText("執行前設定與本機能力檢查")).toHaveCount(0);
 
   await page.getByLabel("展開主選單").click();
   await page.getByRole("button", { name: "待處理" }).click();
-  await expect(page.getByRole("heading", { name: "選擇或建立 Project" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "建立 Project 工作台" })).toBeVisible();
   await expect(page.getByText("優先處理")).toHaveCount(0);
   await expect(page.getByText("GRM-188")).toHaveCount(0);
 
   await page.getByLabel("展開主選單").click();
   await page.getByRole("button", { name: "Chat" }).click();
-  await expect(page.getByRole("heading", { name: "選擇或建立 Project" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "建立 Project 工作台" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "工作形成 Chat" })).toHaveCount(0);
   await expect(page.getByText("把討論轉成 Grimo Task")).toHaveCount(0);
 });
@@ -317,8 +323,9 @@ test("AC-S010-3: Close Project clears session without deleting Project", async (
   await page.getByRole("button", { name: "Close Project" }).click();
 
   await expect(page.locator(".project-context")).toContainText("尚未開啟 Project");
-  await expect(page.getByRole("heading", { name: "選擇或建立 Project" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "專案管理" })).toBeVisible();
   await expect(page.getByRole("button", { name: /grimoAPP/ })).toBeVisible();
+  await expect(page.locator(".project-selection-gate")).toHaveCount(0);
   await expect
     .poll(() =>
       page.evaluate(() => JSON.parse(window.localStorage.getItem("grimo.projectSession") || "{}")),
@@ -366,18 +373,12 @@ test.describe("S010 startup visual evidence", () => {
   for (const viewport of startupViewports) {
     test(`Project selection gate ${viewport.name}`, async ({ page }) => {
       await page.setViewportSize(viewport);
-      await routeProjectList(page, [projectA, projectB]);
-      await page.addInitScript(() => {
-        window.localStorage.setItem(
-          "grimo.projectSession",
-          JSON.stringify({ lastActiveProjectId: "01HZPROJECT001", isClosed: true }),
-        );
-      });
+      await routeProjectList(page, []);
 
       await page.goto("/");
 
-      await expect(page.getByRole("heading", { name: "選擇或建立 Project" })).toBeVisible();
-      await expect(page.getByRole("button", { name: /grimoAPP/ })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "建立 Project 工作台" })).toBeVisible();
+      await expect(page.getByRole("button", { name: /grimoAPP/ })).toHaveCount(0);
       await expect(page).toHaveScreenshot(`project-selection-gate-${viewport.name}.png`, {
         fullPage: true,
       });

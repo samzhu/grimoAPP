@@ -38,8 +38,14 @@ test("AC-S010-2: creating Project from startup gate routes to Task Workbench", a
   });
 
   await mkdir(projectPath, { recursive: true });
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "grimo.projectSession",
+      JSON.stringify({ lastActiveProjectId: null, isClosed: false }),
+    );
+  });
   await page.goto("/");
-  await page.getByRole("button", { name: "建立 Project" }).click();
+  await page.getByRole("button", { name: "建立新 Project" }).click();
   await expect(page.getByRole("heading", { name: "新增專案", level: 1 })).toBeVisible();
 
   await page.getByLabel("專案名稱").fill(projectName);
@@ -64,7 +70,7 @@ test("AC-S010-2: creating Project from startup gate routes to Task Workbench", a
     .toEqual({ lastActiveProjectId: createdProject.id, isClosed: false });
 });
 
-test("AC-S010-4: selecting Project from startup gate loads that Project tasks", async ({
+test("AC-S010-4: closed session opens Project list without loading Project tasks", async ({
   page,
 }) => {
   const suffix = Date.now().toString();
@@ -85,14 +91,19 @@ test("AC-S010-4: selecting Project from startup gate loads that Project tasks", 
     }
   });
 
-  await page.goto("/");
-  await expect(page.getByRole("heading", { name: "選擇或建立 Project" })).toBeVisible();
-  await page.getByRole("button", { name: new RegExp(skillsProject.name) }).click();
+  await page.addInitScript((projectId) => {
+    window.localStorage.setItem(
+      "grimo.projectSession",
+      JSON.stringify({ lastActiveProjectId: projectId, isClosed: true }),
+    );
+  }, grimoProject.id);
 
-  await expect(page.getByRole("heading", { name: "任務工作台" })).toBeVisible();
-  await expect(page.locator(".project-context")).toContainText(skillsProject.name);
-  await expect.poll(() => taskRequests).toContainEqual(
-    expect.stringContaining(`/api/projects/${skillsProject.id}/tasks`),
-  );
+  await page.goto("/");
+
+  await expect(page.getByRole("heading", { name: "專案管理" })).toBeVisible();
+  await expect(page.locator(".project-context")).toContainText("尚未開啟 Project");
+  await expect(page.getByRole("button", { name: new RegExp(grimoProject.name) })).toBeVisible();
+  await expect(page.getByRole("button", { name: new RegExp(skillsProject.name) })).toBeVisible();
+  expect(taskRequests).toHaveLength(0);
   expect(taskRequests.some((url) => url.includes(grimoProject.id))).toBe(false);
 });

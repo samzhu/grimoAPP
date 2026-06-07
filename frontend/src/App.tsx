@@ -27,7 +27,9 @@ import { AssistantChat } from "./features/task-forming-chat/AssistantChat";
 import { Workflow } from "./features/workflow/Workflow";
 
 type ProjectBootstrapStatus = "loading" | "ready" | "error";
-type ProjectGateReason = "first-run" | "closed" | "missing-session" | "no-context";
+type ProjectGateReason = "first-run" | "missing-session" | "no-context";
+const PROJECT_CREATE_GATE_MESSAGE =
+  "把本機 repo 變成 Grimo Project，之後 Task、Chat、執行紀錄和審查證據都會歸在同一個工作台。";
 
 export function App() {
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
@@ -37,7 +39,7 @@ export function App() {
     useState<ProjectBootstrapStatus>("loading");
   const [projectGateReason, setProjectGateReason] = useState<ProjectGateReason>("first-run");
   const [projectGateMessage, setProjectGateMessage] = useState(
-    "Project 會讓 Task 工作台有真實 repo / codebase context。",
+    PROJECT_CREATE_GATE_MESSAGE,
   );
   const [projectViewMode, setProjectViewMode] = useState<"list" | "create">("list");
   const [taskLoadError, setTaskLoadError] = useState("");
@@ -50,7 +52,7 @@ export function App() {
     setCurrentProject(project);
     saveOpenProjectSession(project.id);
     setProjectGateReason("no-context");
-    setProjectGateMessage("Project 會讓 Task 工作台有真實 repo / codebase context。");
+    setProjectGateMessage(PROJECT_CREATE_GATE_MESSAGE);
     dispatch({ type: "view.selected", view: "tasks" });
   }, []);
 
@@ -68,18 +70,24 @@ export function App() {
           setCurrentProject(null);
           setProjectTasks([]);
           setProjectGateReason("first-run");
-          setProjectGateMessage(
-            "Project 會讓 Task 工作台有真實 repo / codebase context。",
-          );
+          setProjectGateMessage(PROJECT_CREATE_GATE_MESSAGE);
           return;
         }
 
         const session = readProjectSession();
-        if (session.isClosed || !session.lastActiveProjectId) {
+        if (session.isClosed) {
           setCurrentProject(null);
           setProjectTasks([]);
-          setProjectGateReason(session.isClosed ? "closed" : "missing-session");
-          setProjectGateMessage("Project 會決定 Task 的工作流、角色和品質基準。");
+          setProjectViewMode("list");
+          dispatch({ type: "view.selected", view: "projects" });
+          return;
+        }
+
+        if (!session.lastActiveProjectId) {
+          setCurrentProject(null);
+          setProjectTasks([]);
+          setProjectGateReason("missing-session");
+          setProjectGateMessage(PROJECT_CREATE_GATE_MESSAGE);
           return;
         }
 
@@ -95,7 +103,7 @@ export function App() {
         setProjectTasks([]);
         setProjectGateReason("missing-session");
         setProjectGateMessage(
-          "上次開啟的 Project 已不存在或無法載入，請選擇 Project。",
+          "上次開啟的 Project 已不存在或無法載入。你可以建立新 Project。",
         );
       })
       .catch((caught: unknown) => {
@@ -179,9 +187,10 @@ export function App() {
     setCurrentProject(null);
     setProjectTasks([]);
     setTaskLoadError("");
-    setProjectGateReason("closed");
-    setProjectGateMessage("Project 會決定 Task 的工作流、角色和品質基準。");
-    dispatch({ type: "view.selected", view: "tasks" });
+    setProjectGateReason("missing-session");
+    setProjectGateMessage(PROJECT_CREATE_GATE_MESSAGE);
+    setProjectViewMode("list");
+    dispatch({ type: "view.selected", view: "projects" });
   };
   const submitTask = async (input: CreateTaskInput) => {
     if (!currentProject) {
@@ -195,10 +204,8 @@ export function App() {
     (!currentProject && !["projects", "workflow"].includes(workbench.view));
   const projectGate = (
     <ProjectSelectionGate
-      projects={projects}
       reason={projectGateReason}
       message={projectGateMessage}
-      onSelectProject={selectProject}
       onCreateProject={startProjectCreation}
       onRetry={projectBootstrapStatus === "error" ? bootstrapProjects : undefined}
     />

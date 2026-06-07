@@ -55,16 +55,17 @@ Grimo 的前端設計工作需要留下可延續的脈絡。當需求、browser 
 
 **目的：** App 第一次載入時，必須先建立真實 Project context，才顯示 Task、待處理、Chat 等工作區。
 
-**S011 Design Read：** 這是本地開發工作台的 first-run / no-context setup surface，不是 SaaS landing page。設計語言採 premium utilitarian minimalism：左對齊、短文案、平面淺色、少裝飾、單一主要行動；existing Projects 狀態把 Project card selection 當主要路徑，`建立 Project` 降為次要 action。
+**S011 Design Read：** 這是本地開發工作台的 Project context setup surface，不是 SaaS landing page。設計語言採 premium utilitarian minimalism：平面淺色、克制邊框、清楚的工作入口；first-run 用 assistant-ui 啟發的 `Project Setup Copilot` 引導建立 Project，closed session 則直接進 `專案管理` 列表。
 
 **討論用詞：**
 
 - `App Header` 是 app chrome：放全域入口、品牌和目前 Project 狀態。它回答「我現在在哪個 Project context 裡」，不承擔 first-run 教學或主要建立流程。S011 target class 是 `.app-header`，legacy class 是 `.topbar`。
 - `Side Navigation` 是主要頁面導覽，程式上是 `Navigation`。它只負責切換 page view，不是頁面內容本身；未固定時浮在主畫面上方，固定後才佔左側欄位。S011 target class 是 `.side-navigation`，legacy class 是 `.rail`。
 - `Main Content Area` 是 App Header 下方的主要工作區。它承載目前頁面的主要內容，例如 Task Workbench、Project list、Chat，或第一次使用時的建立引導。S011 target class 是 `.main-content-area`，legacy class 是 `.main-surface`。
-- `Project Selection Gate` 是 Main Content Area 裡的 no-active-Project 狀態頁。沒有 active Project 時，使用者應該在這裡建立或選擇 Project，而不是在 App Header 裡完成 onboarding。
-- `Project Setup Hero`（Project 建立引導主視覺）是 `Project Selection Gate` 裡的大主視覺區塊。它承載 `建立第一個 Project` 這類 heading、說明文案和單一 primary action；它不是整個 gate，也不是 App Header。
-- 第一次使用時的 `建立第一個 Project` 是 `Project Setup Hero` 的 first-run 文案變體：它可以使用主畫面最大可用區塊做引導，並保留單一主要操作。App Header 同時只顯示 `目前專案 / 尚未開啟 Project` 作為狀態。
+- `Project Selection Gate` 是 Main Content Area 裡的 no-active-Project 狀態頁。first-run 或 missing session 會用它引導建立 Project；closed session 不使用 gate，而是進 `專案管理`。
+- `Project Setup Copilot` 是 `Project Selection Gate` 裡的 first-run / missing-session 建立引導。它不是完整 Chat，而是參考 assistant-ui thread/composer/suggestions 的 setup surface，用來說明 repo、workflow、Task context 如何進入 Project。
+- `Project Setup Error` 是 `Project Selection Gate` 裡的 error 狀態，顯示 `無法載入 Project context` 和 `重試`。
+- `Project Picker` 是已停用的 no-active-Project 方案。既有 Project 管理留在 `專案` 頁；有 active Project 時，App Header 的 `ProjectSwitcher` 才負責切換 Project。
 - `Task Details Pane` 不是 menu item；它是 `Task 管理` 裡選到 Task 後打開的 nested surface。固定在右側時叫 pane，浮出覆蓋時叫 `Task Details Drawer`；完整頁面另稱 full Task detail page。
 - `Chat` 是 page view，也是 Task 的完整討論入口。從 Task card、待處理卡片或 detail 進入 Chat 時，會帶著目前 selected Task；沒有 selected Task 時，Chat 是形成新 Task 的討論入口。
 
@@ -97,7 +98,8 @@ flowchart LR
   RAIL --> WORKFLOW["Workflow"]
 
   MAIN --> GATE["Project Selection Gate"]
-  GATE --> SETUP_HERO["Project Setup Hero：建立引導主視覺"]
+  GATE --> SETUP_COPILOT["Project Setup Copilot：first-run 建立引導"]
+  GATE --> SETUP_ERROR["Project Setup Error：載入失敗重試"]
   MAIN --> TASKS_PAGE["Task Workbench"]
   MAIN --> ATTENTION_PAGE["Attention Queue"]
   MAIN --> PROJECTS_PAGE["Projects List / Create"]
@@ -131,22 +133,34 @@ flowchart LR
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-`Project Selection Gate` 內部的 first-run 版面：
+`Project Selection Gate` 內部的 first-run / missing-session 版面：
 
 ```text
 main.main-content-area
 └─ section.project-selection-gate
-   └─ Project Setup Hero（Project 建立引導主視覺）
-      ├─ heading: 建立第一個 Project
-      ├─ body: Project 會讓 Task 工作台有真實 repo / codebase context。
-      └─ primary action: 建立 Project
+   └─ Project Setup Copilot（assistant-ui style 建立入口）
+      ├─ eyebrow: 新手引導 / 尚未開啟 Project
+      ├─ heading: 建立 Project 工作台
+      ├─ primary action: 建立新 Project
+      ├─ setup thread preview: Project Setup Copilot / suggestion buttons / composer preview
+      └─ setup steps: 選擇本機 repo / 套用 Project workflow / 開始形成 Task
+```
+
+`closed session` 的入口版面：
+
+```text
+main.main-content-area
+└─ section.projects-view
+   ├─ heading: 專案管理
+   ├─ action: 新增專案
+   └─ existing Project rows
 ```
 
 **有無 active Project 的頁面行為：**
 
 | 選單項目 | 有 active Project 時 | 沒有 active Project 時 |
 | --- | --- | --- |
-| `Task 管理` | 顯示 Task Workbench、待處理焦點、Kanban/list、Task Detail、`新增 Task`。 | 顯示 Project Selection Gate，引導建立或選擇 Project。 |
+| `Task 管理` | 顯示 Task Workbench、待處理焦點、Kanban/list、Task Detail、`新增 Task`。 | first-run / missing-session 顯示 Project Selection Gate；closed session 首頁先進 `專案管理`。 |
 | `待處理` | 顯示 `REVIEW` / `BLOCKED` 人工處理 queue，可回到 Chat。 | 顯示 Project Selection Gate，避免看見沒有 Project context 的假 attention list。 |
 | `專案` | 顯示 Project list / create，可建立、管理、切換 Project。 | 仍可進入 Project list / create，因為這是建立 Project context 的地方。 |
 | `Chat` | 顯示目前 selected Task 的 Task Chat；沒有 selected Task 時，可作為形成新 Task 的討論入口。 | 顯示 Project Selection Gate，避免開啟沒有 Project context 的 generic blank Chat。 |
@@ -160,19 +174,22 @@ main.main-content-area
 | App Header | `.app-header`, `ProjectSwitcher` | 顯示品牌、menu button、目前 Project 狀態與 Project switcher。 | 不做 first-run onboarding，不放主要頁面內容。 |
 | Side Navigation | `Navigation`, `.side-navigation` | 切換 `tasks / blockers / projects / chat / workflow` page view。 | 不決定 Project 是否有效，不承載頁面內容。 |
 | Main Content Area | `main.main-content-area` | 顯示目前 page view 的主要內容，或顯示 Project Selection Gate。 | 不放全域品牌或 app chrome。 |
-| Project Selection Gate | `ProjectSelectionGate`, `.project-selection-gate` | 沒有可用 Project context 時，引導建立或選擇 Project。 | 不顯示 fixture tasks、不假裝已有 Project。 |
-| Project Setup Hero | `ProjectSelectionGate` 內的 hero 區塊 | 在 gate 裡用最大主視覺區塊說明為什麼要建立 Project，並提供單一 primary action。 | 不負責 Project list、不負責 App Header 狀態、不承載後續 Task 工作台。 |
+| Project Selection Gate | `ProjectSelectionGate`, `.project-selection-gate` | first-run / missing-session 時建立 Project context；載入失敗時重試。 | 不顯示 fixture tasks、不假裝已有 Project、不列既有 Project。 |
+| Project Setup Copilot | `ProjectSelectionGate`, `.project-setup-copilot` | 用 assistant-ui 風格的 setup thread、suggestions、composer preview 協助使用者進入建立 Project。 | 不保存真實 Chat history，不取代 `Projects` create form，不列 existing Projects。 |
+| Project Setup Error | `ProjectSelectionGate`, `.project-setup-error` | Project list API 失敗時顯示問題與 `重試`。 | 不顯示 first-run onboarding。 |
+| Project Picker | historical `.project-picker` | 已停用的 no-active-Project 選擇方案，只保留在歷史紀錄和舊 snapshot 說明。 | 不得重新出現在 `ProjectSelectionGate` current DOM。 |
 | Task Workbench | `TaskWorkbench` | 管理 Task list、focus tray、Task Detail、create dialog。 | 不保存完整 Chat history。 |
 | Task Details Pane / Drawer | `TaskDetail`, `.task-details-pane` | 顯示 selected Task 的摘要、品質、evidence 和操作。 | 不取代 full Task detail page，也不取代 Chat。 |
 | Chat | `AssistantChat` | 顯示 Task thread 或形成新 Task 的討論入口。 | 不取代 Task board，也不直接顯示所有 review evidence。 |
 
 **目前版面決策：**
 
-- 第一次使用且沒有任何 Project 時，`Project Selection Gate` 內顯示 `Project Setup Hero`；hero heading 是 `建立第一個 Project`，並只保留一個主要操作 `建立 Project`。
-- 已有 Project 但沒有開啟中的 session 時，主工作區顯示 `選擇或建立 Project`；選擇 Project card 是主要操作，`建立 Project` 是次要操作。
-- `lastActiveProjectId` 過期時，停在選擇門檻並顯示 `上次開啟的 Project 已不存在或無法載入，請選擇 Project。`；app 不可以偷偷改選另一個 Project。
+- 第一次啟動且沒有 Project 時，`Project Selection Gate` 顯示 `Project Setup Copilot`；heading 是 `建立 Project 工作台`，主要操作是 `建立新 Project`，suggestion / composer preview 也導向建立 Project。
+- 已有 Project 且 session 是 closed 時，App 首頁直接顯示 `專案管理` 列表，讓使用者 reopen / manage Project；不顯示 Project Selection Gate。
+- 已有 Project 但沒有開啟中的 session 時，主工作區仍顯示 Project Setup Copilot；既有 Project 的查看、管理、後續切換留在 `專案` 頁和 active Project 時的 App Header `ProjectSwitcher`。
+- `lastActiveProjectId` 過期時，停在建立門檻並顯示 `上次開啟的 Project 已不存在或無法載入。你可以建立新 Project。`；app 不可以偷偷改選另一個 Project。
 - 有 active Project 時，App Header 的 Project context 是 Project Switcher。它列出 Projects，並提供 `新增 Project`、`管理 Projects`、`Close Project`。
-- `Close Project` 是前端 session 指令：它寫入 `isClosed=true`，從 UI 清掉 active Project，但不刪除後端 Project 資料。
+- `Close Project` 是前端 session 指令：它寫入 `isClosed=true`，從 UI 清掉 active Project，但不刪除後端 Project 資料；關閉後立刻回到 `專案管理`。
 - Task 管理、待處理、Chat 都必須受 Project gate 控制。沒有 active Project 時，這些頁面顯示 Project Selection Gate，不顯示 fixture tasks、attention cards 或 generic blank Chat。
 - 專案和 Workflow 是例外：沒有 active Project 時仍可開啟，因為專案頁負責建立 Project context，Workflow 頁負責說明可選 workflow recipe。
 
@@ -190,20 +207,64 @@ main.main-content-area
 
 - Current DOM selectors 使用 `.app-header`、`.app-header-menu`、`.side-navigation`、`.main-content-area`、`.task-details-pane`；`.topbar`、`.rail`、`.main-surface`、`.detail-pane` 只允許出現在 deprecated mapping 或 historical evidence。
 - Current design tokens 使用 `appHeader.height`、`sideNavigation.width`、`sideNavigation.control`、`taskDetailsDrawer.width`；`topbar.*`、`rail.*`、`detailDrawer.*` 只作為 deprecated references。
-- `ProjectSetupHero` 是 `ProjectSelectionGate` 內的真實 DOM / feature-local component，selector 是 `.project-setup-hero`。
-- First-run empty 使用 `建立第一個 Project` + primary `建立 Project`；existing Projects 使用 `選擇或建立 Project`，Project cards 是主要行動，`建立 Project` 是 secondary action。
-- Project list 載入失敗使用 error hero：heading `無法載入 Project context`、button `重試`，不得沿用 first-run heading。
+- `ProjectSetupCopilot` 是 `ProjectSelectionGate` 內的 first-run / missing-session component，selector 是 `.project-setup-copilot`。
+- `ProjectSetupError` 是 `ProjectSelectionGate` 內的 error component，selector 是 `.project-setup-error`。
+- `ProjectPicker` / `.project-picker` 是已停用 selector；current `ProjectSelectionGate` 不應輸出它。
+- First-run 使用 `新手引導` + `建立 Project 工作台` + primary `建立新 Project`，且不顯示 Project picker/list 或既有 Project rows。
+- Project list 載入失敗使用 error setup panel：heading `無法載入 Project context`、button `重試`，不得沿用 first-run heading。
 - S011 必須有自己的 `AC-S011-*` Playwright assertions；S010 startup tests 保留為 shipped regression，不拿來替代 S011 evidence。
-- S011 hero 文案要短、可掃描、能說明資料出現後會有什麼；error hero 要用直接白話說明問題與 recovery，不得重用 first-run 文案。
-- Mobile Project card 用單欄資訊排列，避免 repo path 在窄欄內被切成難讀碎片。
+- No-active Project 文案要短、可掃描，讓 setup 像任務管理工具的工作入口，不像 onboarding landing page。
+- 既有 Project rows 不出現在 `ProjectSelectionGate`；窄版不需要為 no-active gate 設計 Project card。
 
 **2026-06-07 S011 implementation / evidence update：**
 
 - **設計研究：** S011 對照 Carbon Empty States / Global Header、Microsoft NavigationView、Atlassian Designing Messages、Material Layout、Telerik Design Tokens 和 Claude Code memory docs 後，維持「Main Content Area 內的 Project Setup Hero」方案。
 - **文件索引：** 新增 `docs/grimo/design/README.md` 作前端設計索引；`CLAUDE.md` 只 import `AGENTS.md` 並指向該索引；`AGENTS.md` 的 Workflow Artifacts 列出 frontend design docs。
-- **程式/selector：** Current selectors 是 `.app-header`、`.app-header-menu`、`.side-navigation`、`.main-content-area`、`.task-details-pane`、`.project-setup-hero`。
+- **Historical 程式/selector：** 當時 selectors 是 `.app-header`、`.app-header-menu`、`.side-navigation`、`.main-content-area`、`.task-details-pane`、`.project-setup-hero`；後續 layout redesign 已改成 `.project-setup-panel` / `.project-picker`。
 - **視覺基準：** 更新 4 張 Project selection gate snapshots：`desktop-1366`、`desktop-1440`、`mobile-390`、`tablet-820`。變更原因是 first-run/existing Project gate 從小 section head 升級為 Main Content Area hero，且 mobile Project card 改單欄。
 - **驗證：** `npm --prefix frontend run build` 通過；`npx playwright test project-startup.ui.spec.ts --update-snapshots=changed` 通過 21/21；`npm --prefix frontend run test:visual` 通過 40/40；`python3 scripts/visual-snapshot-summary.py --repo-root .` 顯示 changed snapshots 只有上述 4 張。
+
+**2026-06-07 S011 browser comment follow-up（superseded by layout redesign）：**
+
+- **User evidence：** in-app Browser comment on `Project list` at `http://localhost:5173/` asked「看不懂這下半部區塊在幹麻?」；selected element was `.project-selection-list` under `ProjectSelectionGate`.
+- **Decision：** Existing Projects state now wraps the cards in `.project-selection-existing` with heading `選擇現有 Project` and copy `回到已建立 Project 的 Task 工作台。`；hero height is shorter in `.project-selection-gate.has-projects` so the hero and existing list read as one setup flow.
+- **Rejected alternative：** Only changing card border/spacing was rejected because the problem was semantic: the list lacked a visible purpose, not visual weight.
+- **Verification：** `npm --prefix frontend run build` passed; `npm --prefix frontend run test:visual:update` regenerated only the 4 Project selection gate snapshots before final visual verification.
+
+**2026-06-07 S011 layout redesign after task-management research：**
+
+- **User evidence：** after seeing the labeled list, user said「整個 layout 不對」and asked to research task management services before redesigning.
+- **Research synthesis：** Jira / Linear / Asana / ClickUp / GitHub Projects treat project/workspace as context selection and keep the main surface focused on list / board / inbox / detail preview. Existing Projects state should therefore be a compact picker, not a large setup hero.
+- **Decision：** Existing Projects state renders `.project-picker` with heading `選擇 Project`, status `目前沒有開啟 Project`, secondary `建立 Project`, and dense Project rows with Project / Repo / Workflow columns.
+- **Decision：** First-run and error states render `.project-setup-panel`; first-run may guide creation, but it remains compact and does not consume the page like a marketing hero.
+- **Rejected alternative：** Keeping the S011 hero and only improving labels/spacing was rejected because it preserves the wrong information hierarchy.
+- **Verification：** `npm --prefix frontend run build` passed; `npm --prefix frontend run test:visual:update` regenerated the 4 Project selection gate snapshots; `npm --prefix frontend run test:visual` passed 40/40.
+
+**2026-06-07 first-run onboarding clarification（superseded by create-only correction）：**
+
+- **User evidence：** user clarified「進入主畫面 當沒有任何專案 應該要有像是新手引導 建立新專案，不用呈現專案列表」。
+- **Decision：** When `GET /api/projects` returns empty, `ProjectSelectionGate` renders only `.project-setup-panel.empty` with `新手引導`, `建立第一個 Project`, and `建立新 Project`; `.project-picker` and `.project-selection-card` must be absent.
+- **Decision：** Existing Projects state remains `.project-picker`; this clarification only changes the no-projects first-run state.
+
+**2026-06-07 no-active Project create-only correction（superseded by Project Setup Copilot）：**
+
+- **User evidence：** user reviewed Edge at `127.0.0.1:5173/` and said「長這樣不好看 應該只要顯示建立新專案」 after seeing `S011 Chrome Smoke` listed under the no-active Project main surface.
+- **Research sources：** Linear projects can be created from a workspace/team project view with a `+` and then open a prompt; Linear keeps project browsing in Projects pages with list/board/timeline views（https://linear.app/docs/projects）. Jira exposes `Create project` from Projects navigation and frames project structure around team / business unit / product choices（https://www.atlassian.com/software/jira/guides/projects/tutorials）. ClickUp creates Spaces from sidebars / All Spaces and then moves through name, details, workflow, and view choices（https://help.clickup.com/hc/en-us/articles/6309390855319-Create-and-edit-Spaces）. Asana creation starts from Quick add and then asks whether to create a blank project, use a template, or import（https://help.asana.com/s/article/understanding-projects）. Atlassian Empty State guidance says an empty state should describe the next action（https://atlassian.design/components/empty-state/）.
+- **Research synthesis：** Competitors separate creation, browsing, and active context switching. A no-active main surface should make the next action obvious; it should not render a project table unless the screen is explicitly a Projects management page.
+- **Decision：** `ProjectSelectionGate` now always renders `.project-setup-panel` for no-active Project states, even when `GET /api/projects` returns existing Projects. The heading and primary action are both `建立新 Project`; `.project-picker` and `.project-selection-card` must be absent.
+- **Visual direction：** The setup panel is an unframed, left-aligned command surface centered in the Main Content Area: thin top divider, short body copy, black primary CTA, no cards, no gradients, no Project rows.
+- **Decision：** Closed sessions and missing sessions keep `尚未開啟 Project` in App Header and do not auto-select another Project. Existing Project access stays in the `專案` page and, after a Project is active, the App Header `ProjectSwitcher`.
+- **Supersedes：** This replaces the earlier 2026-06-07 layout redesign decision that made existing Projects state a compact `.project-picker`.
+- **Verification：** `npm --prefix frontend run build` passed; `npx playwright test project-startup.ui.spec.ts --update-snapshots=changed` passed 21/21 and updated 4 Project selection gate snapshots; `npm --prefix frontend run test:visual` passed 40/40. `npm --prefix frontend run test:fullstack -- project-startup.fullstack.spec.ts` did not start because `http://127.0.0.1:8080/api/workflow-recipes` was already in use and fullstack config has `reuseExistingServer:false`.
+
+**2026-06-07 Project session state and assistant-ui setup correction：**
+
+- **User evidence：** user set the goal that first launch with no Project enters a lead-in page, open Project sessions restore directly, closed Project sessions enter the Project list, and the lead-in page must stop looking ugly. User also asked to research assistant-ui examples.
+- **Research sources：** assistant-ui Thread UI documents welcome / empty state, suggestions, composer, scroll behavior, and message actions（https://www.assistant-ui.com/docs/ui/thread）. The assistant-ui architecture separates UI components, runtime, and state（https://www.assistant-ui.com/docs/architecture）. The Form-Filling AI Copilot example pairs a form with an AI sidebar for guided data entry（https://www.assistant-ui.com/examples/form-demo）. The Generative UI example shows assistant-rendered interactive UI（https://www.assistant-ui.com/examples/generative-ui）.
+- **Decision：** `ProjectSelectionGate` first-run / missing-session state is now `.project-setup-copilot`, not a plain setup panel. It displays a left setup brief, a right assistant-style thread preview with suggestions and composer affordance, and a three-step capability strip.
+- **Decision：** `closed session` is no longer a Project Selection Gate state. App bootstrap and `Close Project` both route to `專案管理` with existing Project rows visible and no task API request.
+- **Decision：** `open session` still restores the matching Project and loads only that Project's task API.
+- **Verification：** `npm --prefix frontend run build` passed; `npx playwright test project-startup.ui.spec.ts --update-snapshots=changed` passed 21/21 and updated the 4 Project selection gate snapshots.
 
 ### Task 工作台（Task Workbench）
 
@@ -418,6 +479,22 @@ main.main-content-area
 - **驗證：** Playwright test `attention page baseline` 斷言 `優先處理`、不存在 `審查材料` / `查看缺口`，並顯示 `Chat`；snapshot `attention-page-chromium-darwin.png`。
 
 ## 5. Visual Gate 紀錄
+
+### 2026-06-07 — Project Setup Copilot And Closed Session Routing
+
+- **指令：** `npm --prefix frontend run build`、`npx playwright test project-startup.ui.spec.ts --update-snapshots=changed`、`npm --prefix frontend run test:visual`、`npm --prefix frontend run test:fullstack`、`scripts/verify-release.sh`
+- **結果：** build 通過；startup targeted suite 通過 21/21；完整 visual suite 通過 40/40；full-stack suite 通過 7/7；release gate PASS。
+- **截圖基準變更：** 更新 4 張 `project-selection-gate-*` snapshots：`desktop-1366`、`desktop-1440`、`mobile-390`、`tablet-820`。
+- **原因：** first-run 前導頁改成 assistant-ui 啟發的 `Project Setup Copilot`；closed session 改成直接進 `專案管理`，不再顯示前導頁。
+- **測試修正：** full-stack tests 使用 exact `專案` navigation selector，並在 startup create path 明確設定 missing-session localStorage，避免受同一 suite 前面建立的 Project 資料影響。
+
+### 2026-06-07 — No-Active Project Create-Only Gate（superseded）
+
+- **指令：** `npm --prefix frontend run build`、`npx playwright test project-startup.ui.spec.ts --update-snapshots=changed`、`npm --prefix frontend run test:visual`、`python3 scripts/visual-snapshot-summary.py --repo-root .`
+- **結果：** build 通過；startup targeted suite 通過 21/21；完整 visual suite 通過 40/40。
+- **截圖基準變更：** 更新 4 張 `project-selection-gate-*` snapshots：`desktop-1366`、`desktop-1440`、`mobile-390`、`tablet-820`。
+- **原因：** no-active Project 主畫面改成只顯示 `建立新 Project` 的 compact setup panel；既有 Project rows / picker 從 gate 移除。
+- **未執行項目：** `npm --prefix frontend run test:fullstack -- project-startup.fullstack.spec.ts` 被現有服務擋住，錯誤為 `http://127.0.0.1:8080/api/workflow-recipes is already used`；fullstack config 設定 `reuseExistingServer:false`，因此本次沒有殺掉既有服務。
 
 ### 2026-06-07 — S010 Project Startup Gate And Switcher
 

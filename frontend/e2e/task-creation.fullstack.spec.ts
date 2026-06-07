@@ -22,7 +22,7 @@ type TaskBody = {
 async function openProjectCreate(page: Page) {
   await page.goto("/");
   await page.getByRole("button", { name: "展開主選單" }).click();
-  await page.getByRole("button", { name: "專案" }).click();
+  await page.getByRole("button", { name: "專案", exact: true }).click();
   await expect(page.getByRole("heading", { name: "專案管理" })).toBeVisible();
   await page.getByRole("button", { name: "新增專案" }).click();
   await expect(page.getByRole("heading", { name: "新增專案", level: 1 })).toBeVisible();

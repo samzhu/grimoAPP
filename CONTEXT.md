@@ -16,6 +16,14 @@ _Avoid_: Project Workspace, folderPath, Task Worktree
 Grimo 為一個 Project 保存內部資料與證據的本機管理位置。
 _Avoid_: External repo, app-wide data folder, Workspace, projectDataPath API field
 
+**Project Context**:
+目前開啟並用來限定 Task、Chat、Workflow evidence 和審查資料歸屬的 Project。
+_Avoid_: Project list, first-run onboarding, global workspace
+
+**Close Project**:
+使用者清掉目前開啟 Project context 的動作；它不刪除 Project，也不刪除 Project Path 或 Project Home。
+_Avoid_: Delete Project, archive Project, remove repo
+
 **Task Worktree**:
 單一 Task 執行時使用的隔離工作目錄。
 _Avoid_: Project Path, Project, Workspace
@@ -76,6 +84,8 @@ _Avoid_: Permanent details pane, full Task page
 
 - A **Project** has one primary **Project Path** in MVP.
 - A **Project Home** belongs to exactly one **Project**.
+- A **Project Context** points to at most one currently open **Project**.
+- **Close Project** removes the active **Project Context** without deleting the **Project**.
 - A **Task** belongs to exactly one **Project**.
 - A **Task Worktree** belongs to one Task and is derived from a **Project Path** only when execution needs isolation.
 - A **Project** selects a **Workflow Definition**.
@@ -122,6 +132,9 @@ _Avoid_: Permanent details pane, full Task page
 >
 > **Dev:** "Should the first-run Project setup message go in the **App Header**?"
 > **Domain expert:** "No. The **App Header** shows global Project context; onboarding belongs in the **Main Content Area**."
+>
+> **Dev:** "Does **Close Project** delete the Project?"
+> **Domain expert:** "No. **Close Project** only clears the active **Project Context**; the next entry should show the Project list so the user can reopen or manage Projects."
 >
 > **Dev:** "Is the left menu a navigation rail?"
 > **Domain expert:** "No. It is **Side Navigation** because it expands with labels and switches page views."
