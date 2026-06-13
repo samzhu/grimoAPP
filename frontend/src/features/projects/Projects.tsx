@@ -1,9 +1,15 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import type { Project, WorkflowRecipe } from "../../domain/project/project-types";
+import type { LocalDirectoryListing, LocalDirectoryQuery, Project, WorkflowRecipe } from "../../domain/project/project-types";
 import { Metric } from "../../shared/ui/Metric";
 import { Panel } from "../../shared/ui/Panel";
-import { chooseNativeProjectPath, createProject, listProjects, listWorkflowRecipes } from "./project-api";
+import {
+  createLocalDirectory,
+  createProject,
+  listLocalDirectories,
+  listProjects,
+  listWorkflowRecipes,
+} from "./project-api";
 
 type ProjectsProps = {
   initialViewMode?: "list" | "create";
@@ -21,6 +27,28 @@ const emptyForm = {
 
 const defaultWorkflowRecipeId = "web-service-development";
 
+type FolderBrowserState = {
+  isOpen: boolean;
+  isLoading: boolean;
+  isCreatingFolder: boolean;
+  error: string;
+  listing: LocalDirectoryListing | null;
+  newFolderName: string;
+};
+
+const emptyFolderBrowser: FolderBrowserState = {
+  isOpen: false,
+  isLoading: false,
+  isCreatingFolder: false,
+  error: "",
+  listing: null,
+  newFolderName: "",
+};
+
+function isGrimoDefaultRoot(path: string) {
+  return path.replace(/\\/g, "/").endsWith("/.grimo/projects");
+}
+
 export function Projects({
   initialViewMode = "list",
   projects: appProjects,
@@ -34,8 +62,7 @@ export function Projects({
   const [isLoading, setIsLoading] = useState(!appProjects);
   const [isWorkflowLoading, setIsWorkflowLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isNativeDialogLoading, setIsNativeDialogLoading] = useState(false);
-  const [nativeDialogError, setNativeDialogError] = useState("");
+  const [folderBrowser, setFolderBrowser] = useState<FolderBrowserState>(emptyFolderBrowser);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -112,7 +139,7 @@ export function Projects({
   const startProjectCreation = () => {
     setError("");
     setMessage("");
-    setNativeDialogError("");
+    setFolderBrowser(emptyFolderBrowser);
     setViewMode("create");
   };
 
@@ -152,28 +179,193 @@ export function Projects({
     }
   };
 
-  const openNativeFolderDialog = async () => {
-    if (isNativeDialogLoading) {
+  const loadFolderListing = async (query: LocalDirectoryQuery = {}, keepOpen = true) => {
+    setFolderBrowser((current) => ({
+      ...current,
+      isOpen: keepOpen || current.isOpen,
+      isLoading: true,
+      error: "",
+    }));
+    try {
+      const listing = await listLocalDirectories(query);
+      setFolderBrowser((current) => ({
+        ...current,
+        isOpen: true,
+        isLoading: false,
+        error: "",
+        listing,
+      }));
+    } catch (caught) {
+      setFolderBrowser((current) => ({
+        ...current,
+        isOpen: true,
+        isLoading: false,
+        error: caught instanceof Error ? caught.message : "請選擇有效的本機資料夾",
+      }));
+    }
+  };
+
+  const openFolderBrowser = async () => {
+    if (folderBrowser.isLoading) {
       return;
     }
-    setNativeDialogError("");
-    setIsNativeDialogLoading(true);
-    try {
-      const currentProjectPath = form.projectPath.trim();
-      const result = await chooseNativeProjectPath({
-        ...(currentProjectPath ? { initialPath: currentProjectPath } : {}),
-        title: "選擇 Project 資料夾",
-      });
-      if (result.selected) {
-        setForm((current) => ({ ...current, projectPath: result.projectPath }));
-      }
-    } catch (caught) {
-      setNativeDialogError(
-        caught instanceof Error ? caught.message : "無法開啟系統資料夾選擇器，請手動貼上路徑",
-      );
-    } finally {
-      setIsNativeDialogLoading(false);
+    await loadFolderListing();
+  };
+
+  const closeFolderBrowser = () => {
+    setFolderBrowser(emptyFolderBrowser);
+  };
+
+  const useCurrentFolder = () => {
+    if (!folderBrowser.listing || isGrimoDefaultRoot(folderBrowser.listing.path)) {
+      return;
     }
+    setForm((current) => ({ ...current, projectPath: folderBrowser.listing?.path ?? current.projectPath }));
+    closeFolderBrowser();
+  };
+
+  const createFolderAndUse = async () => {
+    if (!folderBrowser.listing) {
+      return;
+    }
+    setFolderBrowser((current) => ({ ...current, isCreatingFolder: true, error: "" }));
+    try {
+      const directory = await createLocalDirectory({
+        parentPath: folderBrowser.listing.path,
+        name: folderBrowser.newFolderName,
+      });
+      setForm((current) => ({ ...current, projectPath: directory.path }));
+      closeFolderBrowser();
+    } catch (caught) {
+      setFolderBrowser((current) => ({
+        ...current,
+        isCreatingFolder: false,
+        error: caught instanceof Error ? caught.message : "無法建立資料夾",
+      }));
+    }
+  };
+
+  const selectDisabled = !folderBrowser.listing || isGrimoDefaultRoot(folderBrowser.listing.path);
+
+  const renderFolderBrowser = () => {
+    if (!folderBrowser.isOpen) {
+      return null;
+    }
+    return (
+      <div className="folder-browser-backdrop">
+        <section className="folder-browser-modal" role="dialog" aria-modal="true" aria-labelledby="folder-browser-title">
+          <header className="folder-browser-titlebar">
+            <div>
+              <h2 id="folder-browser-title">選擇 Project 資料夾</h2>
+              <p>目前位置</p>
+            </div>
+            <button className="icon-text-button" type="button" onClick={closeFolderBrowser}>
+              關閉
+            </button>
+          </header>
+          {folderBrowser.listing && <code className="folder-current-path">{folderBrowser.listing.path}</code>}
+          <div className="folder-browser-actions">
+            <button
+              className="icon-text-button"
+              type="button"
+              onClick={() => void loadFolderListing({ location: "home" })}
+            >
+              回家目錄
+            </button>
+            <button
+              className="icon-text-button"
+              type="button"
+              onClick={() => void loadFolderListing({ location: "default" })}
+            >
+              回 Grimo 預設位置
+            </button>
+            <button
+              className="icon-text-button"
+              type="button"
+              disabled={!folderBrowser.listing?.parentPath}
+              onClick={() => {
+                if (folderBrowser.listing?.parentPath) {
+                  void loadFolderListing({ path: folderBrowser.listing.parentPath });
+                }
+              }}
+            >
+              上層
+            </button>
+          </div>
+          {folderBrowser.isLoading && <p className="form-note">載入資料夾中...</p>}
+          {folderBrowser.error && <p className="form-message error">{folderBrowser.error}</p>}
+          {folderBrowser.listing && (
+            <>
+              <div className="folder-create-panel">
+                {folderBrowser.isCreatingFolder ? (
+                  <>
+                    <label>
+                      資料夾名稱
+                      <input
+                        name="newFolderName"
+                        value={folderBrowser.newFolderName}
+                        onChange={(event) =>
+                          setFolderBrowser((current) => ({ ...current, newFolderName: event.target.value }))
+                        }
+                      />
+                    </label>
+                    <div className="folder-browser-actions">
+                      <button className="primary-button" type="button" onClick={() => void createFolderAndUse()}>
+                        建立並使用
+                      </button>
+                      <button
+                        className="icon-text-button"
+                        type="button"
+                        onClick={() =>
+                          setFolderBrowser((current) => ({ ...current, isCreatingFolder: false, newFolderName: "" }))
+                        }
+                      >
+                        取消
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <button
+                    className="icon-text-button"
+                    type="button"
+                    onClick={() => setFolderBrowser((current) => ({ ...current, isCreatingFolder: true }))}
+                  >
+                    建立新資料夾
+                  </button>
+                )}
+              </div>
+              {folderBrowser.listing.directories.length === 0 ? (
+                <p className="form-note">
+                  {isGrimoDefaultRoot(folderBrowser.listing.path)
+                    ? "尚未有可選的專案資料夾"
+                    : "這個資料夾沒有可選的子資料夾"}
+                </p>
+              ) : (
+                <div className="directory-list">
+                  {folderBrowser.listing.directories.map((directory) => (
+                    <button
+                      className="directory-row"
+                      key={directory.path}
+                      type="button"
+                      onClick={() => void loadFolderListing({ path: directory.path })}
+                    >
+                      <span>{directory.name}</span>
+                      <code>{directory.path}</code>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+          <footer className="folder-browser-footer">
+            {selectDisabled && <p className="form-note">Grimo 預設位置只作為瀏覽起點；留空會由 Grimo 自動建立專案路徑。</p>}
+            <button className="primary-button" type="button" disabled={selectDisabled} onClick={useCurrentFolder}>
+              使用此資料夾
+            </button>
+          </footer>
+        </section>
+      </div>
+    );
   };
 
   return (
@@ -256,16 +448,14 @@ export function Projects({
                 <button
                   className="icon-text-button"
                   type="button"
-                  disabled={isNativeDialogLoading}
-                  onClick={() => void openNativeFolderDialog()}
+                  disabled={folderBrowser.isLoading}
+                  onClick={() => void openFolderBrowser()}
                 >
-                  {isNativeDialogLoading ? "開啟中..." : "選擇資料夾"}
+                  {folderBrowser.isLoading ? "載入中..." : "選擇資料夾"}
                 </button>
               </div>
             </div>
             <p className="form-note">未填會使用 Grimo 預設路徑</p>
-            {isNativeDialogLoading && <p className="form-note">正在開啟系統資料夾選擇器...</p>}
-            {nativeDialogError && <p className="form-message error">{nativeDialogError}</p>}
             <label>
               專案工作流
               <select
@@ -329,6 +519,7 @@ export function Projects({
         </Panel>
         )}
       </div>
+      {renderFolderBrowser()}
       {viewMode === "list" && message && <p className="form-message success">{message}</p>}
       {viewMode === "list" && error && <p className="form-message error">{error}</p>}
     </section>

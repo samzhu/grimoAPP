@@ -81,11 +81,11 @@ Project Creation Page 的歷史 compact 本機資料夾選取器；前端透過 
 _Avoid_: Browser-native `showDirectoryPicker()` as backend path source, directory upload, shell command execution, reading file contents, making Project creation require a selected directory
 
 **Project Path Folder Browser**:
-Project Creation Page 的 S014 主要資料夾選取方式；使用者按「選擇資料夾」後，Grimo 在 app 內打開類似檔案選擇器的 modal。資料來源仍由本機 Spring Boot 透過 `GET /api/local-directories` 讀 filesystem，預設從 `~/.grimo/projects/` 開始，並提供 `回家目錄` 與 `回 Grimo 預設位置`。使用者按「使用此資料夾」後，UI 只把 backend absolute path 填回 `projectPath` input。
+Project Creation Page 的 S014 主要資料夾選取方式；使用者按「選擇資料夾」後，Grimo 在 app 內打開類似檔案選擇器的 modal。資料來源仍由本機 Spring Boot 透過 `GET /api/local-directories` 讀 filesystem，預設從 `~/.grimo/projects/` 開始，並提供 `回家目錄`、`回 Grimo 預設位置` 與 `建立新資料夾`。使用者按「使用此資料夾」或建立新資料夾成功後，UI 只把 backend absolute path 填回 `projectPath` input。
 _Avoid_: Browser-only `showDirectoryPicker()` as path source, Swing/JFileChooser as primary UX, reading file contents, shell command execution, persisting browser handles
 
 **Native Folder Dialog Bridge**:
-Project Creation Page 的 S013 本機資料夾選取橋接；使用者按「選擇資料夾」後，local backend 開啟 OS folder chooser，使用者看到 Finder / Explorer / portal 對話框。S014 起這不是 primary UX，也不是 folder browser 失敗時的 fallback；若保留，只能作為 shipped history 或非 UI 內部程式碼，且仍不得讀檔、執行 shell、建立 Project 或改變 `POST /api/projects` contract。
+Project Creation Page 的 S013 本機資料夾選取橋接；使用者按「選擇資料夾」後，local backend 開啟 OS folder chooser，使用者看到 Finder / Explorer / portal 對話框。S014 起這不是 primary UX，也不是 folder browser 失敗時的 fallback；production bridge 已移除，只保留為 shipped history，不得重新成為 `POST /api/projects` 之外的 path contract。
 _Avoid_: Treating browser `FileSystemDirectoryHandle` as a backend path, requiring Electron/Tauri before MVP, reading file contents, executing shell commands, persisting dialog selections
 
 **Task Worktree**:

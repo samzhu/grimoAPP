@@ -1,11 +1,7 @@
 package io.github.samzhu.grimo;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.SpringApplication;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.util.ReflectionTestUtils;
 
 /**
  * ADR-001 的 Spring Boot context smoke test：確認 backend 能用 MVP SQLite
@@ -25,13 +21,6 @@ class GrimoApplicationTests {
 
 	@Test
 	void contextLoads() {
-	}
-
-	@Test
-	void nativeFolderDialogCanUseAwtWhenApplicationStarts() {
-		SpringApplication application = GrimoApplication.grimoApplication();
-
-		assertThat(ReflectionTestUtils.getField(application, "headless")).isEqualTo(false);
 	}
 
 }

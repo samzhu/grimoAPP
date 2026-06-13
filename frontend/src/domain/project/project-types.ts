@@ -60,19 +60,14 @@ export type LocalDirectoryListing = {
   directories: LocalDirectoryEntry[];
 };
 
-export type NativeFolderDialogRequest = {
-  initialPath?: string;
-  title?: string;
-};
+export type LocalDirectoryQuery =
+  | { path?: string; location?: never }
+  | { location?: "home" | "default"; path?: never };
 
-export type NativeFolderDialogResponse =
-  | {
-      selected: true;
-      projectPath: string;
-    }
-  | {
-      selected: false;
-    };
+export type LocalDirectoryCreateRequest = {
+  parentPath: string;
+  name: string;
+};
 
 export type CollectionResponse<T> = {
   content: T[];

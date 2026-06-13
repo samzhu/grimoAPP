@@ -363,11 +363,13 @@ main.main-content-area
 - S012 T01 已驗證 compact Local Directory Picker 可行，但使用者回饋 backend directory tree 會讓操作變複雜、看不懂系統資料夾；S012 已由 S013 supersede，不再作為 active Project Path UX。
 - Browser-native `showDirectoryPicker()` POC 顯示 Chromium/localhost 可開 OS-like chooser，但回傳 browser handle，不 expose backend absolute path；不能直接作為 `projectPath` source。
 - S013 的 OS folder chooser first 已被 S014 設計取代為 Project Path Folder Browser：前端按 `選擇資料夾` 後打開 Grimo modal，local backend 透過 `GET /api/local-directories` 回目前 path、上層與可讀子資料夾；預設起點是 `~/.grimo/projects/`，並提供 `回家目錄` 與 `回 Grimo 預設位置` 兩個 Finder-like shortcut。
+- Project Path Folder Browser 要支援 `建立新資料夾`：使用者輸入資料夾名稱後，Grimo 在目前位置建立 child directory，成功後直接把新資料夾 absolute path 回填到 `projectPath` input 並關閉 modal；Project 仍只由頁面上的 `建立專案` submit。
 - Manual path entry、歷史 Local Directory Picker、Native Folder Dialog Bridge、Project Path Folder Browser 都必須共用同一個 `projectPath` contract；不新增 `projectPathSource`、`browserProjectPathKey` 或其他 source/readiness 欄位。
 - Project Path Folder Browser 的 cancel/關閉是 no-op，不清空 Project Creation form；directory API error 只顯示在 modal 內，manual `projectPath` input 維持可編輯。
 - Full-stack automation 應使用 real `GET /api/local-directories` + real `POST /api/projects` 驗證 selected path；不再 mock native dialog endpoint 作為 primary UX evidence。
 - Drag-and-drop folder import 不屬於 S003 main flow。它太隱晦，而且和 browser handles 一樣無法取得 absolute path。
 - Project Creation 不應該在 form 下方顯示很長的 backend-generated directory browser；S014 folder browser 必須是可關閉的 modal / bounded overlay，不把 create form 拉成長清單。
+- S014 folder browser modal 的 disabled action 必須在視覺上明確：default root 不能被選成 Project Path，因此 `使用此資料夾` 要呈現灰階 disabled，不可保留 primary green 外觀。
 - `新增專案` 表單資訊層級仍應改善：桌面版整理成主表單 + compact workflow/roles preview；手機版維持單欄。S014 只規劃 folder browser primary UX；更大的 form polish 若超出 picker 可另開 spec。
 
 **響應式行為：**
@@ -375,6 +377,7 @@ main.main-content-area
 - 桌面版 和 手機版 使用同一套 list/create mode split。
 - Create view 在桌面版可使用兩個 zone：左側填表，右側顯示 compact workflow/roles preview；project path input state 必須保持 compact，不要把 workflow roles 推到 fold 下方很遠。
 - Create view 在手機版堆疊 form fields、path picker、workflow preview、roles preview；文字不可溢出或互相重疊。
+- S014 folder browser modal 在 `1366x768`、`1440x900`、`820x1180`、`390x844` 都維持 bounded overlay；長路徑使用 wrapping，不讓 directory rows、建立資料夾 input、footer actions 互相重疊。
 
 **元件備註：**
 
@@ -623,6 +626,13 @@ main.main-content-area
 - **決策：** 接受
 - **結果：** 桌面版 `.toolbar` 不再換行；手機版 保持 stacked controls。
 - **驗證：** `npm run build`、`npm run test:visual`。
+
+### 2026-06-13 — S014 Project Path Folder Browser Visual Gate
+
+- **決策：** Project Path Folder Browser 使用 bounded modal overlay；長 path、directory rows、建立資料夾 panel 和 footer actions 在 desktop/tablet/mobile 都要留在 modal 內，不把 Project Creation Page 拉成長清單。
+- **結果：** 新增 `AC-S014-8` visual gate，覆蓋 `desktop-1366`、`desktop-1440`、`tablet-820`、`mobile-390`。default root 的 `使用此資料夾` 與 page-level disabled `建立專案` 使用灰階 disabled 外觀，不再保留 primary green。
+- **驗證：** `npm run build`；`npm run test:visual -- project-management.ui.spec.ts --grep "AC-S014-8"` 先因新 snapshot 不存在紅燈；檢查 actual screenshots 後用 `npx playwright test project-management.ui.spec.ts --grep "AC-S014-8" --update-snapshots=all` 新增 baseline；最後 `npm run test:visual -- project-management.ui.spec.ts --grep "AC-S014-8"` 通過。
+- **截圖基準變更：** 新增 `frontend/e2e/project-management.ui.spec.ts-snapshots/project-folder-browser-desktop-1366-chromium-darwin.png`、`project-folder-browser-desktop-1440-chromium-darwin.png`、`project-folder-browser-tablet-820-chromium-darwin.png`、`project-folder-browser-mobile-390-chromium-darwin.png`。
 
 ### 2026-05-28 — 手機版 Task 版面
 

@@ -1,6 +1,6 @@
 # ADR-005: Project Path Folder Browser
 
-**Status:** Accepted for S014 target design
+**Status:** Accepted and implemented for S014
 **Date:** 2026-06-13
 **Spec:** `docs/grimo/specs/2026-06-12-S014-project-path-folder-browser.md`
 
@@ -18,6 +18,7 @@ Use a backend-backed Grimo Project Path Folder Browser for S014:
 - Frontend calls `GET /api/local-directories` to browse local filesystem directories.
 - A request without `path` starts at `~/.grimo/projects/` and creates that root if missing.
 - The modal provides Finder-like shortcuts for `回家目錄` and `回 Grimo 預設位置`, implemented as `location=home|default`; it does not add a modal path-jump text input.
+- The modal lets users create a new child folder by entering a folder name; successful creation immediately selects that new folder as the `projectPath`.
 - `~/.grimo/projects/` is only the Grimo-managed browsing root, not a selectable Project Path. If the user wants Grimo-managed storage, they leave `projectPath` blank and `POST /api/projects` creates `~/.grimo/projects/<projectId>`.
 - Selecting a folder only fills the existing `projectPath` input. Project creation still happens only through page-level `POST /api/projects`.
 - `POST /api/projects` remains unchanged and still receives only `projectPath`.
@@ -25,14 +26,14 @@ Use a backend-backed Grimo Project Path Folder Browser for S014:
 
 ## Consequences
 
-- S013 Native Folder Dialog Bridge is historical/current implementation code, not the future primary UX.
-- Frontend S014 implementation must not call `POST /api/native-folder-dialogs/project-path`, including after directory listing errors.
-- The folder browser lists immediate readable child directories only; it does not read file contents, execute shell commands, create Projects, write DB rows, persist dialog selections, or expose browser handles.
+- S013 Native Folder Dialog Bridge is shipped history; S014 removes the production bridge and frontend API wrapper.
+- Frontend S014 implementation must not call a native folder dialog endpoint, including after directory listing errors.
+- The folder browser lists immediate readable child directories only and can create one named child directory at the current location; it does not read file contents, execute shell commands, create Projects, write DB rows, persist dialog selections, or expose browser handles.
 - Browser `FileSystemDirectoryHandle` remains out of the backend `projectPath` contract.
 - Electron and Tauri remain future packaging candidates, not S014 MVP dependencies.
 
 ## Evidence
 
-- Planned backend evidence: `cd backend && ./gradlew test --tests '*LocalDirectoryApiTests'`
-- Planned frontend evidence: `npm --prefix frontend run test:visual -- project-management.ui.spec.ts --grep "AC-S014"`
-- Planned full-stack evidence: `npm --prefix frontend run test:fullstack -- project-onboarding.fullstack.spec.ts --grep "AC-S014"`
+- Backend evidence: `cd backend && ./gradlew test --tests '*LocalDirectoryApiTests'`
+- Frontend evidence: `npm --prefix frontend run test:visual -- project-management.ui.spec.ts --grep "AC-S014"`
+- Full-stack evidence: `npm --prefix frontend run test:fullstack -- project-onboarding.fullstack.spec.ts --grep "AC-S014"`

@@ -1009,6 +1009,17 @@ svg {
   transform: scale(0.98);
 }
 
+.primary-button:disabled,
+.send-button:disabled,
+.icon-text-button:disabled {
+  border-color: var(--border);
+  background: var(--surface-soft);
+  color: var(--muted);
+  cursor: not-allowed;
+  opacity: 1;
+  transform: none;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
@@ -1754,6 +1765,88 @@ textarea.task-body-input {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
   gap: 8px;
+}
+
+.folder-browser-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: color-mix(in oklch, var(--bg) 72%, transparent);
+  padding: 18px;
+}
+
+.folder-browser-modal {
+  display: grid;
+  gap: 12px;
+  width: min(100%, 680px);
+  max-height: min(720px, calc(100dvh - 36px));
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--fg);
+  padding: 16px;
+}
+
+.folder-browser-titlebar,
+.folder-browser-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+}
+
+.folder-browser-titlebar h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.folder-browser-titlebar p,
+.folder-browser-footer p {
+  margin: 3px 0 0;
+}
+
+.folder-current-path {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+  color: var(--muted);
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.folder-browser-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.folder-create-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklch, var(--surface-soft) 64%, var(--surface));
+  padding: 10px;
+}
+
+.folder-create-panel label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+}
+
+.folder-create-panel input {
+  min-height: 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--fg);
+  padding: 0 10px;
 }
 
 .form-note,

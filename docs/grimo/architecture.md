@@ -1,6 +1,6 @@
 # Grimo Architecture
 
-**Status:** Living architecture baseline through S013 implementation, with S014 target path-picker design
+**Status:** Living architecture baseline through S014 Project Path Folder Browser implementation
 **Last updated:** 2026-06-13
 
 ## Current Architecture Snapshot
@@ -77,7 +77,7 @@ Runtime facts through S009 shipping:
 - Browser-only handles are not backend-operable until a future native bridge or browser-mediated file flow exists, so S003 does not use `showDirectoryPicker()` as a projectPath source.
 - S002 stores `workspacePath` as data only; S003 renames that API intent to `projectPath`. Directory browsing lists immediate child directories but does not read file contents, run shell commands, inspect the repo, or start agent execution.
 - No Electron, Tauri, native desktop shell, or OS-level file chooser bridge is assumed in S003.
-- S013 implemented a Swing-backed Native Folder Dialog Bridge for Project path selection. S014 supersedes that primary UX: the target Project Creation flow uses Grimo's in-app Project Path Folder Browser backed by `GET /api/local-directories`.
+- S013 implemented a Swing-backed Native Folder Dialog Bridge for Project path selection. S014 supersedes and removes that production bridge: Project Creation now uses Grimo's in-app Project Path Folder Browser backed by `GET /api/local-directories`.
 - S014 keeps `projectPath` as the only public path field. The folder browser fills the existing field; it does not add browser handles, source fields, DB-backed Project records, or native-dialog fallback behavior.
 - Task creation is Project-owned. A Task cannot be created outside a Project and does not choose a skill.
 - Creating a Task copies the Project workflow recipe into `task_workflows` / `task_workflow_steps`, but a BACKLOG Task has no active run yet.
@@ -137,36 +137,7 @@ sequenceDiagram
   Browser->>Browser: Show created Project and selected workflow roles
 ```
 
-### Current Runtime Scenario: Choose Project Path With Native Dialog Bridge
-
-```mermaid
-sequenceDiagram
-  actor User as Human user
-  participant Browser as Browser / React UI
-  participant Vite as Vite dev server
-  participant API as Spring Boot MVC
-  participant Bridge as NativeFolderDialogService
-  participant Dialog as OS folder chooser
-
-  User->>Browser: Click 選擇資料夾
-  Browser->>Vite: POST /api/native-folder-dialogs/project-path
-  Vite->>API: proxy native dialog request
-  API->>Bridge: chooseProjectPath
-  Bridge->>Dialog: directory-only native chooser
-  Dialog-->>Bridge: selected folder or cancel
-  Bridge-->>API: selected/path, cancel, or unavailable
-  API-->>Vite: 200 OK or recoverable error JSON
-  Vite-->>Browser: native dialog result
-  Browser->>Browser: Fill 專案路徑 with selected backend path
-```
-
-Runtime facts:
-
-- S013 implementation uses Native Folder Dialog Bridge as the current Project Path picker. The user sees an OS folder chooser instead of a Grimo in-app folder browser.
-- The bridge only returns path selection data. It does not read folder contents, execute shell commands, create Projects, write DB rows, or persist dialog selections.
-- S014 target design supersedes this as the primary UX. Future Project Creation implementation should not call `POST /api/native-folder-dialogs/project-path` from the frontend, including as fallback.
-
-### Target Runtime Scenario: Choose Project Path With Project Path Folder Browser
+### Runtime Scenario: Choose Project Path With Project Path Folder Browser
 
 ```mermaid
 sequenceDiagram
@@ -200,6 +171,14 @@ sequenceDiagram
   LocalDirs-->>API: next current path, parent path, child directories
   API-->>Vite: 200 OK JSON
   Vite-->>Browser: next directory listing
+  User->>Browser: Click 建立新資料夾 and enter folder name
+  Browser->>Vite: create child directory request
+  Vite->>API: proxy create child directory request
+  API->>LocalDirs: createDirectory(current path, folder name)
+  LocalDirs-->>API: created child absolute path
+  API-->>Vite: 201 Created JSON
+  Vite-->>Browser: created child path
+  Browser->>Browser: Fill 專案路徑 with created child path
   User->>Browser: Click 使用此資料夾
   Browser->>Browser: Fill 專案路徑 with selected backend path
   User->>Browser: Click page-level 建立專案
@@ -213,6 +192,7 @@ Target runtime facts:
 - `GET /api/local-directories` without `path` starts at `~/.grimo/projects/`, creates that root if missing, and lists local filesystem child directories only.
 - `GET /api/local-directories?location=home` lists `user.home`; `location=default` lists `~/.grimo/projects/`; `path` and `location` together are rejected as ambiguous.
 - `~/.grimo/projects/` is a browsing start point and Grimo-managed container, not a selectable Project Path. If the user wants Grimo-managed storage, the user leaves `projectPath` blank and `POST /api/projects` creates `~/.grimo/projects/<projectId>`.
+- `建立新資料夾` creates one named child directory at the current folder browser location and immediately fills `projectPath` with the new child path. It does not submit `POST /api/projects`.
 - Folder browser errors stay inside the Grimo modal. Manual `projectPath` remains editable, but the frontend does not fall back to Swing, OS dialogs, or `POST /api/native-folder-dialogs/project-path`.
 
 ## Module Map
@@ -222,7 +202,7 @@ Target runtime facts:
 | `frontend/src/features/projects` | Project list、Project create form、current project selection UI | 不直接寫 fixture 作為真狀態；透過 frontend API client 呼叫 backend。 |
 | `frontend/src/domain/project` | Project frontend type、request/response shape、workflow recipe labels | 對齊 backend API 欄位名稱。 |
 | `frontend/src/shared/api` | Thin fetch client | 只處理 HTTP request/response 與 user-readable error，不放 domain rule。 |
-| `backend/src/main/java/io/github/samzhu/grimo/project` | Project domain、repository、service、REST controller、local directory listing、S013 Native Folder Dialog Bridge | S014 target uses local directory listing as the Project Path picker; native dialog bridge is historical/current code, not future primary UX or fallback. Project 建立仍走 `POST /api/projects`。 |
+| `backend/src/main/java/io/github/samzhu/grimo/project` | Project domain、repository、service、REST controller、local directory listing、child directory creation | S014 uses local directory listing as the Project Path picker; S013 native dialog bridge is shipped history and has been removed from production code. Project 建立仍走 `POST /api/projects`。 |
 | `backend/src/main/java/io/github/samzhu/grimo/task` | Task root API、Project-owned Task persistence、`TaskResponse.workflowSummary` projection boundary | Task create/list 不接受 `source`、`state`、`workflowSummary`、`step` 或 `score` 作為 root write 欄位。 |
 | `backend/src/main/java/io/github/samzhu/grimo/workflow` | Task Workflow copy、first Chat transition、normalized workflow evidence、read-only workflow detail API | Workflow evidence 寫入只走 internal service/store；public API 只讀 detail。 |
 | `backend/src/main/resources` | SQLite datasource、schema migration 設定 | 本地 DB path 必須可覆寫，測試不得碰使用者真資料。 |
@@ -311,17 +291,16 @@ Reason:
 - Browser File System Access returns a `FileSystemDirectoryHandle`, not a backend absolute path. Grimo must not pretend a browser-selected handle is a server-operable `projectPath`.
 - Manual path validation preserves the option to bind an existing repo/path for future Task / agent execution without requiring a framework change or desktop shell in S003.
 
-S013 extension:
+S013 historical note:
 
-- Native Folder Dialog Bridge is the local-only exception that can produce a backend-operable absolute path without changing `POST /api/projects`.
-- The bridge returns only selected/cancel/error data; it does not read file contents, execute shell commands, create Projects, or write dialog selections to storage.
-- Headless or remote backends must return a recoverable error and keep Manual Project Path editable.
+- Native Folder Dialog Bridge was a local-only experiment that produced a backend-operable absolute path without changing `POST /api/projects`.
+- S014 removes the production bridge and its AWT/Swing headless override. Folder browser errors now stay in the Grimo modal, and Manual Project Path remains editable.
 - See `docs/grimo/adr/ADR-005-project-path-folder-browser.md`.
 
-S014 target update:
+S014 implementation update:
 
 - Project Path Folder Browser replaces Native Folder Dialog Bridge as the Project Creation primary UX.
-- The frontend uses `GET /api/local-directories` for modal browsing and does not call the native dialog endpoint as fallback.
+- The frontend uses `GET /api/local-directories` for modal browsing and does not call a native dialog endpoint as fallback.
 - `~/.grimo/projects/` is only the default browsing root and Grimo-managed container; selecting a folder means choosing a concrete user-preferred repo/codebase path.
 
 ## API Shape Baseline

@@ -1,7 +1,7 @@
 # Grimo Spec Roadmap
 
 **Status:** Active planning index  
-**Last updated:** 2026-06-12
+**Last updated:** 2026-06-14
 
 ## Milestone 1 — Project Context Before Task Work
 
@@ -9,12 +9,12 @@ PRD Critical Path: 使用者先建立或選擇 Project，Project 決定工作流
 
 | Spec ID | 標題 | 點數 | 相依 | 狀態 |
 | --- | --- | ---: | --- | --- |
-| S014 | Project Path folder browser | M(13) | S003, S013 | 📐 in-design |
 
 ## ✅ Shipped
 
 | Spec ID | 標題 | 點數 | 版本 |
 | --- | --- | ---: | --- |
+| S014 | Project Path folder browser | M(14) | — |
 | S013 | Native Project Path folder dialog | M(8) | — |
 | S011 | Project Setup Hero in Main Content Area | L(15) | — |
 | S010 | Formal product startup flow and Project session restore | M(13) | v0.1.0 |

@@ -1,9 +1,10 @@
 import type {
   CollectionResponse,
   CreateProjectInput,
+  LocalDirectoryCreateRequest,
+  LocalDirectoryEntry,
   LocalDirectoryListing,
-  NativeFolderDialogRequest,
-  NativeFolderDialogResponse,
+  LocalDirectoryQuery,
   Project,
   WorkflowRecipe,
 } from "../../domain/project/project-types";
@@ -37,19 +38,20 @@ export async function listWorkflowRecipes(): Promise<WorkflowRecipe[]> {
   return response.content;
 }
 
-export function listLocalDirectories(path?: string): Promise<LocalDirectoryListing> {
+export function listLocalDirectories(query: LocalDirectoryQuery = {}): Promise<LocalDirectoryListing> {
   const params = new URLSearchParams();
-  if (path?.trim()) {
-    params.set("path", path.trim());
+  if ("path" in query && query.path?.trim()) {
+    params.set("path", query.path.trim());
   }
-  const query = params.toString();
-  return requestJson<LocalDirectoryListing>(`/api/local-directories${query ? `?${query}` : ""}`);
+  if ("location" in query && query.location) {
+    params.set("location", query.location);
+  }
+  const queryString = params.toString();
+  return requestJson<LocalDirectoryListing>(`/api/local-directories${queryString ? `?${queryString}` : ""}`);
 }
 
-export function chooseNativeProjectPath(
-  input: NativeFolderDialogRequest,
-): Promise<NativeFolderDialogResponse> {
-  return requestJson<NativeFolderDialogResponse>("/api/native-folder-dialogs/project-path", {
+export function createLocalDirectory(input: LocalDirectoryCreateRequest): Promise<LocalDirectoryEntry> {
+  return requestJson<LocalDirectoryEntry>("/api/local-directories", {
     method: "POST",
     body: JSON.stringify(input),
   });

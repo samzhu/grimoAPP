@@ -39,17 +39,24 @@ const createdProject = {
 };
 
 const selectedNativeProjectPath = "/Users/samzhu/workspace/github-samzhu/grimoAPP";
+const defaultRoot = "/Users/samzhu/.grimo/projects";
+const homeRoot = "/Users/samzhu";
+const workspaceRoot = "/Users/samzhu/workspace/github-samzhu";
+const selectedFolderPath = `${defaultRoot}/grimoAPP`;
+const createdFolderPath = `${workspaceRoot}/grimoAPP`;
 
-type NativeDialogMock = {
-  body: unknown;
-  status?: number;
-  delay?: Promise<void>;
+type ProjectApiMockOptions = {
+  localDirectoryError?: string;
+  defaultRootPath?: string;
 };
 
-async function mockProjectApis(page: Page, nativeDialog?: NativeDialogMock) {
+async function mockProjectApis(page: Page, options: ProjectApiMockOptions = {}) {
   const createBodies: unknown[] = [];
-  let localDirectoryRequests = 0;
+  const localDirectoryRequests: string[] = [];
+  const createLocalDirectoryBodies: unknown[] = [];
   const nativeDialogBodies: unknown[] = [];
+  const browserDefaultRoot = options.defaultRootPath ?? defaultRoot;
+  const browserSelectedFolderPath = `${browserDefaultRoot}/grimoAPP`;
 
   await page.route("**/api/projects", async (route) => {
     if (route.request().method() === "POST") {
@@ -63,20 +70,58 @@ async function mockProjectApis(page: Page, nativeDialog?: NativeDialogMock) {
     await route.fulfill({ json: workflowRecipes });
   });
   await page.route("**/api/local-directories**", async (route) => {
-    localDirectoryRequests += 1;
+    localDirectoryRequests.push(route.request().url());
+    if (route.request().method() === "POST") {
+      createLocalDirectoryBodies.push(route.request().postDataJSON());
+      await route.fulfill({
+        status: 201,
+        json: { name: "grimoAPP", path: createdFolderPath },
+      });
+      return;
+    }
+    if (options.localDirectoryError) {
+      await route.fulfill({
+        status: 400,
+        json: { error: options.localDirectoryError },
+      });
+      return;
+    }
+    const url = new URL(route.request().url());
+    const path = url.searchParams.get("path");
+    const location = url.searchParams.get("location");
+    const listingPath = location === "home"
+      ? homeRoot
+      : location === "default" || !path
+        ? browserDefaultRoot
+        : path;
+    const parentPath = listingPath === browserDefaultRoot
+      ? browserDefaultRoot.replace(/\/[^/]+$/, "")
+      : listingPath === homeRoot
+        ? "/Users"
+        : browserDefaultRoot;
+    const directories = listingPath === browserDefaultRoot
+      ? [
+          { name: "AlphaTool", path: `${browserDefaultRoot}/AlphaTool` },
+          { name: "grimoAPP", path: browserSelectedFolderPath },
+        ]
+      : listingPath === homeRoot
+        ? [{ name: "github-samzhu", path: workspaceRoot }]
+        : listingPath === workspaceRoot
+          ? [{ name: "skills-hub", path: `${workspaceRoot}/skills-hub` }]
+          : [];
     await route.fulfill({
-      status: 500,
-      json: { error: "S013 不應把 backend directory tree 當成 primary UX" },
+      json: {
+        path: listingPath,
+        parentPath,
+        directories,
+      },
     });
   });
   await page.route("**/api/native-folder-dialogs/project-path", async (route) => {
     nativeDialogBodies.push(route.request().postDataJSON());
-    if (nativeDialog?.delay) {
-      await nativeDialog.delay;
-    }
     await route.fulfill({
-      status: nativeDialog?.status ?? 200,
-      json: nativeDialog?.body ?? { selected: true, projectPath: selectedNativeProjectPath },
+      status: 500,
+      json: { error: "S014 不應呼叫 native folder dialog" },
     });
   });
   await page.route(`**/api/projects/${createdProject.id}/tasks`, async (route) => {
@@ -85,8 +130,10 @@ async function mockProjectApis(page: Page, nativeDialog?: NativeDialogMock) {
 
   return {
     createBodies,
+    createLocalDirectoryBodies,
     nativeDialogBodies,
-    getLocalDirectoryRequests: () => localDirectoryRequests,
+    getLocalDirectoryRequests: () => localDirectoryRequests.length,
+    localDirectoryRequests,
   };
 }
 
@@ -176,78 +223,81 @@ test("AC-S003-7: create view submits projectPath only and does not open director
   });
 });
 
-test("AC-S013-1/2: create view opens native folder dialog API and fills projectPath", async ({
-  page,
-}) => {
-  let releaseNativeDialog!: () => void;
-  const nativeDialogDelay = new Promise<void>((resolve) => {
-    releaseNativeDialog = resolve;
-  });
-  const api = await mockProjectApis(page, {
-    body: { selected: true, projectPath: selectedNativeProjectPath },
-    delay: nativeDialogDelay,
-  });
+test("AC-S014-1/2/7: create view opens Grimo folder browser modal instead of native dialog", async ({ page }) => {
+  const api = await mockProjectApis(page);
   await openProjectsView(page);
   await page.getByRole("button", { name: "新增專案" }).click();
 
-  await test.step("Given the user has a Project path hint", async () => {
-    await page.getByLabel("專案路徑").fill("/Users/samzhu/workspace/github-samzhu");
-  });
-
   await test.step('When the user clicks "選擇資料夾"', async () => {
-    const click = page.getByRole("button", { name: "選擇資料夾" }).click();
-    await expect(page.getByText("正在開啟系統資料夾選擇器...")).toBeVisible();
-    releaseNativeDialog();
-    await click;
+    await page.getByRole("button", { name: "選擇資料夾" }).click();
   });
 
-  await test.step("Then the native dialog response fills projectPath without submitting Project", async () => {
-    expect(api.nativeDialogBodies).toEqual([
-      {
-        initialPath: "/Users/samzhu/workspace/github-samzhu",
-        title: "選擇 Project 資料夾",
-      },
-    ]);
-    expect(api.getLocalDirectoryRequests()).toBe(0);
-    await expect(page.locator(".directory-browser")).toHaveCount(0);
-    await expect(page.getByLabel("專案路徑")).toHaveValue(selectedNativeProjectPath);
+  await test.step("Then the modal shows default root and does not call native dialog", async () => {
+    await expect(page.getByRole("dialog", { name: "選擇 Project 資料夾" })).toBeVisible();
+    await expect(page.locator(".folder-current-path")).toHaveText(defaultRoot);
+    await expect(page.getByRole("button", { name: "使用此資料夾" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "回家目錄" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "回 Grimo 預設位置" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /AlphaTool/ })).toBeVisible();
+    expect(api.getLocalDirectoryRequests()).toBe(1);
+    expect(api.nativeDialogBodies).toHaveLength(0);
     expect(api.createBodies).toHaveLength(0);
   });
 });
 
-test("AC-S013-3: cancelled native folder dialog preserves create form values", async ({ page }) => {
-  await mockProjectApis(page, { body: { selected: false } });
+test("AC-S014-3/4: folder browser navigates and fills projectPath only", async ({ page }) => {
+  const api = await mockProjectApis(page);
   await openProjectsView(page);
   await page.getByRole("button", { name: "新增專案" }).click();
 
-  await test.step("Given the user has filled Project Creation form fields", async () => {
-    await page.getByLabel("專案名稱").fill("grimoAPP");
-    await page.getByLabel("專案描述").fill("本機 AI 開發工作台");
-    await page.getByLabel("專案路徑").fill("/Users/samzhu/workspace/github-samzhu");
-    await page.getByLabel("專案工作流").selectOption("web-service-development");
-  });
-
-  await test.step("When the native dialog is cancelled", async () => {
+  await test.step("Given the folder browser is open", async () => {
     await page.getByRole("button", { name: "選擇資料夾" }).click();
   });
 
-  await test.step("Then the form keeps its values and shows no error", async () => {
-    await expect(page.getByLabel("專案名稱")).toHaveValue("grimoAPP");
-    await expect(page.getByLabel("專案描述")).toHaveValue("本機 AI 開發工作台");
-    await expect(page.getByLabel("專案路徑")).toHaveValue("/Users/samzhu/workspace/github-samzhu");
-    await expect(page.getByLabel("專案工作流")).toHaveValue("web-service-development");
-    await expect(page.getByText("無法開啟系統資料夾選擇器，請手動貼上路徑")).toHaveCount(0);
-    await expect(page.locator(".directory-browser")).toHaveCount(0);
+  await test.step("When the user enters a child folder and goes back to parent", async () => {
+    await page.getByRole("button", { name: /grimoAPP/ }).click();
+    await expect(page.getByText(selectedFolderPath)).toBeVisible();
+    await page.getByRole("button", { name: "上層" }).click();
+    await expect(page.locator(".folder-current-path")).toHaveText(defaultRoot);
+  });
+
+  await test.step("When the user uses a selectable child folder", async () => {
+    await page.getByRole("button", { name: /grimoAPP/ }).click();
+    await page.getByRole("button", { name: "使用此資料夾" }).click();
+  });
+
+  await test.step("Then only the Project Path input is filled", async () => {
+    await expect(page.getByRole("dialog", { name: "選擇 Project 資料夾" })).toHaveCount(0);
+    await expect(page.getByLabel("專案路徑")).toHaveValue(selectedFolderPath);
+    expect(api.createBodies).toHaveLength(0);
+    expect(api.nativeDialogBodies).toHaveLength(0);
   });
 });
 
-test("AC-S013-4: unavailable native folder dialog keeps manual Project Path editable", async ({
-  page,
-}) => {
-  await mockProjectApis(page, {
-    status: 503,
-    body: { error: "無法開啟系統資料夾選擇器，請手動貼上路徑" },
+test("AC-S014-5: folder browser creates a new folder and fills projectPath only", async ({ page }) => {
+  const api = await mockProjectApis(page);
+  await openProjectsView(page);
+  await page.getByRole("button", { name: "新增專案" }).click();
+
+  await test.step("When the user creates a new folder from the current browser location", async () => {
+    await page.getByRole("button", { name: "選擇資料夾" }).click();
+    await page.getByRole("button", { name: "回家目錄" }).click();
+    await page.getByRole("button", { name: "github-samzhu" }).click();
+    await page.getByRole("button", { name: "建立新資料夾" }).click();
+    await page.getByLabel("資料夾名稱").fill("grimoAPP");
+    await page.getByRole("button", { name: "建立並使用" }).click();
   });
+
+  await test.step("Then the created folder path fills projectPath without creating Project", async () => {
+    expect(api.createLocalDirectoryBodies).toEqual([{ parentPath: workspaceRoot, name: "grimoAPP" }]);
+    await expect(page.getByLabel("專案路徑")).toHaveValue(createdFolderPath);
+    expect(api.createBodies).toHaveLength(0);
+    expect(api.nativeDialogBodies).toHaveLength(0);
+  });
+});
+
+test("AC-S014-6/7: folder browser error keeps form values and does not fallback to native dialog", async ({ page }) => {
+  const api = await mockProjectApis(page, { localDirectoryError: "請選擇有效的本機資料夾" });
   await openProjectsView(page);
   await page.getByRole("button", { name: "新增專案" }).click();
 
@@ -257,16 +307,74 @@ test("AC-S013-4: unavailable native folder dialog keeps manual Project Path edit
     await page.getByLabel("專案路徑").fill("/Users/samzhu/workspace/github-samzhu");
   });
 
-  await test.step("When the native dialog is unavailable", async () => {
+  await test.step("When directory listing fails", async () => {
     await page.getByRole("button", { name: "選擇資料夾" }).click();
   });
 
-  await test.step("Then the UI shows fallback and keeps manual input editable", async () => {
-    await expect(page.getByText("無法開啟系統資料夾選擇器，請手動貼上路徑")).toBeVisible();
+  await test.step("Then the modal shows the error and keeps manual input editable", async () => {
+    await expect(page.getByText("請選擇有效的本機資料夾")).toBeVisible();
     await expect(page.getByLabel("專案名稱")).toHaveValue("grimoAPP");
     await expect(page.getByLabel("專案描述")).toHaveValue("本機 AI 開發工作台");
     await expect(page.getByLabel("專案路徑")).toHaveValue("/Users/samzhu/workspace/github-samzhu");
     await expect(page.getByLabel("專案路徑")).toBeEditable();
-    await expect(page.locator(".directory-browser")).toHaveCount(0);
+    expect(api.nativeDialogBodies).toHaveLength(0);
   });
+});
+
+const folderBrowserViewports = [
+  { name: "desktop-1366", width: 1366, height: 768 },
+  { name: "desktop-1440", width: 1440, height: 900 },
+  { name: "tablet-820", width: 820, height: 1180 },
+  { name: "mobile-390", width: 390, height: 844 },
+];
+
+test("AC-S014-8: folder browser modal remains usable across desktop and responsive viewports", async ({
+  page,
+}) => {
+  const longRoot =
+    "/Users/samzhu/workspace/github-samzhu/very-long-parent-folder/another-long-folder-name/.grimo/projects";
+  await mockProjectApis(page, { defaultRootPath: longRoot });
+
+  for (const viewport of folderBrowserViewports) {
+    await test.step(`Given the folder browser is open at ${viewport.name}`, async () => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await openProjectsView(page);
+      await page.getByRole("button", { name: "新增專案" }).click();
+      await page.getByRole("button", { name: "選擇資料夾" }).click();
+      await expect(page.getByRole("dialog", { name: "選擇 Project 資料夾" })).toBeVisible();
+      await page.getByRole("button", { name: "建立新資料夾" }).click();
+      await page.getByLabel("資料夾名稱").fill("new-project-folder");
+    });
+
+    await test.step(`Then modal controls fit and stay scoped at ${viewport.name}`, async () => {
+      const dialog = page.getByRole("dialog", { name: "選擇 Project 資料夾" });
+      await expect(dialog.getByRole("button", { name: "使用此資料夾" })).toBeDisabled();
+      await expect(dialog.getByRole("button", { name: "建立並使用" })).toBeVisible();
+      await expect(dialog.getByRole("button", { name: "關閉" })).toBeVisible();
+      await expect(dialog.getByRole("button", { name: "建立專案" })).toHaveCount(0);
+
+      const metrics = await page.locator(".folder-browser-modal").evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          left: rect.left,
+          right: rect.right,
+          top: rect.top,
+          bottom: rect.bottom,
+          viewportWidth: window.innerWidth,
+          viewportHeight: window.innerHeight,
+          scrollWidth: element.scrollWidth,
+          clientWidth: element.clientWidth,
+        };
+      });
+      expect(metrics.left).toBeGreaterThanOrEqual(0);
+      expect(metrics.top).toBeGreaterThanOrEqual(0);
+      expect(metrics.right).toBeLessThanOrEqual(metrics.viewportWidth);
+      expect(metrics.bottom).toBeLessThanOrEqual(metrics.viewportHeight);
+      expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth + 2);
+
+      await expect(page).toHaveScreenshot(`project-folder-browser-${viewport.name}.png`, {
+        fullPage: true,
+      });
+    });
+  }
 });
