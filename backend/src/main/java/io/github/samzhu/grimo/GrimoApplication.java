@@ -7,7 +7,13 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class GrimoApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(GrimoApplication.class, args);
+		grimoApplication().run(args);
+	}
+
+	static SpringApplication grimoApplication() {
+		SpringApplication application = new SpringApplication(GrimoApplication.class);
+		application.setHeadless(false);
+		return application;
 	}
 
 }

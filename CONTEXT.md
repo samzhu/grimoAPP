@@ -12,6 +12,10 @@ _Avoid_: Workspace, multi-repo container, folder-only record
 Project 的主要開發目錄，是 backend 可操作的 repo / codebase path。
 _Avoid_: Project Workspace, folderPath, Task Worktree
 
+**Project Path Folder Browser**:
+Project Creation 中使用者在 Grimo 內選擇 **Project Path** 的主要互動。
+_Avoid_: Manual Project Path, Task Worktree picker, native system folder dialog
+
 **Project Home**:
 Grimo 為一個 Project 保存內部資料與證據的本機管理位置。
 _Avoid_: External repo, app-wide data folder, Workspace, projectDataPath API field
@@ -86,6 +90,8 @@ _Avoid_: Permanent details pane, full Task page
 - A **Project Home** belongs to exactly one **Project**.
 - A **Project Context** points to at most one currently open **Project**.
 - **Close Project** removes the active **Project Context** without deleting the **Project**.
+- A **Project Path Folder Browser** shows local filesystem folders that may become a **Project Path**; it does not show saved **Project** records.
+- Leaving **Project Path** blank asks Grimo to create and manage a default Project location; using **Project Path Folder Browser** means the user is choosing their own preferred project folder.
 - A **Task** belongs to exactly one **Project**.
 - A **Task Worktree** belongs to one Task and is derived from a **Project Path** only when execution needs isolation.
 - A **Project** selects a **Workflow Definition**.
@@ -153,3 +159,6 @@ _Avoid_: Permanent details pane, full Task page
 - "Updating copied Task Workflow when definition changes" was considered; resolved: Task Workflow is immutable, and changes require explicit migration/rebase.
 - "Requiring `source_hash` for file-based workflow definitions" was considered; resolved: no, the copied Task Workflow rows are sufficient source of truth, and hash remains optional diagnostics.
 - "Topbar / Rail / Main surface" were used as mixed design and implementation terms; resolved: product language uses **App Header**, **Side Navigation**, and **Main Content Area**.
+- "`選擇資料夾`" was used for both system folder dialogs and in-app path browsing; resolved: S014 primary product language is **Project Path Folder Browser**.
+- "專案清單" inside the folder picker was ambiguous; resolved: it means physical folders under the local `~/.grimo/projects/` location, not saved **Project** records.
+- "`~/.grimo/projects/`" was used both as a browsing start point and as a possible selected Project Path; resolved: it is only the default Grimo-managed area, while a selected **Project Path** means the user chose a concrete project folder.

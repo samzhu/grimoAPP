@@ -1,5 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const frontendPort = process.env.GRIMO_VISUAL_FRONTEND_PORT || "5173";
+const frontendUrl = `http://127.0.0.1:${frontendPort}`;
+
 export default defineConfig({
   testDir: "./e2e",
   testIgnore: /.*\.fullstack\.spec\.ts/,
@@ -7,12 +10,12 @@ export default defineConfig({
   forbidOnly: true,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
-    baseURL: "http://127.0.0.1:5173",
+    baseURL: frontendUrl,
     trace: "retain-on-failure",
   },
   webServer: {
-    command: "npm run dev",
-    url: "http://127.0.0.1:5173",
+    command: `npm run dev -- --port ${frontendPort}`,
+    url: frontendUrl,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

@@ -11,9 +11,9 @@ This QA strategy defines the release verification gate for the current Grimo wor
 | V1 | `scripts/verify-release.sh` | CRITICAL | zsh, Node/npm, Java 25 toolchain | `temp/verify-release.log` |
 | V2 | `./gradlew test` in `backend/` | CRITICAL for backend/API changes | Java 25 toolchain, Gradle wrapper | Gradle test output |
 | V3 | `npm run build` in `frontend/` | CRITICAL | Node/npm, installed frontend deps | Vite/TypeScript output |
-| V4 | `npm run test:visual` in `frontend/` | CRITICAL | Playwright Chromium installed | screenshot baseline comparison and Playwright report |
+| V4 | `npm run test:visual` in `frontend/` | CRITICAL | Playwright Chromium installed; `scripts/verify-release.sh` sets `CI=1 GRIMO_VISUAL_FRONTEND_PORT=15173` to avoid reusing a developer preview server | screenshot baseline comparison and Playwright report |
 | V5 | `scripts/run-webwright-visual-qa.sh ...` | CRITICAL when prototype parity is claimed | `.venv-webwright`, Playwright Chromium, Webwright backend credentials if using model configs | final script, logs, screenshots, self-reflection/manual review |
-| V6 | `npm run test:fullstack` in `frontend/` | CRITICAL when frontend calls `/api` | Node/npm, Java 25, ports 5173 and 8080 available | Playwright trace/report plus backend test log excerpt |
+| V6 | `npm run test:fullstack` in `frontend/` | CRITICAL when frontend calls `/api` | Node/npm, Java 25; default isolated ports are frontend `5174` and backend `18080`, override with `GRIMO_FULLSTACK_FRONTEND_PORT` / `GRIMO_FULLSTACK_BACKEND_PORT` | Playwright trace/report plus backend test log excerpt |
 
 ## BDD Contract References
 

@@ -1,21 +1,40 @@
 # Spec Estimation Scale Reference
 
-Six-dimension scoring system for spec size estimation.
-Each dimension scores 1–3; total determines size bucket.
+Six-dimension diagnostic scoring system for spec size estimation.
+Each dimension scores 1–3. The diagnostic total is `six_factor_score`;
+the final planning value is `story_points` on a modified Fibonacci-style
+scale.
 
 ## Formula
 
 ```
-Total = tech_risk + uncertainty + dependencies + scope + testing + reversibility
+six_factor_score = tech_risk + uncertainty + dependencies + scope + testing + reversibility
+story_points = calibrated mapping from six_factor_score
 ```
 
-| Total | Size | Design depth | User interaction |
-|-------|------|--------------|------------------|
-| 6–8   | XS   | Skip approach comparison; recommend directly | 3-question intake + up to 1 grill question |
-| 9–11  | S    | Brief comparison | 3-4 questions, confirm approach |
-| 12–14 | M    | Full comparison + interface definition | Confirm approach + key interfaces |
-| 15–16 | L    | Deep design + PoC spike may be needed | Confirm at each phase boundary |
-| 17–18 | XL   | Must be decomposed — do not ship as XL | N/A |
+`six_factor_score` explains why the work is complex. `story_points` is the
+roadmap / planning number. Do not write raw `six_factor_score` as final
+story points.
+
+| six_factor_score | Size | story_points | Design depth | User interaction |
+|------------------|------|--------------|--------------|------------------|
+| 6                | XS   | 1            | Skip approach comparison; recommend directly | 3-question intake + up to 1 grill question |
+| 7–8              | XS   | 2            | Skip approach comparison; recommend directly | 3-question intake + up to 1 grill question |
+| 9–10             | S    | 3            | Brief comparison | 3-4 questions, confirm approach |
+| 11–12            | S/M  | 5            | Brief comparison + key contract checks | 3-4 questions, confirm approach |
+| 13–14            | M    | 8            | Full comparison + interface definition | Confirm approach + key interfaces |
+| 15–16            | L    | 13           | Deep design + PoC spike may be needed | Confirm at each phase boundary |
+| 17–18            | XL   | 20           | Must be decomposed — do not ship as XL | N/A |
+
+Why this split exists:
+
+- The six dimensions prevent "gut feel only" estimation by forcing the
+  planner to name risk, uncertainty, dependencies, scope, testing, and
+  reversibility.
+- Story points stay relative and coarse-grained. The modified Fibonacci-style gaps
+  reflect increasing uncertainty and avoid false precision on large work.
+- `20` means "too large for direct task planning"; split into 2+ specs, then
+  estimate each child spec again.
 
 ---
 
@@ -117,40 +136,79 @@ monsters" [11], and IFPUG FPA's **GSC14 (Facilitate Change)** [2].
 
 ---
 
-## Worked Examples
+## Story Point Calibration Examples
 
-### S001 — Core Domain Primitives → 7 / XS
-
-| Dimension | Score | Rationale |
-|-----------|-------|-----------|
-| Tech risk | 1 | Pure Java records, no framework API |
-| Uncertainty | 1 | Types fully enumerated in roadmap |
-| Dependencies | 1 | No dependencies |
-| Scope | 2 | 8 files in one module |
-| Testing | 1 | Pure JUnit |
-| Reversibility | 1 | No consumers yet |
-
-### S002 — Module Skeleton + Modulith Verify → 9 / S
+### Copy or label update -> six_factor_score 6 / XS / 1 point
 
 | Dimension | Score | Rationale |
 |-----------|-------|-----------|
-| Tech risk | 1 | `ApplicationModules.verify()` is well-documented |
-| Uncertainty | 1 | Module list decided; policy codified |
-| Dependencies | 2 | Depends on S001; needs Modulith on classpath |
-| Scope | 2 | 6 `package-info.java` + 2 test classes + doc-sync |
-| Testing | 2 | `@ApplicationModuleTest` slice |
-| Reversibility | 1 | Empty modules, easily changed |
+| Tech risk | 1 | No framework or runtime behavior changes. |
+| Uncertainty | 1 | Target wording is already known. |
+| Dependencies | 1 | No upstream feature or external system dependency. |
+| Scope | 1 | One visible label, message, or document paragraph. |
+| Testing | 1 | Static review or existing snapshot coverage is enough. |
+| Reversibility | 1 | Revert is one small text change. |
 
-### S003 — Sandbox SPI + Bind-Mount Adapter → 13 / M
+### Small contained fix -> six_factor_score 8 / XS / 2 points
 
 | Dimension | Score | Rationale |
 |-----------|-------|-----------|
-| Tech risk | 3 | Implementing third-party SPI with unsupported bind-mount pattern |
-| Uncertainty | 2 | Lifecycle management pattern needed grill to clarify |
-| Dependencies | 2 | S002 shipped + Docker Daemon required |
-| Scope | 2 | ~7 files in `sandbox` module + new `api/` sub-package |
-| Testing | 3 | Testcontainers + Docker Daemon; `@DisabledInNativeImage` |
-| Reversibility | 1 | No downstream consumers yet |
+| Tech risk | 1 | Uses existing patterns and no new dependency. |
+| Uncertainty | 1 | Expected behavior is clear. |
+| Dependencies | 1 | No upstream feature or external system dependency. |
+| Scope | 2 | Touches a few nearby files or one small helper. |
+| Testing | 2 | Needs one focused automated test or snapshot update. |
+| Reversibility | 1 | Can be reverted without contract or data cleanup. |
+
+### Existing flow small feature -> six_factor_score 10 / S / 3 points
+
+| Dimension | Score | Rationale |
+|-----------|-------|-----------|
+| Tech risk | 1 | Uses known framework/API behavior. |
+| Uncertainty | 2 | Needs 1-2 contract decisions, such as field name or empty-state behavior. |
+| Dependencies | 1 | No unshipped upstream feature. |
+| Scope | 2 | Touches a form/API/handler and nearby tests. |
+| Testing | 2 | Needs focused unit/API/UI coverage, but no complex environment. |
+| Reversibility | 2 | Published field or visible behavior may need coordinated cleanup if reverted. |
+
+### Complete feature on existing patterns -> six_factor_score 12 / S/M / 5 points
+
+| Dimension | Score | Rationale |
+|-----------|-------|-----------|
+| Tech risk | 2 | Known API is used in a new combination. |
+| Uncertainty | 2 | User flow is understood, but edge cases need grill confirmation. |
+| Dependencies | 2 | Depends on one shipped capability or one external runtime. |
+| Scope | 2 | Crosses more than one application layer, but no new module boundary. |
+| Testing | 2 | Needs integration-style coverage using existing test setup. |
+| Reversibility | 2 | Revert requires coordinated contract and UI/test cleanup. |
+
+### Cross-layer contract feature -> six_factor_score 14 / M / 8 points
+
+| Dimension | Score | Rationale |
+|-----------|-------|-----------|
+| Tech risk | 2 | Framework surface is documented, but behavior must be verified in this codebase. |
+| Uncertainty | 2 | Requirements are mostly clear, with several acceptance details to confirm. |
+| Dependencies | 2 | Depends on one shipped capability plus one external system or runtime. |
+| Scope | 3 | Crosses 3+ modules/layers or introduces a module boundary. |
+| Testing | 3 | Needs environment-backed or end-to-end verification. |
+| Reversibility | 2 | Persisted or public contract can be migrated, but not removed casually. |
+
+### High-risk integration or schema change -> six_factor_score 16 / L / 13 points
+
+| Dimension | Score | Rationale |
+|-----------|-------|-----------|
+| Tech risk | 3 | Source-level research or POC evidence is needed before design confidence. |
+| Uncertainty | 2 | Main goal is known, but failure cases and rollback path need confirmation. |
+| Dependencies | 3 | Depends on multiple upstream capabilities or external systems. |
+| Scope | 3 | Crosses multiple modules or changes durable data shape. |
+| Testing | 3 | Needs integration or runtime-backed verification with higher setup cost. |
+| Reversibility | 2 | Migration path exists, but rollback requires coordinated changes. |
+
+### XL work item -> six_factor_score 17-18 / XL / 20 points, split required
+
+If `six_factor_score` reaches 17+, do not continue as one spec. Use `20`
+only to signal "too large"; split the work into 2+ smaller specs and estimate
+each one separately.
 
 ---
 
@@ -162,9 +220,9 @@ monsters" [11], and IFPUG FPA's **GSC14 (Facilitate Change)** [2].
      grill reveals hidden complexity or simplifies scope
   3. **Final re-score at ship** — `/shipping-release` re-scores against
      actual implementation evidence (Round-N pivots, scope creep / shrink,
-     test complexity actually needed). Final score lands on
-     `spec-roadmap.md` 點數 column; initial estimate stays in spec §2 as
-     historical record. See `shipping-release/SKILL.md` § Re-score size.
+     test complexity actually needed). Final `story_points` lands on
+     `spec-roadmap.md` 點數 column; `six_factor_score` stays in the spec as
+     diagnostic evidence. See `shipping-release/SKILL.md` § Re-score size.
 - **Why re-score at ship matters:** The roadmap is the project's ground
   truth on spec size distribution. Stale initial estimates hide systematic
   underestimation patterns. Future planners use this data to calibrate
@@ -174,7 +232,7 @@ monsters" [11], and IFPUG FPA's **GSC14 (Facilitate Change)** [2].
 - **When in doubt, score higher.** Per McConnell [5], underestimation
   is the most common estimation failure mode. Overestimation just
   means more design rigor, which is cheap.
-- **XL = mandatory split.** If total reaches 17+, decompose into 2+
+- **XL = mandatory split.** If `six_factor_score` reaches 17+, decompose into 2+
   specs before proceeding.
 - **Tech risk 3 triggers research.** Any spec with tech_risk = 3 must
   dispatch parallel sub-agents to verify load-bearing APIs before the
@@ -183,6 +241,8 @@ monsters" [11], and IFPUG FPA's **GSC14 (Facilitate Change)** [2].
   on reversibility because no downstream consumers exist yet. This
   is expected and correct — the score should reflect the *current*
   state, not hypothetical future consumers.
+- **Story points are not time.** They are relative planning values. Do not
+  translate `1, 2, 3, 5, 8, 13, 20` directly into hours or days.
 
 ---
 
@@ -241,3 +301,9 @@ monsters" [11], and IFPUG FPA's **GSC14 (Facilitate Change)** [2].
 [13] NASA. "Software Test Estimation and Testing Levels." *SWEHB*,
      Section 7.6.
      https://swehb.nasa.gov/display/SWEHBVD/7.6+-+Software+Test+Estimation+and+Testing+Levels
+
+[14] Atlassian. "Fibonacci Story Points."
+     https://www.atlassian.com/agile/project-management/fibonacci-story-points
+
+[15] Scrum.org. "Myth 9: Story Points are Required in Scrum."
+     https://www.scrum.org/resources/blog/myth-9-story-points-are-required-scrum

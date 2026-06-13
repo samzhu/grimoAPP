@@ -1726,6 +1726,12 @@ textarea.task-body-input {
   color: var(--muted);
 }
 
+.form-field-stack {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+}
+
 .form-stack input,
 .form-stack select,
 .form-stack textarea {
@@ -2030,6 +2036,8 @@ textarea.task-body-input {
 }
 
 .directory-row {
+  display: grid;
+  gap: 2px;
   width: 100%;
   min-height: 34px;
   border: 1px solid var(--border);
@@ -2038,6 +2046,13 @@ textarea.task-body-input {
   color: var(--fg);
   padding: 0 10px;
   text-align: left;
+}
+
+.directory-row code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 11px;
 }
 
 .directory-row:hover {

@@ -38,7 +38,7 @@ test("AC-S003-1/2/7 shows list-first Project management and projectPath-only cre
   await expect(page.getByRole("button", { name: "返回列表" })).toBeVisible();
   await expect(page.getByLabel("專案路徑")).toBeVisible();
   await expect(page.getByText("未填會使用 Grimo 預設路徑")).toBeVisible();
-  await expect(page.getByRole("button", { name: "選擇資料夾" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "選擇資料夾" })).toBeVisible();
   await expect(page.locator(".directory-browser")).toHaveCount(0);
   expect(localDirectoryRequests).toHaveLength(0);
 
@@ -156,6 +156,90 @@ test("AC-S003-4 creates Project with validated manual projectPath", async ({ pag
     }),
   );
   expect(listedProject).not.toHaveProperty("workspacePath");
+});
+
+test("AC-S013-5: creates Project from native dialog selected projectPath only", async ({
+  page,
+}) => {
+  const suffix = Date.now().toString();
+  const projectName = `S013 native ${suffix}`;
+  const projectPath = join(tmpdir(), `grimo-s013-fullstack-${suffix}`, "repo-a");
+  await mkdir(projectPath, { recursive: true });
+
+  await page.route("**/api/native-folder-dialogs/project-path", async (route) => {
+    await route.fulfill({
+      json: {
+        selected: true,
+        projectPath,
+      },
+    });
+  });
+
+  await openProjectCreate(page);
+  await page.getByLabel("專案名稱").fill(projectName);
+  await page.getByLabel("專案描述").fill("S013 full-stack native selected path");
+  await page.getByLabel("專案工作流").selectOption("web-service-development");
+
+  await page.getByRole("button", { name: "選擇資料夾" }).click();
+  await expect(page.getByLabel("專案路徑")).toHaveValue(projectPath);
+
+  const createRequestPromise = page.waitForRequest(
+    (request) => request.method() === "POST" && request.url().endsWith("/api/projects"),
+  );
+  const createResponsePromise = page.waitForResponse(
+    (response) => response.request().method() === "POST" && response.url().endsWith("/api/projects"),
+  );
+  await page.getByRole("button", { name: "建立專案" }).click();
+
+  const createRequestBody = JSON.parse((await createRequestPromise).postData() ?? "{}") as {
+    projectPath?: string;
+    workspacePath?: string;
+    folderPath?: string;
+    projectPathSource?: string;
+    browserProjectPathKey?: string;
+    FileSystemDirectoryHandle?: string;
+  };
+  expect(createRequestBody.projectPath).toBe(projectPath);
+  expect(createRequestBody.workspacePath).toBeUndefined();
+  expect(createRequestBody.folderPath).toBeUndefined();
+  expect(createRequestBody.projectPathSource).toBeUndefined();
+  expect(createRequestBody.browserProjectPathKey).toBeUndefined();
+  expect(createRequestBody.FileSystemDirectoryHandle).toBeUndefined();
+
+  const createdProject = (await (await createResponsePromise).json()) as {
+    id: string;
+    name: string;
+    projectPath: string;
+    workspacePath?: string;
+    folderPath?: string;
+    projectPathSource?: string;
+    browserProjectPathKey?: string;
+  };
+  expect(createdProject.name).toBe(projectName);
+  expect(createdProject.projectPath).toBe(projectPath);
+  expect(createdProject.workspacePath).toBeUndefined();
+  expect(createdProject.folderPath).toBeUndefined();
+  expect(createdProject.projectPathSource).toBeUndefined();
+  expect(createdProject.browserProjectPathKey).toBeUndefined();
+
+  const response = await page.request.get("/api/projects");
+  expect(response.ok()).toBe(true);
+  const body = (await response.json()) as {
+    content: Array<{
+      name: string;
+      projectPath: string;
+      workspacePath?: string;
+      folderPath?: string;
+    }>;
+  };
+  const listedProject = body.content.find((project) => project.name === projectName);
+  expect(listedProject).toEqual(
+    expect.objectContaining({
+      projectPath,
+    }),
+  );
+  expect(listedProject).not.toHaveProperty("workspacePath");
+  expect(listedProject).not.toHaveProperty("folderPath");
 });
 
 test("AC-S003-5 rejects invalid manual projectPath without adding Project", async ({ page }) => {

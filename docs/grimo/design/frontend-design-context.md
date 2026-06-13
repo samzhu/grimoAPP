@@ -49,6 +49,11 @@ Grimo 的前端設計工作需要留下可延續的脈絡。當需求、browser 
   **證據：** `docs/grimo/design/screen-flow-contract.md`、`docs/grimo/design/ui-ux-workflow.md`。
   **狀態：** 有效
 
+- **決策：** Agent 能力不能只靠 generic Chat 呈現；主要 UI 必須提供明確 signifier、state feedback、human control 和 recovery path。
+  **原因：** 使用者研究指出，agent 若住在 LINE / Chat 輸入框裡，非工程背景使用者看不出背後能建立 Task、執行 workflow、收集 evidence 或交給人審查。Grimo 後續 UI 應用 Norman 的 affordance / signifier / discoverability / feedback，以及 Swiss cheese model 的多層防護，把 agent 能力變成可探索、可監督、可恢復的工作台體驗。
+  **證據：** `docs/grimo/design/human-centered-agent-ui-principles.md`、2026-06-13 使用者研究整理要求。
+  **狀態：** 有效
+
 ## 3. 頁面脈絡
 
 ### App Shell / Project 啟動流程
@@ -354,16 +359,22 @@ main.main-content-area
 - First-run Project setup 必須先用 `docs/grimo/design/screen-flow-contract.md` 規劃，再改 app bootstrap 或 Project onboarding screens。
 - Project management 從 list-first view 開始。使用者應先看到 existing Projects 或 empty state，再看到 create fields。
 - `新增專案` 開啟獨立 create view，並提供 `返回列表`；create form 不永久顯示在 Project list 旁邊。
-- Project Path 是簡單的 optional text field。使用者可以貼 `/Users/.../repo`；留空時，Grimo 在 `~/.grimo/projects/<projectId>` 下建立 default project path。
-- Browser-native folder picking 不屬於 S003 create contract，因為 `showDirectoryPicker()` 回傳的是 browser handle，不是 backend 可操作的 absolute path。
-- Manual path entry 是 S003 唯一綁定 existing repo/codebase path 的方式。
+- Project Path 是 optional field。使用者可以貼 `/Users/.../repo`；留空時，Grimo 在 `~/.grimo/projects/<projectId>` 下建立 default project path。
+- S012 T01 已驗證 compact Local Directory Picker 可行，但使用者回饋 backend directory tree 會讓操作變複雜、看不懂系統資料夾；S012 已由 S013 supersede，不再作為 active Project Path UX。
+- Browser-native `showDirectoryPicker()` POC 顯示 Chromium/localhost 可開 OS-like chooser，但回傳 browser handle，不 expose backend absolute path；不能直接作為 `projectPath` source。
+- S013 的 OS folder chooser first 已被 S014 設計取代為 Project Path Folder Browser：前端按 `選擇資料夾` 後打開 Grimo modal，local backend 透過 `GET /api/local-directories` 回目前 path、上層與可讀子資料夾；預設起點是 `~/.grimo/projects/`，並提供 `回家目錄` 與 `回 Grimo 預設位置` 兩個 Finder-like shortcut。
+- Manual path entry、歷史 Local Directory Picker、Native Folder Dialog Bridge、Project Path Folder Browser 都必須共用同一個 `projectPath` contract；不新增 `projectPathSource`、`browserProjectPathKey` 或其他 source/readiness 欄位。
+- Project Path Folder Browser 的 cancel/關閉是 no-op，不清空 Project Creation form；directory API error 只顯示在 modal 內，manual `projectPath` input 維持可編輯。
+- Full-stack automation 應使用 real `GET /api/local-directories` + real `POST /api/projects` 驗證 selected path；不再 mock native dialog endpoint 作為 primary UX evidence。
 - Drag-and-drop folder import 不屬於 S003 main flow。它太隱晦，而且和 browser handles 一樣無法取得 absolute path。
-- S003 create view 不應該在 form 下方顯示很長的 backend-generated directory browser。
+- Project Creation 不應該在 form 下方顯示很長的 backend-generated directory browser；S014 folder browser 必須是可關閉的 modal / bounded overlay，不把 create form 拉成長清單。
+- `新增專案` 表單資訊層級仍應改善：桌面版整理成主表單 + compact workflow/roles preview；手機版維持單欄。S014 只規劃 folder browser primary UX；更大的 form polish 若超出 picker 可另開 spec。
 
 **響應式行為：**
 
 - 桌面版 和 手機版 使用同一套 list/create mode split。
-- Create view 堆疊 form fields 和 workflow preview；project path input state 必須保持 compact，不要把 workflow roles 推到 fold 下方很遠。
+- Create view 在桌面版可使用兩個 zone：左側填表，右側顯示 compact workflow/roles preview；project path input state 必須保持 compact，不要把 workflow roles 推到 fold 下方很遠。
+- Create view 在手機版堆疊 form fields、path picker、workflow preview、roles preview；文字不可溢出或互相重疊。
 
 **元件備註：**
 

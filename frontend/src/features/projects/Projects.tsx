@@ -3,7 +3,7 @@ import type { FormEvent } from "react";
 import type { Project, WorkflowRecipe } from "../../domain/project/project-types";
 import { Metric } from "../../shared/ui/Metric";
 import { Panel } from "../../shared/ui/Panel";
-import { createProject, listProjects, listWorkflowRecipes } from "./project-api";
+import { chooseNativeProjectPath, createProject, listProjects, listWorkflowRecipes } from "./project-api";
 
 type ProjectsProps = {
   initialViewMode?: "list" | "create";
@@ -34,6 +34,8 @@ export function Projects({
   const [isLoading, setIsLoading] = useState(!appProjects);
   const [isWorkflowLoading, setIsWorkflowLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isNativeDialogLoading, setIsNativeDialogLoading] = useState(false);
+  const [nativeDialogError, setNativeDialogError] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -110,6 +112,7 @@ export function Projects({
   const startProjectCreation = () => {
     setError("");
     setMessage("");
+    setNativeDialogError("");
     setViewMode("create");
   };
 
@@ -146,6 +149,30 @@ export function Projects({
       setError(caught instanceof Error ? caught.message : "建立專案失敗");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const openNativeFolderDialog = async () => {
+    if (isNativeDialogLoading) {
+      return;
+    }
+    setNativeDialogError("");
+    setIsNativeDialogLoading(true);
+    try {
+      const currentProjectPath = form.projectPath.trim();
+      const result = await chooseNativeProjectPath({
+        ...(currentProjectPath ? { initialPath: currentProjectPath } : {}),
+        title: "選擇 Project 資料夾",
+      });
+      if (result.selected) {
+        setForm((current) => ({ ...current, projectPath: result.projectPath }));
+      }
+    } catch (caught) {
+      setNativeDialogError(
+        caught instanceof Error ? caught.message : "無法開啟系統資料夾選擇器，請手動貼上路徑",
+      );
+    } finally {
+      setIsNativeDialogLoading(false);
     }
   };
 
@@ -216,16 +243,29 @@ export function Projects({
                 onChange={(event) => setForm({ ...form, description: event.target.value })}
               />
             </label>
-            <label>
-              專案路徑
-              <input
-                name="projectPath"
-                placeholder="/Users/samzhu/workspace/github-samzhu/grimoAPP"
-                value={form.projectPath}
-                onChange={(event) => setForm({ ...form, projectPath: event.target.value })}
-              />
-            </label>
+            <div className="form-field-stack">
+              <label htmlFor="projectPath">專案路徑</label>
+              <div className="folder-picker-field">
+                <input
+                  id="projectPath"
+                  name="projectPath"
+                  placeholder="/Users/samzhu/workspace/github-samzhu/grimoAPP"
+                  value={form.projectPath}
+                  onChange={(event) => setForm({ ...form, projectPath: event.target.value })}
+                />
+                <button
+                  className="icon-text-button"
+                  type="button"
+                  disabled={isNativeDialogLoading}
+                  onClick={() => void openNativeFolderDialog()}
+                >
+                  {isNativeDialogLoading ? "開啟中..." : "選擇資料夾"}
+                </button>
+              </div>
+            </div>
             <p className="form-note">未填會使用 Grimo 預設路徑</p>
+            {isNativeDialogLoading && <p className="form-note">正在開啟系統資料夾選擇器...</p>}
+            {nativeDialogError && <p className="form-message error">{nativeDialogError}</p>}
             <label>
               專案工作流
               <select

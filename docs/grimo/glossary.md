@@ -69,16 +69,24 @@ Project Selection Gate 裡的大主視覺區塊，用來說明為什麼要先建
 _Avoid_: Project Selection Gate, App Header, Project Creation Page, page header only, generic empty state
 
 **Project Path**:
-Project 的主要開發目錄，是 backend 可驗證、可保存、可操作的 repo / codebase path。S003 起，使用者不填專案路徑時，Grimo 會在 `~/.grimo/projects/<projectId>` 建立預設 `projectPath`；使用者也可以手動輸入既有 repo path。
+Project 的主要開發目錄，是 backend 可驗證、可保存、可操作的 repo / codebase path。S003 起，使用者不填專案路徑時，Grimo 會在 `~/.grimo/projects/<projectId>` 建立預設 `projectPath`；使用者也可以手動輸入既有 repo path。S014 方向改為用 Project Path Folder Browser 讓使用者在 Grimo 內選資料夾，同時仍回填 backend absolute path。
 _Avoid_: Project Workspace as MVP product/API term, browser directory handle, `folderPath` as product/API field, blocking Project creation when no external path is selected, assuming browser-selected folders are backend-ready, uploaded file list
 
 **Manual Project Path**:
-Project Creation Page 的選填欄位；使用者手動輸入 `/Users/...` 這類本機 path，backend 驗證存在、是資料夾、可讀後，Project 使用該 existing local path 作為 `projectPath`。它不是建立 Project 的必要條件；不輸入時使用 Grimo 預設 projectPath。
+Project Creation Page 的選填欄位；使用者手動輸入 `/Users/...` 這類本機 path，backend 驗證存在、是資料夾、可讀後，Project 使用該 existing local path 作為 `projectPath`。它不是建立 Project 的必要條件；不輸入時使用 Grimo 預設 projectPath。Project Path Folder Browser 只是幫使用者填入同一個欄位，不新增另一種 path contract。
 _Avoid_: Running shell commands during validation, accepting invalid path as a Project path, making manual path required for Project creation
 
 **Local Directory Picker**:
-S001/S002 使用過的本機資料夾瀏覽方式；前端透過 Spring Boot read-only API 顯示資料夾清單。S003 起不再是 Project Creation Page 的主要互動，除非未來 spec 明確恢復。
-_Avoid_: Treating backend directory browsing as the default S003 picker, shell command execution
+Project Creation Page 的歷史 compact 本機資料夾選取器；前端透過 Spring Boot read-only API 顯示目前資料夾、上層與可讀子資料夾，使用者按「使用此資料夾」後，UI 只把 backend absolute path 填回 `projectPath`。S012 T01 已驗證此方向可行，但 S013 因使用者回饋改採 Native Folder Dialog Bridge 作為 primary UX；Local Directory Picker 不再是 active Project Creation path selection 方案。
+_Avoid_: Browser-native `showDirectoryPicker()` as backend path source, directory upload, shell command execution, reading file contents, making Project creation require a selected directory
+
+**Project Path Folder Browser**:
+Project Creation Page 的 S014 主要資料夾選取方式；使用者按「選擇資料夾」後，Grimo 在 app 內打開類似檔案選擇器的 modal。資料來源仍由本機 Spring Boot 透過 `GET /api/local-directories` 讀 filesystem，預設從 `~/.grimo/projects/` 開始，並提供 `回家目錄` 與 `回 Grimo 預設位置`。使用者按「使用此資料夾」後，UI 只把 backend absolute path 填回 `projectPath` input。
+_Avoid_: Browser-only `showDirectoryPicker()` as path source, Swing/JFileChooser as primary UX, reading file contents, shell command execution, persisting browser handles
+
+**Native Folder Dialog Bridge**:
+Project Creation Page 的 S013 本機資料夾選取橋接；使用者按「選擇資料夾」後，local backend 開啟 OS folder chooser，使用者看到 Finder / Explorer / portal 對話框。S014 起這不是 primary UX，也不是 folder browser 失敗時的 fallback；若保留，只能作為 shipped history 或非 UI 內部程式碼，且仍不得讀檔、執行 shell、建立 Project 或改變 `POST /api/projects` contract。
+_Avoid_: Treating browser `FileSystemDirectoryHandle` as a backend path, requiring Electron/Tauri before MVP, reading file contents, executing shell commands, persisting dialog selections
 
 **Task Worktree**:
 未來單一 Task 執行時使用的隔離工作目錄，通常從 Project Path 或 repo 建立，避免 agent 修改主路徑時影響其他工作。

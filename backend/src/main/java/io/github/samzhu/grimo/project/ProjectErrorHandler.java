@@ -13,7 +13,11 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  *
  * @see ProjectController
  */
-@RestControllerAdvice(assignableTypes = { ProjectController.class, LocalDirectoryController.class })
+@RestControllerAdvice(assignableTypes = {
+		ProjectController.class,
+		LocalDirectoryController.class,
+		NativeFolderDialogController.class
+})
 public class ProjectErrorHandler {
 
 	private static final Logger logger = LoggerFactory.getLogger(ProjectErrorHandler.class);
@@ -37,5 +41,14 @@ public class ProjectErrorHandler {
 		logger.atWarn().log("project.request.duplicate_project_path");
 		return ResponseEntity.status(HttpStatus.CONFLICT)
 				.body(new ErrorResponse("這個專案路徑已經建立過 Project"));
+	}
+
+	@ExceptionHandler(NativeFolderDialogUnavailableException.class)
+	ResponseEntity<ErrorResponse> nativeFolderDialogUnavailable(NativeFolderDialogUnavailableException exception) {
+		logger.atWarn()
+				.addKeyValue("reason", exception.getMessage())
+				.log("project.native_folder_dialog.unavailable");
+		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+				.body(new ErrorResponse(exception.getMessage()));
 	}
 }

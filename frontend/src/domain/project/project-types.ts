@@ -49,6 +49,31 @@ export type CreateProjectInput = {
   workflowRecipeId: string;
 };
 
+export type LocalDirectoryEntry = {
+  name: string;
+  path: string;
+};
+
+export type LocalDirectoryListing = {
+  path: string;
+  parentPath: string | null;
+  directories: LocalDirectoryEntry[];
+};
+
+export type NativeFolderDialogRequest = {
+  initialPath?: string;
+  title?: string;
+};
+
+export type NativeFolderDialogResponse =
+  | {
+      selected: true;
+      projectPath: string;
+    }
+  | {
+      selected: false;
+    };
+
 export type CollectionResponse<T> = {
   content: T[];
 };

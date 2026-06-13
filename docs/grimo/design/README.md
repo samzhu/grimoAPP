@@ -11,8 +11,9 @@
 | 3 | `docs/grimo/design/screen-flow-contract.md` | 改 onboarding、empty/error/success、navigation、CTA 前 | Flow Header、State Matrix、Flow Steps、wireflow、驗證對應。 |
 | 4 | Active spec，例如 `docs/grimo/specs/2026-06-07-S011-project-setup-hero-main-content-area.md` | 改特定需求前 | 該 spec 的研究、BDD contract、檔案規劃和驗收證據。 |
 | 5 | `docs/grimo/design/ui-ux-workflow.md` | 要判斷前端工作流程或設計證據要放哪裡時 | 設計來源層級、token / screenshot / prompt / evidence 的職責。 |
-| 6 | `docs/grimo/design/tokens.json` | 改 spacing、layout 尺寸、color、component token 前 | 目前 token key 和設計語言值。 |
-| 7 | `docs/grimo/design/webwright-prompts.md` | 需要 agent-assisted visual review 時 | 可重複的 Webwright 視覺審查 prompt。 |
+| 6 | `docs/grimo/design/human-centered-agent-ui-principles.md` | 改 Chat、Task、agent execution、onboarding、error/recovery UX 前 | Norman / Swiss cheese / AI agent UX 轉成 Grimo 的可探索性、控制感、防錯和 evidence-first 原則。 |
+| 7 | `docs/grimo/design/tokens.json` | 改 spacing、layout 尺寸、color、component token 前 | 目前 token key 和設計語言值。 |
+| 8 | `docs/grimo/design/webwright-prompts.md` | 需要 agent-assisted visual review 時 | 可重複的 Webwright 視覺審查 prompt。 |
 
 ## S011 快速入口
 
