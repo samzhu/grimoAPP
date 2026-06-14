@@ -14,7 +14,7 @@ Grimo 的前端設計工作需要留下可延續的脈絡。當需求、browser 
   **狀態：** 有效
 
 - **決策：** 把 `docs/grimo/design/DESIGN.md` 視為外部設計師提案，分三輪吸收。
-  **原因：** 該文件描述 dark Arcane workbench 方向，但使用者已明確分階段採用，以降低 churn 並保留可審查性。
+  **原因：** 該文件描述 dark Arcane workbench 方向，但使用者已明確分階段採用，以降低 churn 並保留可檢視性。
   **證據：** 2026-05-28 使用者方向。
   **狀態：** 有效
 
@@ -50,7 +50,7 @@ Grimo 的前端設計工作需要留下可延續的脈絡。當需求、browser 
   **狀態：** 有效
 
 - **決策：** Agent 能力不能只靠 generic Chat 呈現；主要 UI 必須提供明確 signifier、state feedback、human control 和 recovery path。
-  **原因：** 使用者研究指出，agent 若住在 LINE / Chat 輸入框裡，非工程背景使用者看不出背後能建立 Task、執行 workflow、收集 evidence 或交給人審查。Grimo 後續 UI 應用 Norman 的 affordance / signifier / discoverability / feedback，以及 Swiss cheese model 的多層防護，把 agent 能力變成可探索、可監督、可恢復的工作台體驗。
+  **原因：** 使用者研究指出，agent 若住在 LINE / Chat 輸入框裡，非工程背景使用者看不出背後能建立 Task、執行 workflow、收集 evidence 或交給人檢視。Grimo 後續 UI 應用 Norman 的 affordance / signifier / discoverability / feedback，以及 Swiss cheese model 的多層防護，把 agent 能力變成可探索、可監督、可恢復的工作台體驗。
   **證據：** `docs/grimo/design/human-centered-agent-ui-principles.md`、2026-06-13 使用者研究整理要求。
   **狀態：** 有效
 
@@ -335,7 +335,7 @@ main.main-content-area
 **目前版面決策：**
 
 - 這個頁面不是第二個 Kanban board。它先摘要 action counts，再把 `REVIEW` tasks 和 needs-human repair tasks 列成 priority queue。
-- `REVIEW` 和 needs-human repair 共用主 queue，因為兩者都會卡住進度：`REVIEW` 卡住 `DONE`，needs-human repair 卡住 dispatcher 或 workflow recovery。Release evidence 若存在，會在 `DONE` task 內 review。
+- `REVIEW` 和 needs-human repair 共用主 queue，因為兩者都會卡住進度：`REVIEW` 卡住 release 與 `DONE`，needs-human repair 卡住 dispatcher 或 workflow recovery。Release evidence 若存在，會在 `DONE` task 內 review。
 - Definition gaps 是右欄的次要 decision material，讓使用者可以掃描未完成 tasks，但不把它們混進 urgent queue。
 - Attention cards 顯示真實 task labels，不顯示 recipe steps。`Prototype`、`Spec`、`Review` 等 recipe steps 屬於 Task detail / Workflow evidence，不是 list-level label chips。
 
@@ -393,10 +393,10 @@ main.main-content-area
 
 - Web development workflow 把 verification 保留在 `RUNNING` 裡，不把它做成一個 first-class Task List State。
 - `RUNNING` 顯示 implementation 和 evidence work：`Dev / Unit-test / Integration-test / E2E-test`。
-- `REVIEW` 保持在 verification evidence 完成後的人類 approve/reject state。
-- `DONE` 顯示 `Release` 作為 web development workflow 的 completion subflow；release evidence 留在 DONE task 裡，不成為另一個 board column。
+- `REVIEW` 保持在 verification evidence 完成後的等待檢視 state；人類檢視後再 approve/reject。
+- `REVIEW` approve 後執行 `Release` 作為 web development workflow 的 completion action；release 完成後 Task 才進 `DONE`，release evidence 留在 DONE task 裡，不成為另一個 board column。
 
-**不要做：** 不要新增 `VERIFYING` board/list state，也不要把 Quality Loop 裡的 `Review` 當成 human approval。
+**不要做：** 不要新增 `VERIFYING` board/list state，也不要把 Quality Loop 裡的 `Review` 當成 human review decision。
 
 **驗證：** `npm run build`；backend `ProjectApiTests.exposesWebServiceDevelopmentRecipeDefinition`。
 
@@ -433,10 +433,10 @@ main.main-content-area
 
 ### Task 詳情全頁
 
-- **決策：** Full-page `REVIEW` detail 以 human approval gate 作為主要內容，不只是 Acceptance 和 Evidence lists 的稀疏複製。
-- **原因：** 使用者在這個頁面決定 approve/reject，所以第一屏要看到 compact review summary、decision actions、execution timeline、risk notes 和 linked work。
+- **決策：** Full-page `REVIEW` detail 以等待檢視的 human decision gate 作為主要內容，不只是 Acceptance 和 Evidence lists 的稀疏複製。
+- **原因：** 使用者在這個頁面檢視材料並決定 approve/reject，所以第一屏要看到 compact review summary、decision actions、execution timeline、risk notes 和 linked work。
 - **不要做：** 不要把 full-page detail 做成 drawer 的稀疏唯讀 duplicate。
-- **驗證：** Playwright test `full page detail baseline` 斷言 `審查結論`、`Approve`、`Reject`；snapshot `task-detail-full-page-chromium-darwin.png`。
+- **驗證：** Playwright test `full page detail baseline` 斷言 `檢視決策`、`Approve`、`Reject`；snapshot `task-detail-full-page-chromium-darwin.png`。
 
 ### Task 來源
 
@@ -489,8 +489,8 @@ main.main-content-area
 
 - **決策：** `待處理` 是 human-action queue，包含 count summary、priority task cards 和 diagnostic sidebar。
 - **原因：** Plain needs-human-only list 會隱藏 `REVIEW` approvals，也無法說明是哪個 action 卡住進度。
-- **不要做：** 不要複製完整 board，不要讓每個 task 權重相同，也不要新增獨立 list-level `審查材料` / `查看缺口` buttons。
-- **驗證：** Playwright test `attention page baseline` 斷言 `優先處理`、不存在 `審查材料` / `查看缺口`，並顯示 `Chat`；snapshot `attention-page-chromium-darwin.png`。
+- **不要做：** 不要複製完整 board，不要讓每個 task 權重相同，也不要新增獨立 list-level `檢視材料` / `查看缺口` buttons。
+- **驗證：** Playwright test `attention page baseline` 斷言 `優先處理`、不存在 `檢視材料` / `查看缺口`，並顯示 `Chat`；snapshot `attention-page-chromium-darwin.png`。
 
 ## 5. Visual Gate 紀錄
 
@@ -529,7 +529,7 @@ main.main-content-area
 - **指令：** `npm run build`、`npm run test:visual:update`、`npm run test:visual`、`npm run build`
 - **結果：** 通過
 - **截圖基準變更：** `frontend/e2e/task-workbench.visual.spec.ts-snapshots/task-detail-full-page-chromium-darwin.png`
-- **原因：** Full-page `REVIEW` detail 現在包含 human gate decision area、approve/reject actions、review summary、execution timeline、risk notes 和 linked work。
+- **原因：** Full-page `REVIEW` detail 現在包含等待檢視的 human decision area、approve/reject actions、review summary、execution timeline、risk notes 和 linked work。
 
 ### 2026-05-28 — Attention Page Completion
 
@@ -557,9 +557,9 @@ main.main-content-area
 ### 2026-05-28 — Attention Actions Collapse To Chat
 
 - **指令：** `npm run build`、`npm run test:visual:update`、`npm run test:visual`、`python3 scripts/visual-snapshot-summary.py --repo-root .`
-- **結果：** 通過；`attention page baseline` 現在斷言沒有 `審查材料` 或 `查看缺口` buttons，並有可見的 `Chat` action。
+- **結果：** 通過；`attention page baseline` 現在斷言沒有 `檢視材料` 或 `查看缺口` buttons，並有可見的 `Chat` action。
 - **截圖基準變更：** task workbench 桌面版/平板/手機版、task detail drawer、create task dialog 和 attention page snapshots。
-- **原因：** 使用者釐清 `審查材料` 和 `查看缺口` 不應作為 list-level action buttons 出現。Focus 和 attention cards 現在導向 `Chat` 進行討論和釐清。
+- **原因：** 使用者釐清 `檢視材料` 和 `查看缺口` 不應作為 list-level action buttons 出現。Focus 和 attention cards 現在導向 `Chat` 進行討論和釐清。
 - **截圖摘要：** 目前 summary 回報 git status 裡有 8 個 changed baselines，以及 `frontend/test-results/.last-run.json` 和 `frontend/playwright-report/index.html` 的 local evidence artifacts。
 
 ### 2026-05-29 — Attention Cards Use Labels, Not Recipe Steps

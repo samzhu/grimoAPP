@@ -116,7 +116,7 @@ Internal steps such as `Discuss`, `Explore`, `Prototype`, `Spec`, `Usage`, `Tkt`
 
 The product state `REVIEW` means workflow evidence, tests or non-applicability explanation, and review materials are ready for the human.
 
-Human approval happens in `REVIEW`, not after Release; tasks without cleanup or delivery-summary work can move from approved `REVIEW` directly to `DONE`.
+Human approval happens in `REVIEW`; approved tasks run `release` before moving to `DONE`. Tasks without cleanup or delivery-summary work still pass through the release action, but it can complete without extra Release evidence.
 
 ### P5. Local-First Ownership
 
@@ -193,7 +193,7 @@ Design meaning:
 | `DEFINING` | Task is being clarified into a definition package. | Needs conversation, research, gaps, or acceptance criteria. |
 | `READY` | Definition package and quality gate were accepted; work is schedulable but not automatically running. | Show dispatch-window state, manual start affordance, and dispatcher/preflight readiness. |
 | `RUNNING` | Agent work is active or claimed. | Show progress, active execution, worker log, and recoverability. |
-| `REVIEW` | Human must approve or reject completed evidence. | This is a human inbox state. Review materials must be prominent. |
+| `REVIEW` | Human must review completed evidence, then approve or reject. | This is a human inbox state. Review materials must be prominent. |
 | `DONE` | Work completed; Release evidence may exist inside the task. | Completed record, summary, evidence, learnings when available. |
 
 Important: blocker recovery is still required, but it is represented as `NEEDS_HUMAN` / blocked reason on the relevant task state, and appears in the `待處理` view as repair guidance. A redesign can make needs-human work more visible, but it must not become a seventh board-facing state.
@@ -346,10 +346,11 @@ Design needs:
 
 ### Flow F. Optional Release Evidence And Learning Loop
 
-1. Approved work enters `DONE`.
-2. DONE task shows Release evidence only when cleanup, delivery summary, or short retro is needed.
-3. Learning Loop may propose skill or recipe improvements from Release evidence or accumulated task history.
-4. Task remains `DONE`; a follow-up proposal creates a separate BACKLOG / DEFINING task if accepted.
+1. Approved work enters `release`.
+2. After release completes, the task enters `DONE`.
+3. DONE task shows Release evidence only when cleanup, delivery summary, or short retro is needed.
+4. Learning Loop may propose skill or recipe improvements from Release evidence or accumulated task history.
+5. Task remains `DONE`; a follow-up proposal creates a separate BACKLOG / DEFINING task if accepted.
 
 Design needs:
 
@@ -491,13 +492,13 @@ Current action logic:
 
 - If state is `READY`, action says `開始執行`.
 - Otherwise action says `使用 Chat`.
-- If state is `REVIEW`, bottom text says `等待人工審查`.
+- If state is `REVIEW`, bottom text says `等待檢視`.
 
 Design notes:
 
 - Review materials need more hierarchy in redesign: evidence type, source, pass/fail, timestamp, command, screenshot, risk.
 - Quality score needs more explanation and confidence than a numeric chip alone.
-- For `REVIEW`, human approval/rejection controls should probably become primary, once implemented.
+- For `REVIEW`, approve/reject controls should become primary after Review Materials are ready.
 - The `Chat` action should open the task's existing Task Conversation Thread, not a generic global chat.
 - The drawer may show Task Conversation Preview, but full message history and attachments belong in `Chat` or full task detail.
 
@@ -871,9 +872,9 @@ Keep for Round 1:
 
 - A focus view or attention band that makes tasks requiring human action visible immediately.
 - A `needs review` / `needs attention` count near the top-level workbench controls.
-- Larger review cards for tasks that are waiting on human approval, especially `REVIEW` tasks with quality score and evidence readiness.
+- Larger review cards for tasks that are waiting on human review decision, especially `REVIEW` tasks with quality score and evidence readiness.
 - A compact board or list below the focus area so the user can still understand the full workflow state.
-- List-level action buttons should route to `Chat` for discussion and clarification; do not add separate `審查材料` or `查看缺口` buttons in attention/focus cards.
+- List-level action buttons should route to `Chat` for discussion and clarification; do not add separate `檢視材料` or `查看缺口` buttons in attention/focus cards.
 - Task cards and collapsed Chat should show Task Conversation Preview only: recent messages, key summary, open questions, and attachment count.
 - Opening `Chat` from a Task should reveal the complete Task Conversation Thread with attachments and links.
 
@@ -1114,7 +1115,7 @@ A proposed redesign should be considered incomplete unless it covers:
 - A single primary create-task CTA per viewport, avoiding duplicate `新增 Task` buttons with the same scope.
 - `READY` human confirmation and dispatcher/preflight distinction.
 - `RUNNING` execution progress and recoverability.
-- `REVIEW` human approval with complete review materials.
+- `REVIEW` human review decision with complete Review Materials.
 - `NEEDS_HUMAN` repair guidance.
 - Evidence, quality score, fix history, risk, and reviewer findings.
 - Local-first project/repo ownership.
@@ -1151,7 +1152,7 @@ These are intentionally left open for the designer:
 8. Should workflow recipe configuration be part of Project Settings or a standalone Workflow area?
 9. How should task-forming chat show extracted task fields without turning into a form too early?
 10. How should external work item sync conflicts be represented?
-11. How should Learning Loop proposals appear after wrap?
+11. How should Learning Loop proposals appear after release evidence?
 12. How much personality should Grimo have while staying credible for engineering work?
 13. How much of Task Conversation Preview belongs on a card before it becomes too dense?
 
@@ -1165,8 +1166,8 @@ These are intentionally left open for the designer:
 - Task source is provenance and should be system-controlled.
 - Task source belongs in task detail only; list, board, attention, and creation surfaces should prioritize state, gaps, quality, evidence, and next action instead.
 - Workflow recipe is Project-level, not selected per task at creation time.
-- `REVIEW` is for human approval after evidence is ready.
-- `WRAP` is optional cleanup and summary after approval, not a guaranteed board state.
+- `REVIEW` is for human review decision after evidence is ready.
+- `release` is the workflow action after approval; Release evidence is optional cleanup and summary inside the DONE task, not a guaranteed board state.
 - Follow-up tasks are proposals, not automatic scope expansion.
 - Local store is source of truth.
 - Provider/runtime is adapter detail, not product identity.

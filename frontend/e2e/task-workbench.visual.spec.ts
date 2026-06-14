@@ -207,7 +207,7 @@ test.describe("Task workbench visual gate", () => {
 
     await expect(page.getByRole("heading", { name: "待處理" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "優先處理" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "審查材料" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "檢視材料" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "查看缺口" })).toHaveCount(0);
     await expect(page.locator(".attention-task").first().getByRole("button", { name: "Chat", exact: true })).toBeVisible();
     await expect(page.getByText("來源", { exact: true })).toHaveCount(0);
@@ -220,11 +220,11 @@ test.describe("Task workbench visual gate", () => {
   test("full page detail baseline", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openVisualTaskWorkbench(page);
-    await page.getByRole("button", { name: /Task detail 顯示審查附件與人工核准/ }).click();
+    await page.getByRole("button", { name: /Task detail 顯示檢視附件與人工決策/ }).click();
     await page.getByRole("button", { name: "在完整頁開啟" }).click();
-    await expect(page.getByRole("heading", { name: /Task detail 顯示審查附件與人工核准/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Task detail 顯示檢視附件與人工決策/ })).toBeVisible();
     await expect(page.getByRole("button", { name: "回到 Task 管理" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "審查結論" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "檢視決策" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Approve" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Reject" })).toBeVisible();
     await expect(page.locator(".task-page-meta").getByText("Review", { exact: true })).toHaveCount(0);

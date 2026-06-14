@@ -2,7 +2,7 @@
 
 **Purpose:** Give Grimo specs and implementation tasks a shared rulebook for local SQLite schema design.
 
-Grimo 是單機優先軟體，但 SQLite 只是部署型態，不會改變資料表設計的基本原則。使用者要搜尋、排序、驗證、重跑、審查或回放的資料，必須先用正規化資料表保存；JSON / `[]` 只用在邊界 payload、UI projection、快取或原始外部輸入。
+Grimo 是單機優先軟體，但 SQLite 只是部署型態，不會改變資料表設計的基本原則。使用者要搜尋、排序、驗證、重跑、檢視或回放的資料，必須先用正規化資料表保存；JSON / `[]` 只用在邊界 payload、UI projection、快取或原始外部輸入。
 
 ## Design Position
 
@@ -119,7 +119,7 @@ Examples:
 | 建立 Task | `tasks` + task workflow snapshot rows |
 | 第一次打開 BACKLOG Task chat | `tasks.state` transition + `task_workflow_runs` + opening `task_workflow_steps` |
 | 寫入一次 quality attempt | step state update + `task_workflow_quality_runs` + summary invalidation |
-| approve Review | Task state transition + review material record + release evidence seed |
+| approve Review Materials | human decision record + release workflow/action start row；`DONE` transition occurs after release completes |
 
 SQLite transactions are atomic: 一個 transaction 的變更全部成功或全部不發生。Grimo 要把這個特性用在產品一致性上，不要讓使用者看到「Task 狀態已變，但 evidence 還沒寫完」這種半套資料。Source: <https://www.sqlite.org/atomiccommit.html>
 

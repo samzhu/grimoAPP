@@ -23,7 +23,7 @@ export const tasks: Task[] = [
   },
   {
     id: "GRM-219",
-    title: "Voice composer 與審查附件呈現重構",
+    title: "Voice composer 與檢視附件呈現重構",
     state: "DEFINING",
     source: "chat",
     skill: "frontend-ui",
@@ -39,7 +39,7 @@ export const tasks: Task[] = [
     acceptance: [
       "Voice toggle 在 composer 內顯示狀態",
       "Task detail 能展開 code evidence",
-      "審查附件保留測試與截圖來源",
+      "檢視附件保留測試與截圖來源",
     ],
     gaps: ["補 voice state 邊界", "確認 screenshot evidence policy"],
     evidence: ["task-detail.tsx", "checkpoint-42", "Linear GRM-184"],
@@ -97,7 +97,7 @@ export const tasks: Task[] = [
   },
   {
     id: "GRM-188",
-    title: "Task detail 顯示審查附件與人工核准",
+    title: "Task detail 顯示檢視附件與人工決策",
     state: "REVIEW",
     source: "codex",
     skill: "review-materials",
@@ -109,10 +109,10 @@ export const tasks: Task[] = [
     },
     updatedAt: "12m ago",
     description:
-      "Task detail 把執行結果、測試、截圖與風險整理成可審查附件。",
+      "Task detail 把執行結果、測試、截圖與風險整理成等待檢視的附件。",
     acceptance: [
       "REVIEW 狀態才顯示 approve / reject",
-      "審查附件包含測試、截圖與風險",
+      "檢視附件包含測試、截圖與風險",
       "退回時回到 DEFINING，從 Chat 重新討論定義",
     ],
     gaps: [],
@@ -148,9 +148,9 @@ export const tasks: Task[] = [
     source: "manual",
     skill: "workflow-modeling",
     score: 9.8,
-    step: "release",
+    step: "Release evidence",
     workflowSummary: {
-      currentStep: "release",
+      currentStep: "Release evidence",
       qualityScore: 9.8,
     },
     updatedAt: "yesterday",

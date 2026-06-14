@@ -25,7 +25,7 @@ export function TaskDetailPage({
 }) {
   const isReview = task.state === "REVIEW";
   const gateStatus = task.score >= 9 ? "已達 Quality Gate" : "缺少通過證據";
-  const nextAction = task.gaps[0] ?? (isReview ? "等待人工核准或退回" : "回到 Chat 繼續探索或規劃");
+  const nextAction = task.gaps[0] ?? (isReview ? "等待檢視與決策" : "回到 Chat 繼續探索或規劃");
   const reviewChecklist = [
     "Definition Package 已確認",
     "執行證據已附上",
@@ -67,7 +67,7 @@ export function TaskDetailPage({
       <div className="review-summary">
         <div>
           <span>目前狀態</span>
-          <strong>{isReview ? "等待人工審查" : task.state}</strong>
+          <strong>{isReview ? "等待檢視" : task.state}</strong>
         </div>
         <div>
           <span>Quality Gate</span>
@@ -85,9 +85,9 @@ export function TaskDetailPage({
             <section className="review-decision-panel">
               <div>
                 <Badge tone="warn">Human Gate</Badge>
-                <h2>審查結論</h2>
+                <h2>檢視決策</h2>
                 <p>
-                  這個 Task 已進入 REVIEW。請根據驗收條件、evidence package 與待補缺口決定 approve 或 reject。
+                  這個 Task 已進入 REVIEW。請檢視驗收條件、evidence package 與待補缺口，再決定 approve 或 reject。
                 </p>
               </div>
               <div className="review-decision-actions">
@@ -156,8 +156,8 @@ export function TaskDetailPage({
             <ul className="clean-list">
               <li>
                 {isReview
-                  ? "Approve 後才能進入 WRAP；reject 後回到 Chat 繼續探索或規劃。"
-                  : "尚未進入人工審查，先補齊 Definition 或執行證據。"}
+                  ? "Approve 後執行 release，完成後進 DONE；reject 後回到 Chat 繼續探索或規劃。"
+                  : "尚未進入等待檢視狀態，先補齊 Definition 或執行證據。"}
               </li>
               <li>Follow-up Task 只建立提案，不會自動開工。</li>
             </ul>

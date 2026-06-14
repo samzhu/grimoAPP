@@ -1,6 +1,6 @@
 # Grimo Context
 
-Grimo 的領域語言用來區分使用者看見的任務狀態、AI 自動工作的內部步驟，以及人類審查點。
+Grimo 的領域語言用來區分使用者看見的任務狀態、AI 自動工作的內部步驟，以及人類檢視點。
 
 ## Language
 
@@ -21,7 +21,7 @@ Grimo 為一個 Project 保存內部資料與證據的本機管理位置。
 _Avoid_: External repo, app-wide data folder, Workspace, projectDataPath API field
 
 **Project Context**:
-目前開啟並用來限定 Task、Chat、Workflow evidence 和審查資料歸屬的 Project。
+目前開啟並用來限定 Task、Chat、Workflow evidence 和檢視資料歸屬的 Project。
 _Avoid_: Project list, first-run onboarding, global workspace
 
 **Close Project**:
@@ -32,12 +32,12 @@ _Avoid_: Delete Project, archive Project, remove repo
 單一 Task 執行時使用的隔離工作目錄。
 _Avoid_: Project Path, Project, Workspace
 
-**Human Approval**:
-人類根據 Review Materials 決定 approve 或 reject 的審查動作。
+**Human Review Decision**:
+人類在 **REVIEW State** 檢視 Review Materials 後選擇 approve 或 reject 的決策動作。
 _Avoid_: Workflow Step Review, internal Quality Loop review
 
 **REVIEW State**:
-Task State Machine 中等待人類 approve 或 reject 的外層狀態。
+Task State Machine 中等待人類檢視的外層狀態。檢視後可 approve 或 reject；approve 後執行 `release`，release 完成後進 `DONE`。
 _Avoid_: Workflow Step Review, internal Quality Loop review
 
 **Workflow Recipe**:
@@ -55,6 +55,10 @@ _Avoid_: Task create form field, user-selected task category
 **Workflow Run**:
 Task 開始執行自己的 **Task Workflow** 後的一次執行脈絡。
 _Avoid_: Backlog Task, Task root record, draft
+
+**Workflow Run Status**:
+**Workflow Run** 自己的執行狀態，用來表示 workflow 是否尚未開始、正在跑、等待 dispatch、被阻塞、等待人類檢視、正在 release 或已完成。
+_Avoid_: Task State, Workflow Step, Quality Loop Gate result
 
 **Task Workflow**:
 Task 建立時從 Project Workflow Recipe 或 workflow file 複製出來、歸屬於該 Task 的固定流程副本。
@@ -94,19 +98,20 @@ _Avoid_: Permanent details pane, full Task page
 - A **Task** copies its Project's **Workflow Definition** into a **Task Workflow** when created.
 - A **Task Workflow** is immutable after creation; changing a live definition does not rewrite existing Task Workflows.
 - A **Task** with **Task State** `BACKLOG` has a **Task Workflow** but has not started a **Workflow Run** until its Chat is opened for the first time.
+- A **Workflow Run** has a **Workflow Run Status** that describes execution progress; it is not the same thing as **Task State**.
 - `workflowSummary.currentStep` describes active execution progress only; a **Task Workflow** first step must not be projected as current progress.
 - The first Chat open for a `BACKLOG` **Task** atomically moves the Task to `DEFINING`, starts the **Workflow Run**, copies execution steps from the **Task Workflow**, and activates the opening step.
 - A **Skill** is selected through **Workflow Definition** steps and Agent Profile responsibilities, not by the user during Task creation.
-- **Human Approval** is the user-facing decision point inside **REVIEW State**.
+- **Human Review Decision** is the user-facing approve/reject decision after review inside **REVIEW State**.
 - Every **Workflow Step** runs the same **Quality Loop**: Review, Rating, Gate, then Fix when the Gate fails.
-- **REVIEW State** starts only after workflow step evidence and Review Materials are ready.
+- **REVIEW State** starts only after workflow step evidence and Review Materials are ready, and waits for a human review decision.
 - The **App Header** and **Side Navigation** frame the app; the selected page is shown in the **Main Content Area**.
 - A **Task Details Pane** belongs to the selected **Task** and may appear as a **Task Details Drawer** when it floats over the **Main Content Area**.
 
 ## Example dialogue
 
-> **Dev:** "Can workflow Review and human approval be the same thing?"
-> **Domain expert:** "No. **Review** inside the **Quality Loop** checks one workflow step output. **REVIEW State** is where the user approves or rejects the Task."
+> **Dev:** "Can workflow Review and human review decision be the same thing?"
+> **Domain expert:** "No. **Review** inside the **Quality Loop** checks one workflow step output. **REVIEW State** is where the user reviews the Task and then approves or rejects it."
 >
 > **Dev:** "Should the create form ask for a Workspace or a projectPathSource?"
 > **Domain expert:** "No. MVP uses one **Project Path** field; **Project Home** is internal, and **Task Worktree** is a later execution detail."
@@ -126,6 +131,9 @@ _Avoid_: Permanent details pane, full Task page
 > **Dev:** "Can a `BACKLOG` Task card show the **Task Workflow** first step as `workflowSummary.currentStep`?"
 > **Domain expert:** "No. `currentStep` means active execution progress. The Task Workflow can tell us the planned first step, but it is not current progress."
 >
+> **Dev:** "Can we use **Task State** as the **Workflow Run Status**?"
+> **Domain expert:** "No. **Task State** tells the user where the Task sits on the board; **Workflow Run Status** tells whether the workflow execution is running, waiting for dispatch, blocked, waiting for review, releasing, or completed."
+>
 > **Dev:** "Can recipe or workflow file edits update existing **Task Workflow** rows?"
 > **Domain expert:** "No. A Task Workflow is the Task-owned copy created at Task creation time. Later changes require an explicit migration or rebase action."
 >
@@ -143,13 +151,14 @@ _Avoid_: Permanent details pane, full Task page
 
 ## Flagged ambiguities
 
-- "Review" was used for both workflow-step review and **Human Approval**; resolved: workflow steps do not include a separate `品質檢驗` / Auto-Review node. Every workflow step runs the Quality Loop `Review -> Rating -> Gate -> Fix`, and REVIEW remains the human approval state.
+- "Review" was used for both workflow-step review and **Human Review Decision**; resolved: workflow steps do not include a separate `品質檢驗` / Auto-Review node. Every workflow step runs the Quality Loop `Review -> Rating -> Gate -> Fix`, and REVIEW remains the waiting-for-human-review state.
 - "Workspace" was used for Project identity, local path and future isolated execution; resolved: MVP product language uses **Project** and **Project Path**, while isolated execution uses **Task Worktree**.
 - "`projectPathSource` / `projectDataPath`" were considered as API fields; resolved: S003 exposes only **Project Path**, and keeps **Project Home** internal.
 - "`skill`" appeared as a Task creation field in prototype UI; resolved: Task creation does not choose Skill because the Project **Workflow Definition** defines the fixed development flow and required skills.
 - "Task without Project" was considered by the fixture/demo board path; resolved: real Task creation always requires a selected **Project** and stored `project_id`.
 - "`Task draft` / `Task 草稿`" was used for newly created work; resolved: it is just a **Task** with **Task State** `BACKLOG`, not a separate Task kind.
 - "Workflow run on Task creation" was considered; resolved: `BACKLOG` Task creation creates a **Task Workflow**, not a **Workflow Run**; the first Chat open for that Task is the workflow entry.
+- "workflow 狀態" was used for both board progress and execution progress; resolved: use **Task State** for board-facing progress and **Workflow Run Status** for workflow execution progress.
 - "First Chat transition" was considered as separate Task update plus workflow initialization; resolved: it is a single atomic transition from `BACKLOG` to `DEFINING` with active run creation.
 - "`workflowSummary.currentStep` from copied workflow" was considered; resolved: no active run means `currentStep = null`, even when Task Workflow steps exist.
 - "Updating copied Task Workflow when definition changes" was considered; resolved: Task Workflow is immutable, and changes require explicit migration/rebase.

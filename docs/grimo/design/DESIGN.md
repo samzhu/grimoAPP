@@ -241,7 +241,7 @@ Font:      10.5px (sm) / 12px (md), weight 600
 
 ### REVIEW Special Treatment
 
-REVIEW is the critical human approval gate and receives extra visual emphasis:
+REVIEW is the critical human review decision gate and receives extra visual emphasis:
 
 - Topbar shows pulsing "N pending review" badge
 - Nav rail shows numeric badge

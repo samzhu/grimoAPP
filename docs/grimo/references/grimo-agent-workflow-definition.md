@@ -1,14 +1,14 @@
 # Grimo Agent Workflow Definition
 
-**Status:** Draft reference  
-**Last verified:** 2026-05-31  
+**Status:** Draft reference
+**Last verified:** 2026-06-14
 **Source:** Pollack AI Lab Agent Workflow
 
 ## Purpose
 
-這份文件把 Grimo 的產品 workflow 整理成 Pollack AI Lab `Agent Workflow` 可表達的 workflow / sub-workflow 圖。
+這份文件把 Grimo 的 Task workflow model 映射成 Pollack AI Lab `Agent Workflow` 可以表達的 workflow / step / gate / sub-workflow 形狀。
 
-它不是 PRD 的替代品；PRD 定義產品承諾，這份文件定義工程上如何把那些承諾映射到 `Workflow`、`Step`、`Gate`、typed context、trace 和 checkpoint。
+它不是 PRD 的替代品。PRD 定義產品承諾；這份文件只定義工程上如何把 Task State、Workflow Run Status、Workflow Step、Quality Loop、trace 和 checkpoint 對齊。
 
 ## Source Grounding
 
@@ -29,77 +29,109 @@ Sources:
 
 Code blocks labeled `Pollack shape` are design sketches, not compile-ready Java. They use Pollack DSL vocabulary to show graph shape and sub-workflow boundaries before implementation names and generic types are finalized.
 
-## Assumptions
+## Canonical Model
 
-1. Grimo 的 board-facing state 仍維持 PRD 定義：`BACKLOG`、`DEFINING`、`READY`、`RUNNING`、`REVIEW`、`DONE`。`NEEDS_HUMAN` 是修復原因或例外標記，不是主線狀態。
-2. Board state 不是 Pollack workflow step；它是產品狀態 projection。
-3. MVP Project 預設使用 Coding Task Recipe。
-4. Coding recipe 的主要 steps 是 `Discuss`、`Explore`、`Prototype`、`Spec`、`Usage`、`Tkt`、`Dev`、`Unit-test`、`Integration-test`、`E2E-test`、`release`；人類 approve / reject 是 `REVIEW` 產品 gate，不是 recipe step。
-5. 每個主要 step 都包一個 `QualityLoop` sub-workflow：`Review -> Rating -> Gate -> Fix`，通過條件由 Gate 判斷，Rating 的 quality_score 是 Gate 的輸入之一。
-6. 人類確認保留在產品 gate：`ReadyGate` 與 `HumanReviewGate`。
-7. `CheckpointingStepRunner` 是 MVP local durability path；Temporal 是未來 scale-out path。
+Grimo 的 Task workflow 有四層，不能混成同一個欄位：
+
+| Layer | Answers | Canonical examples |
+| --- | --- | --- |
+| Task State | 使用者在 board/list 上看到這件 Task 在哪裡 | `BACKLOG`, `DEFINING`, `READY`, `RUNNING`, `REVIEW`, `DONE` |
+| Workflow Run Status | 這次 workflow execution 自己現在在做什麼 | `not_started`, `running`, `waiting_dispatch`, `blocked`, `waiting_review`, `releasing`, `completed` |
+| Workflow Step | Task 目前跑到哪個主要專業節點 | `Discuss`, `Explore`, `Dev`, `E2E-test`, `release` |
+| Step Sub-workflow | 單一 step 的品質循環做到哪裡 | `Review -> Rating -> Gate -> Fix` |
+
+Key rules:
+
+1. Task State is not a Pollack step. It is a product projection.
+2. Workflow Run Status is not Task State. It describes execution lifecycle inside a Task.
+3. `REVIEW` is a Task State where the user reviews completed Review Materials.
+4. Quality Loop `Review` is an inner step that checks one Workflow Step output.
+5. `release` is a Workflow Step/action after the user approves in `REVIEW`; it is not a Task State.
+6. `DONE` is reached only after `release` completes.
+7. Reject from `REVIEW` returns the Task to `DEFINING`, not `RUNNING`.
+8. `NEEDS_HUMAN` is a repair reason on a Task State or Workflow Run Status, not a seventh board state.
 
 ## Pollack Mapping
 
 | Grimo concept | Pollack Agent Workflow concept | Notes |
 | --- | --- | --- |
-| Project Workflow Recipe | `Workflow` definition | Project 選定 recipe；Task 繼承 Project workflow。 |
-| Task workflow run | `WorkflowExecutor` run with stable `runId` | `runId` 對應 Grimo task run / claim attempt。 |
-| Recipe main step | `Step` or sub-workflow-as-step | `Discuss` 可以是 chat/research sub-workflow；`Dev` 可以是 agentic CLI step。 |
-| Quality Loop | `Workflow` used as sub-workflow | `Review -> Rating -> Gate -> Fix` repeat until pass or stop condition。 |
-| Ready Gate | `Gate` plus human decision state | Gate output 更新產品 state；失敗回 `DEFINING`，或在原 state 標出 `NEEDS_HUMAN` 修復原因。 |
-| Dispatcher preflight | deterministic `Step` + branch / gate | 檢查 profile、dependencies、runtime、permissions。 |
-| Agent Claim | deterministic `Step` | 建立 claim、worktree/sandbox、execution context。 |
-| Unit / Integration / E2E evidence | `Step` sequence inside ExecutionWorkflow | Unit-test、Integration-test、E2E-test 產生進 REVIEW 前的 evidence，仍屬於 `RUNNING`。 |
-| REVIEW Gate | product gate projected from workflow output | approve -> `DONE`；reject -> `DEFINING` redefine path。 |
-| Workflow Evidence | trace + Grimo evidence tables | Pollack trace 記 transition；Grimo 保存 definition、score、findings、fix history。 |
-| Crash recovery | `CheckpointingStepRunner` | 已完成 step 用 checkpoint skip；FAILED step 需 operator decision 後 reset。 |
+| Project Workflow Recipe | `Workflow` definition | Project 選定 recipe；Task 建立時複製成 Task Workflow。 |
+| Task Workflow | copied workflow definition / metadata | Immutable Task-owned copy; not active execution evidence. |
+| Workflow Run | `WorkflowExecutor` run with stable `runId` | One execution attempt for a Task Workflow. |
+| Workflow Run Status | run lifecycle state / projection | `not_started`, `running`, `waiting_dispatch`, `blocked`, `waiting_review`, `releasing`, `completed`; not board-facing Task State. |
+| Workflow Step | `Step` or sub-workflow-as-step | `Discuss` can be interactive; `Dev` can be agentic CLI; `release` is the final step after approval. |
+| Quality Loop | `Workflow` used as sub-workflow | `Review -> Rating -> Gate -> Fix` repeats until pass or stop condition. |
+| Ready Gate | `Gate` plus human decision state | Moves Task to `READY` only after Definition Package is accepted. |
+| Dispatcher preflight | deterministic `Step` + gate | Checks profile, dependencies, runtime, permissions, and dispatch window. |
+| Agent Claim | deterministic `Step` | Creates claim, worktree/sandbox, execution context, and `runId`. |
+| Review Materials | deterministic aggregation step | Built after `RUNNING` evidence is complete and before Task enters `REVIEW`. |
+| Human Review Decision | product gate after Review Materials | Approve starts `release`; reject returns to `DEFINING`. |
+| Release | final Workflow Step/action | Runs after approve; completion moves Task to `DONE`. |
+| Workflow Evidence | trace + Grimo evidence tables | Pollack trace records transitions; Grimo tables preserve user-facing evidence. |
+| Crash recovery | `CheckpointingStepRunner` | Completed steps can be skipped; failed steps require explicit recovery decision. |
 
-## Workflow Hierarchy
+## Task Workflow Shape
 
 ```mermaid
-flowchart TD
-  Project["Project Workflow Recipe"] --> TaskWorkflow["GrimoCodingTaskWorkflow"]
+flowchart TB
+  Task["Task"] --> State["Task State Projection"]
+  Task --> Run["Workflow Run"]
+  Task --> Copy["Task Workflow - immutable copy"]
 
-  TaskWorkflow --> Intake["TaskIntakeWorkflow"]
-  TaskWorkflow --> Definition["DefinitionWorkflow"]
-  TaskWorkflow --> Ready["ReadyGateWorkflow"]
-  TaskWorkflow --> Dispatch["DispatchClaimWorkflow"]
-  TaskWorkflow --> Execution["ExecutionWorkflow"]
-  TaskWorkflow --> HumanReview["HumanReviewGate"]
-  TaskWorkflow --> Release["ReleaseWorkflow"]
-  TaskWorkflow --> Learning["LearningProposalWorkflow"]
+  State --> Backlog["BACKLOG"]
+  State --> DefiningState["DEFINING"]
+  State --> ReadyState["READY"]
+  State --> RunningState["RUNNING"]
+  State --> ReviewState["REVIEW - waiting review"]
+  State --> DoneState["DONE"]
 
-  Definition --> QualityLoopA["QualityLoopWorkflow"]
-  Execution --> QualityLoopB["QualityLoopWorkflow"]
-  Execution --> Unit["Unit-test"]
-  Unit --> Integration["Integration-test"]
-  Integration --> E2E["E2E-test"]
-  Release --> QualityLoopC["QualityLoopWorkflow"]
+  Run --> RunStatus["Workflow Run Status"]
+  RunStatus --> NotStarted["not_started"]
+  RunStatus --> RunningRun["running"]
+  RunStatus --> WaitingDispatch["waiting_dispatch"]
+  RunStatus --> BlockedRun["blocked"]
+  RunStatus --> WaitingReview["waiting_review"]
+  RunStatus --> ReleasingRun["releasing"]
+  RunStatus --> CompletedRun["completed"]
 
-  QualityLoopA --> Review["ReviewStep"]
-  QualityLoopA --> Rating["RatingStep"]
-  QualityLoopA --> Fix["FixStep"]
+  Copy --> MainSteps["Main Workflow Steps"]
+  MainSteps --> DefinitionSteps["Discuss / Explore / Prototype / Spec / Usage / Tkt"]
+  MainSteps --> ExecutionSteps["Dev / Unit-test / Integration-test / E2E-test"]
+  MainSteps --> ReleaseStep["release"]
 
-  TaskWorkflow --> Evidence["Workflow Evidence Projection"]
-  Evidence --> Trace["Pollack trace"]
-  Evidence --> Checkpoint["Pollack checkpoint"]
-  Evidence --> GrimoTables["Grimo task, score, finding, fix history tables"]
+  MainSteps --> QualityLoop["QualityLoopWorkflow on each step"]
+  QualityLoop --> StepReview["Review"]
+  StepReview --> Rating["Rating"]
+  Rating --> Gate{"Gate pass?"}
+  Gate -- "no" --> Fix["Fix"]
+  Fix --> StepReview
+  Gate -- "yes" --> StepDone["step output accepted"]
+
+  ReviewState --> HumanDecision["HumanReviewDecisionGate"]
+  HumanDecision -->|reject| DefiningState
+  HumanDecision -->|approve| ReleasingRun
+  ReleasingRun --> ReleaseStep
+  ReleaseStep --> DoneState
 ```
 
 ## Top-Level Workflow
 
-這張圖是 Pollack workflow 角度；它不等於看板 state machine。看板 state 是每個 gate / step output 投影後的 UI 狀態。
+這張圖是 Pollack workflow 角度；它不等於看板 state machine。Task State 和 Workflow Run Status 是 workflow / gate output 的產品投影。
 
 ```mermaid
 flowchart TD
-  Start["Task input: chat, local task, external work item"] --> Intake["TaskIntakeWorkflow"]
-  Intake --> Definition["DefinitionWorkflow"]
-  Definition --> ReadyGate{"ReadyGate: Definition Package accepted?"}
+  Input["Work input: chat, local task, external item"] --> Intake["TaskIntake"]
+  Intake --> Backlog["Task state: BACKLOG"]
 
-  ReadyGate -- "no: needs clarification" --> Definition
-  ReadyGate -- "no: dependency/runtime missing" --> NeedsHuman["Project state projection: NEEDS_HUMAN repair reason"]
-  ReadyGate -- "yes" --> Ready["Project state projection: READY"]
+  Backlog --> FirstChat{"First Chat opens or defining starts?"}
+  FirstChat -- "no" --> Backlog
+  FirstChat -- "yes" --> Definition["DefinitionWorkflow"]
+  Definition --> Defining["Task state: DEFINING<br/>Run status: running"]
+
+  Definition --> ReadyGate{"Ready Gate accepted?"}
+  ReadyGate -- "no: clarify" --> Definition
+  ReadyGate -- "no: repair needed" --> NeedsHuman["Task state unchanged<br/>repair reason: NEEDS_HUMAN"]
+  ReadyGate -- "yes" --> Ready["Task state: READY<br/>Run status: waiting_dispatch"]
 
   Ready --> DispatchStart{"User starts single task or dispatch window?"}
   DispatchStart -- "no" --> Ready
@@ -108,37 +140,31 @@ flowchart TD
   PreflightGate -- "no" --> NeedsHuman
   PreflightGate -- "yes" --> Execution["ExecutionWorkflow"]
 
-  Execution --> ReviewPackage["Review Materials"]
-  ReviewPackage --> ReviewGate{"REVIEW Gate: approve?"}
-  ReviewGate -- "reject or redefine required" --> Definition
-  ReviewGate -- "approve" --> Done["Project state projection: DONE"]
-  Done --> Release["ReleaseWorkflow"]
+  Execution --> Running["Task state: RUNNING<br/>Run status: running"]
+  Execution --> ReviewMaterials["Build Review Materials"]
+  ReviewMaterials --> WaitingReview["Task state: REVIEW<br/>Run status: waiting_review"]
 
-  Release --> Learning{"Learning proposal needed?"}
-  Learning -- "yes" --> Proposal["LearningProposalWorkflow"]
-  Learning -- "no" --> Done
-  Proposal --> Done
-
-  NeedsHuman -- "more discussion" --> Definition
-  NeedsHuman -- "dependency fixed" --> Ready
+  WaitingReview --> HumanGate{"Human review decision"}
+  HumanGate -- "reject" --> Definition
+  HumanGate -- "approve" --> Release["ReleaseWorkflow<br/>Run status: releasing"]
+  Release --> Done["Task state: DONE<br/>Run status: completed"]
+  Done --> Learning["Optional LearningProposalWorkflow"]
+  Learning --> Archive["Archive done evidence"]
 ```
 
 ## Sub-Workflow: Task Intake
 
-Goal: 把入口內容轉成 Grimo Task draft，但不執行。
+Goal: 把入口內容保存成 Project-owned Task 或附加到既有 Task，不啟動正式 execution。
 
 ```mermaid
 flowchart TD
-  Input["Raw input: chat message, issue, CLI request"] --> Classify["Classify work intent"]
+  Input["Raw input: chat message, CLI request, issue"] --> Classify["Classify work intent"]
   Classify --> Existing{"Matches existing Task?"}
   Existing -- "yes" --> Attach["Append to Task Conversation Thread"]
-  Existing -- "no" --> Draft["Create Task Draft"]
-  Attach --> Summarize["Update conversation summary and open questions"]
-  Draft --> Summarize
-  Summarize --> NeedsClarification{"Enough to enter DefinitionWorkflow?"}
-  NeedsClarification -- "no" --> Ask["Ask clarification in Task Chat"]
-  NeedsClarification -- "yes" --> Output["Task draft output"]
-  Ask --> Output
+  Existing -- "no" --> Create["Create Task in BACKLOG"]
+  Attach --> Preview["Update conversation preview and open questions"]
+  Create --> Preview
+  Preview --> Output["Task intake output"]
 ```
 
 Pollack shape:
@@ -148,12 +174,9 @@ Workflow.define("task-intake")
     .step(classifyWorkIntent)
     .branch(existingTaskFound)
         .then(appendToConversation)
-        .otherwise(createTaskDraft)
-    .then(updateConversationSummary)
-    .gate(enoughForDefinitionGate)
-        .onPass(emitTaskDraft)
-        .onFail(askClarifyingQuestion)
-    .end();
+        .otherwise(createBacklogTask)
+    .then(updateConversationPreview)
+    .then(emitTaskIntakeOutput);
 ```
 
 ## Sub-Workflow: Definition
@@ -183,24 +206,25 @@ Pollack shape:
 ```java
 Workflow.define("definition")
     .step(discuss)
-    .then(qualityLoopDiscuss)
+    .then(qualityLoop("discuss"))
     .then(explore)
-    .then(qualityLoopExplore)
+    .then(qualityLoop("explore"))
     .branch(prototypeNeeded)
-        .then(prototypeAndQualityLoop)
+        .then(prototype)
+        .then(qualityLoop("prototype"))
         .otherwise(skipPrototype)
     .then(spec)
-    .then(qualityLoopSpec)
+    .then(qualityLoop("spec"))
     .then(usage)
-    .then(qualityLoopUsage)
+    .then(qualityLoop("usage"))
     .then(tkt)
-    .then(qualityLoopTkt)
+    .then(qualityLoop("tkt"))
     .then(buildDefinitionPackage);
 ```
 
 ## Sub-Workflow: Quality Loop
 
-Goal: 對任一主要 step 的 output 做 review、rating、fix，直到 Gate 通過或達到明確停止條件。
+Goal: 對任一主要 step 的 output 做 review、rating、gate、fix，直到 Gate 通過或達到明確停止條件。
 
 ```mermaid
 flowchart TD
@@ -209,7 +233,7 @@ flowchart TD
   Rating --> Score{"Gate pass?"}
   Score -- "yes" --> Pass["Pass output to next main step"]
   Score -- "no" --> Stop{"Stop condition reached?"}
-  Stop -- "yes" --> Block["Emit NEEDS_HUMAN evidence"]
+  Stop -- "yes" --> Block["Emit blocked evidence / NEEDS_HUMAN repair reason"]
   Stop -- "no" --> Fix["Fix"]
   Fix --> Review
 ```
@@ -221,16 +245,16 @@ Workflow.define("quality-loop")
     .repeatUntilOutput(qualityPassedOrStopped)
         .step(review)
         .then(rating)
-        .then(routeScoreToPassFixOrNeedsHuman)
+        .then(routeGateResult)
         .then(fixIfNeeded)
     .end();
 ```
 
-Implementation note: Pollack examples show both `repeatUntilOutput` and `gate` primitives. Grimo should keep the rating parser deterministic where possible, and store raw review/rating/fix evidence in Grimo tables.
+Implementation note: Pollack examples show both `repeatUntilOutput` and `gate` primitives. Grimo should keep the rating parser deterministic where possible, and store raw review/rating/fix evidence in Grimo tables when it affects user-facing Review Materials or recovery.
 
 ## Sub-Workflow: Dispatch Claim
 
-Goal: READY 不等於自動執行；只有使用者啟動 dispatch window 或單一 Task 後，才進 preflight 與 claim。
+Goal: `READY` 不等於自動執行；只有使用者啟動 dispatch window 或單一 Task 後，才進 preflight 與 claim。
 
 ```mermaid
 flowchart TD
@@ -241,10 +265,10 @@ flowchart TD
   Capacity -- "no" --> Wait["Wait in READY queue"]
   Capacity -- "yes" --> Preflight
   Preflight --> Runtime{"Profile, dependency, runtime, permission pass?"}
-  Runtime -- "no" --> NeedsHuman["READY + NEEDS_HUMAN"]
+  Runtime -- "no" --> NeedsHuman["READY + NEEDS_HUMAN repair reason"]
   Runtime -- "yes" --> Claim["Create Agent Claim"]
   Claim --> Workspace["Prepare worktree / sandbox / runId"]
-  Workspace --> Running["RUNNING projection"]
+  Workspace --> Running["Task state: RUNNING<br/>Run status: running"]
 ```
 
 Pollack shape:
@@ -263,7 +287,7 @@ Workflow.define("dispatch-claim")
 
 ## Sub-Workflow: Execution
 
-Goal: 執行正式寫入工作，並在 `RUNNING` 裡完成 Dev、unit、integration 和 E2E evidence。
+Goal: 在 `RUNNING` 裡完成 Dev、Unit-test、Integration-test 和 E2E-test evidence，並建立 Review Materials。
 
 ```mermaid
 flowchart TD
@@ -293,32 +317,34 @@ Workflow.define("execution")
     .then(buildReviewMaterials);
 ```
 
-## Gate: REVIEW And Release
+## Gate: Human Review Decision And Release
 
-Goal: 人類 approve / reject 是產品 gate；Release 是 DONE 底下的收尾 workflow。
+Goal: 人類在 `REVIEW` 檢視 Review Materials 後決定 approve / reject。Approve 後才執行 `release`；release 完成後才進 `DONE`。
 
 ```mermaid
 flowchart TD
-  Materials["Review Materials"] --> HumanGate{"Human approve?"}
+  Materials["Review Materials"] --> ReviewState["Task state: REVIEW<br/>Run status: waiting_review"]
+  ReviewState --> HumanGate{"Human review decision"}
   HumanGate -- "reject" --> RedefinePath["Return to DefinitionWorkflow"]
-  HumanGate -- "approve" --> Done["DONE"]
-  Done --> Release["Release: merge, cleanup, delivery summary, short retro"]
-  Release --> ReleaseQL["QualityLoop if evidence is required"]
+  HumanGate -- "approve" --> Release["release step: merge, cleanup, delivery summary, short retro if needed"]
+  Release --> ReleaseQL["QualityLoop for release"]
+  ReleaseQL --> Done["Task state: DONE<br/>Run status: completed"]
 ```
 
 Pollack shape:
 
 ```java
 Workflow.define("review-release")
-    .gate(humanApprovalGate)
+    .gate(humanReviewDecisionGate)
         .onFail(returnToDefinition)
-        .onPass(markDone)
-    .then(releaseAndQualityLoop);
+        .onPass(release)
+    .then(qualityLoop("release"))
+    .then(markDone);
 ```
 
 ## Sub-Workflow: Learning Proposal
 
-Goal: 從任務 evidence 提出 skill / recipe 改善，但不自動套用。
+Goal: 從 Done task evidence 提出 skill / recipe 改善，但不自動套用。
 
 ```mermaid
 flowchart TD
@@ -328,7 +354,7 @@ flowchart TD
   WorthIt -- "yes" --> Proposal["Create Learning Proposal"]
   Proposal --> HumanDecision{"Human approves proposal?"}
   HumanDecision -- "no" --> Archive
-  HumanDecision -- "yes" --> Backlog["Create follow-up Task in BACKLOG / DEFINING"]
+  HumanDecision -- "yes" --> Backlog["Create follow-up Task in BACKLOG"]
 ```
 
 Pollack shape:
@@ -348,26 +374,29 @@ Minimum typed context keys for the MVP definition:
 
 | Context key | Type | Producer | Consumer |
 | --- | --- | --- | --- |
-| `project_id` | `ProjectId` | Task intake | all steps |
-| `task_id` | `TaskId` | Task intake | all steps |
+| `project_id` | `ProjectId` | task intake | all steps |
+| `task_id` | `TaskId` | task intake | all steps |
 | `task_state` | `TaskState` | gates / projection steps | UI projection |
+| `workflow_run_status` | `WorkflowRunStatus` | workflow executor / gates | task detail, recovery, dispatch |
 | `workflow_recipe_id` | `WorkflowRecipeId` | Project settings | workflow executor |
 | `run_id` | `String` | dispatch claim | checkpoint / trace |
 | `agent_profile_id` | `AgentProfileId` | ready gate / dispatcher | dispatch / execution |
 | `definition_package` | `DefinitionPackage` | definition workflow | ready gate / review |
+| `current_step` | `WorkflowStepKey` | workflow executor | task detail / workflowSummary |
 | `quality_score` | `QualityScore` | rating step | quality gate |
-| `review_findings` | `ReviewFindings` | review step | fix / materials |
-| `fix_history` | `FixHistory` | fix step | review / materials |
+| `review_findings` | `ReviewFindings` | Quality Loop review step | fix / materials |
+| `fix_history` | `FixHistory` | Quality Loop fix step | review / materials |
 | `acceptance_evidence` | `AcceptanceEvidence` | execution workflow | human review |
 | `review_materials` | `ReviewMaterials` | execution workflow | human review |
-| `release_evidence` | `ReleaseEvidence` | DONE task evidence | done / learning / follow-up task |
+| `human_review_decision` | `APPROVE` / `REJECT` | human review gate | release / redefine path |
+| `release_evidence` | `ReleaseEvidence` | release workflow | done / learning / follow-up task |
 
 ## Execution Runner Decision
 
 ```mermaid
 flowchart TD
   WorkflowDef["Same Workflow definition"] --> Runner{"StepRunner"}
-  Runner --> Local["LocalStepRunner: dev / simple local execution"]
+  Runner --> Local["LocalStepRunner: short deterministic operations"]
   Runner --> Checkpoint["CheckpointingStepRunner: MVP durable local run"]
   Runner --> Temporal["TemporalStepRunner: future distributed execution"]
 
@@ -380,8 +409,8 @@ MVP decision: use `CheckpointingStepRunner` for Task execution runs that need du
 
 ## Open Design Questions
 
-1. How long should a `QualityLoopWorkflow` run before emitting `NEEDS_HUMAN` evidence?
+1. How long should a `QualityLoopWorkflow` run before emitting blocked evidence or a `NEEDS_HUMAN` repair reason?
 2. Should `Discuss` be one interactive sub-workflow instance, or multiple resumable chat turns under the same step checkpoint?
-3. Should `ReadyGate` be represented as a paused workflow state, a separate workflow run, or a deterministic projection waiting for human input?
+3. Which `Workflow Run Status` values are persisted source-of-truth rows, and which are derived UI projections?
 4. Which workflow evidence belongs in Pollack trace only, and which must be duplicated into Grimo domain tables for user-facing review?
 5. How should external Codex / Claude Code workers map their own session IDs to Grimo `run_id` and `Agent Claim`?

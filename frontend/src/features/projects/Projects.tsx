@@ -376,7 +376,7 @@ export function Projects({
           <p>
             {viewMode === "create"
               ? "建立 Project 的基本資料、專案路徑與工作流。"
-              : "管理本機 repo / codebase，讓任務、執行紀錄與審查資料有明確歸屬。"}
+              : "管理本機 repo / codebase，讓任務、執行紀錄與檢視資料有明確歸屬。"}
           </p>
         </div>
         {viewMode === "create" ? (

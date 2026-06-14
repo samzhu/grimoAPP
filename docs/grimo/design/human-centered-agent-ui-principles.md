@@ -11,7 +11,7 @@
 
 Grimo 的問題不是 agent 能力不夠，而是能力如果只住在一個聊天輸入框裡，使用者看不出它能幫自己完成什麼。
 
-對熟悉軟體工程的人來說，`Chat -> Task -> Workflow -> Agent -> Evidence -> Review` 很自然；對沒有這套心智模型的人來說，聊天框只 signifier 出「可以打字聊天」，沒有 signifier 出「可以建立可追蹤工作、排程 agent、檢查證據、審查結果、保存學習」。這會造成兩個使用者體驗問題：
+對熟悉軟體工程的人來說，`Chat -> Task -> Workflow -> Agent -> Evidence -> Review` 很自然；對沒有這套心智模型的人來說，聊天框只 signifier 出「可以打字聊天」，沒有 signifier 出「可以建立可追蹤工作、排程 agent、檢查證據、檢視結果、保存學習」。這會造成兩個使用者體驗問題：
 
 1. **執行的鴻溝 (Gulf of Execution)：** 使用者知道自己想完成一件事，但不知道畫面上哪裡可以開始、可以交給誰、需要先補什麼。
 2. **評估的鴻溝 (Gulf of Evaluation)：** 系統做了很多事，但使用者看不懂目前在哪個狀態、是否可靠、下一步是不是要自己決定。
@@ -25,11 +25,11 @@ Grimo 的問題不是 agent 能力不夠，而是能力如果只住在一個聊�
 | 研究概念 | 白話意思 | 對 Grimo 的設計要求 |
 | --- | --- | --- |
 | 預設用途 (affordance) | 一個東西實際允許哪些動作。 | `Task Card` 不能只像靜態摘要；如果能開 detail、回 Chat、approve/reject，就要有對應可操作區。 |
-| 指意 (signifier) | 使用者看得到的線索，告訴他哪裡能做什麼。 | `READY` 要 signifier 出「可以開始 dispatch」，`REVIEW` 要 signifier 出「需要人工審查」，needs-human repair cue 要 signifier 出「要修哪個前置條件」。 |
+| 指意 (signifier) | 使用者看得到的線索，告訴他哪裡能做什麼。 | `READY` 要 signifier 出「可以開始 dispatch」，`REVIEW` 要 signifier 出「等待檢視」，needs-human repair cue 要 signifier 出「要修哪個前置條件」。 |
 | 可探索性 (discoverability) | 使用者不讀說明也能找到可能動作。 | 首次使用、空狀態、error state 都要給清楚下一步；不能只顯示空白 Chat 或空表格。 |
 | 對應性 (mapping) | 控制項和結果之間的關係要自然。 | `Start Dispatch Window` 應靠近 `READY` queue；`Approve / Reject` 應靠近 review materials；folder browser 的 `使用此資料夾` 只回填 path，不建立 Project。 |
-| 回饋 (feedback) | 動作後要立刻知道發生什麼。 | 建立 Task、啟動 agent、測試完成、審查被 reject，都要顯示 state change、時間、證據或下一步。 |
-| 概念模型 (conceptual model) | 使用者心中對產品怎麼運作的解釋。 | Grimo 要穩定傳達：Chat 是入口，Task 是工作單位，Workflow 是執行方法，Evidence 是審查依據。 |
+| 回饋 (feedback) | 動作後要立刻知道發生什麼。 | 建立 Task、啟動 agent、測試完成、檢視後 reject，都要顯示 state change、時間、證據或下一步。 |
+| 概念模型 (conceptual model) | 使用者心中對產品怎麼運作的解釋。 | Grimo 要穩定傳達：Chat 是入口，Task 是工作單位，Workflow 是執行方法，Evidence 是檢視依據。 |
 | 限制 (constraints) | 用設計縮小錯誤可能。 | 高風險動作要 gate；沒有 Project context 時不能顯示假 Task；default root `~/.grimo/projects/` 不能被誤選成單一 Project Path。 |
 | Swiss cheese model | 不期待單層防護完美，而是用多層防線避免錯誤穿透。 | 對 agent 執行不能只靠「模型應該懂」；要有狀態、preflight、confirmation、permissions、logs、review、undo/recovery 多層保護。 |
 
@@ -89,7 +89,7 @@ Automation level 應分層：
 | Level | 使用者看到什麼 | Grimo 例子 |
 | --- | --- | --- |
 | 建議 | Agent 只整理選項，使用者決定。 | Task draft、workflow recommendation、missing-info suggestions |
-| 準備 | Agent 產生可審查材料，但不改外部狀態。 | Definition package、review checklist、test plan |
+| 準備 | Agent 產生可檢視材料，但不改外部狀態。 | Definition package、review checklist、test plan |
 | 執行 | 使用者確認後，agent 在限定範圍內執行。 | Dispatch Window、single Task start |
 | 交付 | 高影響動作需 evidence 和人工 gate。 | REVIEW approve、release / merge / tag |
 
@@ -113,7 +113,7 @@ Agent 執行的防護層：
 | Explicit confirmation | 高影響動作不能默默發生。 | Start Dispatch、Approve / Reject、release confirmation |
 | Bounded execution | agent 只能在可理解範圍內工作。 | Dispatch Window、task claim、worktree / sandbox indicator |
 | Continuous feedback | 使用者看得到目前做了什麼。 | current step、logs、quality score、test status |
-| Evidence gate | 完成前交出可審查證據。 | Review Materials、risk notes、test evidence |
+| Evidence gate | 完成前交出可檢視證據。 | Review Materials、risk notes、test evidence |
 | Recovery path | 失敗後能接手或重試。 | Retry、回 Chat、manual input、reject with reason |
 
 Project onboarding 的防護層：
@@ -149,7 +149,7 @@ AI/agent 介面常犯的錯，是把內部機制當成說明。Grimo 的說明�
 
 寫法：
 
-- 好：`這件 Task 已準備好執行。開始後，agent 會在目前 Project 裡 claim 這件 Task，完成後回到 REVIEW 給你審查。`
+- 好：`這件 Task 已準備好執行。開始後，agent 會在目前 Project 裡 claim 這件 Task，完成後回到 REVIEW 等你檢視。`
 - 不好：`Dispatcher will enqueue a workflow execution using recipe steps.`
 
 放在畫面上的解釋要回答：

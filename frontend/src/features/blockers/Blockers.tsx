@@ -34,13 +34,13 @@ export function Blockers({
       <div className="section-head">
         <div>
           <h1>待處理</h1>
-          <p>集中人工審查、阻塞條件與需要繼續討論的任務，處理完再回到 Task 管理看板。</p>
+          <p>集中等待檢視、阻塞條件與需要繼續討論的任務，處理完再回到 Task 管理看板。</p>
         </div>
       </div>
 
       <div className="attention-summary">
         <div>
-          <span>人工審查</span>
+          <span>等待檢視</span>
           <strong>{review.length}</strong>
         </div>
         <div>
@@ -136,14 +136,14 @@ export function Blockers({
           <Panel title="阻塞摘要">
             <Metric label="最高優先" value={attentionTasks[0]?.id ?? "無"} />
             <Metric label="最近更新" value={attentionTasks[0]?.updatedAt ?? "無"} />
-            <Metric label="修復路徑" value="補權限、回到 Chat 或人工核准" />
+            <Metric label="修復路徑" value="補權限、回到 Chat 或人工檢視" />
           </Panel>
 
           <Panel title="處理紀錄">
             <div className="attention-log">
               <span>
                 <ClockCounterClockwise aria-hidden="true" />
-                GRM-188 等待人工審查
+                GRM-188 等待檢視
               </span>
               <span>
                 <ArrowUUpLeft aria-hidden="true" />

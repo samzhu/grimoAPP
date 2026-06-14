@@ -62,7 +62,7 @@ export function CreateTaskDialog({
                   className="text-control"
                   id="task-title"
                   name="title"
-                  placeholder="例如 Task detail 顯示審查附件與人工核准"
+                  placeholder="例如 Task detail 顯示檢視附件與人工決策"
                   required
                 />
               </div>

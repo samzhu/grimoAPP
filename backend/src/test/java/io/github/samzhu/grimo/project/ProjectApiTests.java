@@ -95,6 +95,7 @@ class ProjectApiTests {
 				.andExpect(jsonPath("$.content[0].steps[*].name", not(hasItem("品質檢驗"))))
 				.andExpect(jsonPath("$.content[0].steps[*].name", not(hasItem("Human Review"))))
 				.andExpect(jsonPath("$.content[0].steps[0].taskState").value("DEFINING"))
+				.andExpect(jsonPath("$.content[0].steps[?(@.name == 'release')].taskState", hasItem("REVIEW")))
 				.andExpect(jsonPath("$.content[0].steps[0].phase").doesNotExist())
 				.andExpect(jsonPath("$.content[0].steps[0].optional").doesNotExist())
 				.andExpect(jsonPath("$.content[0].qualityLoopSummary")

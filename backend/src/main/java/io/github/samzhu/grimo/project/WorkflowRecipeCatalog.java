@@ -30,7 +30,7 @@ public class WorkflowRecipeCatalog {
 								new WorkflowStepResponse("unit-test", "Unit-test", "RUNNING"),
 								new WorkflowStepResponse("integration-test", "Integration-test", "RUNNING"),
 								new WorkflowStepResponse("e2e-test", "E2E-test", "RUNNING"),
-								new WorkflowStepResponse("release", "release", "DONE")
+								new WorkflowStepResponse("release", "release", "REVIEW")
 						),
 						List.of(
 								new WorkflowRoleResponse(

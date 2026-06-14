@@ -18,7 +18,7 @@ const mobileListStates: TaskState[] = [...stateColumns];
 
 function getAttentionLabel(task: Task) {
   if (task.state === "REVIEW") {
-    return "等待人工審查";
+    return "等待檢視";
   }
 
   if (task.state === "READY" || task.state === "RUNNING") {

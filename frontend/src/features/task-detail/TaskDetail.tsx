@@ -98,7 +98,7 @@ export function TaskDetail({
 
       <div className="action-band">
         <div>
-          <strong>{task.state === "REVIEW" ? "等待人工審查" : "下一步"}</strong>
+          <strong>{task.state === "REVIEW" ? "等待檢視" : "下一步"}</strong>
           <span>
             {task.state === "READY"
               ? "開始前執行本機能力檢查"
