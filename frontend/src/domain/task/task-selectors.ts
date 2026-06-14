@@ -14,7 +14,6 @@ export function taskMatchesQuery(task: Task, query: string) {
 
 export function stateTone(state: TaskState): TaskTone {
   if (state === "DONE" || state === "READY") return "good";
-  if (state === "BLOCKED") return "bad";
   if (state === "REVIEW" || state === "RUNNING") return "warn";
   return "neutral";
 }

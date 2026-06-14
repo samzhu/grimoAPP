@@ -4,8 +4,7 @@ export type TaskState =
   | "READY"
   | "RUNNING"
   | "REVIEW"
-  | "DONE"
-  | "BLOCKED";
+  | "DONE";
 
 export type WorkflowSummary = {
   currentStep: string | null;

@@ -132,8 +132,10 @@ test("AC-S003-4 creates Project with validated manual projectPath", async ({ pag
   await expect(page.getByText("Product Manager")).toBeVisible();
   await expect(page.getByText("Frontend Engineer")).toBeVisible();
   await expect(page.getByText("Backend Engineer")).toBeVisible();
-  await expect(page.getByText("AI Review")).toBeVisible();
-  await expect(page.getByText("Human Review")).toBeVisible();
+  await expect(page.getByText("Unit-test", { exact: true })).toBeVisible();
+  await expect(page.getByText("Integration-test", { exact: true })).toBeVisible();
+  await expect(page.getByText("E2E-test", { exact: true })).toBeVisible();
+  await expect(page.getByText("release", { exact: true })).toBeVisible();
 
   const createResponsePromise = page.waitForResponse(
     (response) => response.request().method() === "POST" && response.url().endsWith("/api/projects"),

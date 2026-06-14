@@ -78,13 +78,27 @@ class ProjectApiTests {
 				.andExpect(jsonPath("$.content[0].id").value("web-service-development"))
 				.andExpect(jsonPath("$.content[0].name").value("Web 服務開發"))
 				.andExpect(jsonPath("$.content[0].steps[*].name",
-						hasItems("Discuss", "Explore", "Prototype", "Spec", "Usage", "Tkt", "Dev", "AI Review", "Human Review")))
+						hasItems(
+								"Discuss",
+								"Explore",
+								"Prototype",
+								"Spec",
+								"Usage",
+								"Tkt",
+								"Dev",
+								"Unit-test",
+								"Integration-test",
+								"E2E-test",
+								"release"
+						)))
 				.andExpect(jsonPath("$.content[0].steps[*].name", not(hasItem("Review"))))
+				.andExpect(jsonPath("$.content[0].steps[*].name", not(hasItem("品質檢驗"))))
+				.andExpect(jsonPath("$.content[0].steps[*].name", not(hasItem("Human Review"))))
 				.andExpect(jsonPath("$.content[0].steps[0].taskState").value("DEFINING"))
 				.andExpect(jsonPath("$.content[0].steps[0].phase").doesNotExist())
 				.andExpect(jsonPath("$.content[0].steps[0].optional").doesNotExist())
 				.andExpect(jsonPath("$.content[0].qualityLoopSummary")
-						.value("Review → Rating → Fix until quality_score > 9"))
+						.value("Review → Rating → Gate → Fix until Gate passes"))
 				.andExpect(jsonPath("$.content[0].qualityGateSummary").doesNotExist())
 				.andExpect(jsonPath("$.content[0].roles[*].id",
 						hasItems(

@@ -70,7 +70,7 @@ class WorkflowEvidenceApiTests {
 				.andExpect(jsonPath("$.workflowSource.type").value("RECIPE"))
 				.andExpect(jsonPath("$.workflowSource.ref").value("web-service-development"))
 				.andExpect(jsonPath("$.workflowSource.hash", nullValue()))
-				.andExpect(jsonPath("$.steps", hasSize(9)))
+				.andExpect(jsonPath("$.steps", hasSize(11)))
 				.andExpect(jsonPath("$.steps[0].stepKey").value("discuss"))
 				.andExpect(jsonPath("$.steps[0].stepLabel").value("Discuss"))
 				.andExpect(jsonPath("$.steps[0].taskState").value("DEFINING"))

@@ -87,7 +87,7 @@ export const tasks: Task[] = [
     description:
       "READY 任務開始前檢查 repo binding、tool availability 與 risk level。",
     acceptance: [
-      "缺工具或權限時轉為 BLOCKED",
+      "缺工具或權限時保留 READY 並顯示 NEEDS_HUMAN 修復原因",
       "本機能力由系統在執行前檢查",
     ],
     gaps: [],
@@ -113,7 +113,7 @@ export const tasks: Task[] = [
     acceptance: [
       "REVIEW 狀態才顯示 approve / reject",
       "審查附件包含測試、截圖與風險",
-      "退回時可回到 Chat 繼續探索或規劃",
+      "退回時回到 DEFINING，從 Chat 重新討論定義",
     ],
     gaps: [],
     evidence: ["Playwright screenshot", "typecheck", "risk note"],
@@ -123,7 +123,7 @@ export const tasks: Task[] = [
   {
     id: "GRM-176",
     title: "本機 daemon repo binding 與多專案 session index",
-    state: "BLOCKED",
+    state: "READY",
     source: "codex",
     skill: "local-env",
     score: 6.6,
@@ -135,7 +135,7 @@ export const tasks: Task[] = [
     updatedAt: "3h ago",
     description:
       "本機 runner 需要以專案資料夾做 repo binding，不能假設全域 session 可用。",
-    acceptance: ["權限 probe 失敗時任務進入 BLOCKED", "修復後可回到原流程"],
+    acceptance: ["權限 probe 失敗時顯示 NEEDS_HUMAN 修復原因", "修復後可回到原流程"],
     gaps: ["repo permission probe 失敗", "需要確認 monorepo 權限與路徑"],
     evidence: ["local runner log", "repo probe result"],
     labels: ["backend", "question"],
@@ -143,21 +143,21 @@ export const tasks: Task[] = [
   },
   {
     id: "GRM-160",
-    title: "Board-facing states 對齊 BACKLOG 到 BLOCKED",
+    title: "Board-facing states 對齊六個主狀態",
     state: "DONE",
     source: "manual",
     skill: "workflow-modeling",
     score: 9.8,
-    step: "Wrap",
+    step: "release",
     workflowSummary: {
-      currentStep: "Wrap",
+      currentStep: "release",
       qualityScore: 9.8,
     },
     updatedAt: "yesterday",
     description: "Board 只保留 Task List State，recipe step 只在 detail 呈現。",
     acceptance: [
       "Board 顯示 BACKLOG 到 DONE",
-      "BLOCKED 留在待處理視圖",
+      "NEEDS_HUMAN 修復項留在待處理視圖",
       "recipe step 只在 detail 或 Workflow 呈現",
     ],
     gaps: [],

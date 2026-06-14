@@ -96,7 +96,7 @@ Core user needs:
 
 ### P1. Workbench First, Provider Second
 
-The UI should lead with `Project`, `Task`, `Backlog`, `Ready Task`, `Agent Assignment`, `Running`, `Review`, `Done`, and `Blocked`.
+The UI should lead with `Project`, `Task`, `Backlog`, `Ready Task`, `Agent Assignment`, `Running`, `Review`, `Done`, and needs-human repair actions.
 
 Provider names such as Codex, Claude, Gemini, and OpenClaw are runtime choices, not the primary navigation model.
 
@@ -110,11 +110,11 @@ Task execution requires a human-confirmed `READY` state, a user-started dispatch
 
 A Task means one piece of user-visible work. It is not the same as an internal workflow step.
 
-Internal steps such as `Discuss`, `Explore`, `Prototype`, `Spec`, `Usage`, `Tkt`, `Dev`, `Auto-Review`, `Unit-test fe/be`, `Integration-test`, `E2E-test`, and `Release` belong in task detail, workflow detail, or evidence views, not as top-level board columns.
+Internal steps such as `Discuss`, `Explore`, `Prototype`, `Spec`, `Usage`, `Tkt`, `Dev`, `Unit-test`, `Integration-test`, `E2E-test`, and `release` belong in task detail, workflow detail, or evidence views, not as top-level board columns.
 
 ### P4. Review Owns Approval
 
-The product state `REVIEW` means Auto-Review, quality loop, tests or non-applicability explanation, and review materials are ready for the human.
+The product state `REVIEW` means workflow evidence, tests or non-applicability explanation, and review materials are ready for the human.
 
 Human approval happens in `REVIEW`, not after Release; tasks without cleanup or delivery-summary work can move from approved `REVIEW` directly to `DONE`.
 
@@ -128,7 +128,7 @@ External issue trackers and providers are projections or execution channels.
 
 The UI must handle missing Java, Docker, git, provider CLI login, filesystem permissions, SQLite/native library support, and port availability.
 
-Missing capabilities should produce understandable `BLOCKED / NEEDS_HUMAN` states with repair guidance.
+Missing capabilities should produce understandable `NEEDS_HUMAN` repair reasons with guidance, without adding a separate board-facing state.
 
 ---
 
@@ -183,7 +183,6 @@ READY
 RUNNING
 REVIEW
 DONE
-BLOCKED
 ```
 
 Design meaning:
@@ -196,19 +195,18 @@ Design meaning:
 | `RUNNING` | Agent work is active or claimed. | Show progress, active execution, worker log, and recoverability. |
 | `REVIEW` | Human must approve or reject completed evidence. | This is a human inbox state. Review materials must be prominent. |
 | `DONE` | Work completed; Release evidence may exist inside the task. | Completed record, summary, evidence, learnings when available. |
-| `BLOCKED` | Needs human, environment, permission, dependency, or missing detail. | Should surface repair guidance and next best action. |
 
-Important: `BLOCKED` is not currently a board column in the POC board; it appears in the `待處理` view. A redesign can keep that split or make blockers more visible, but blocked work must not disappear.
+Important: blocker recovery is still required, but it is represented as `NEEDS_HUMAN` / blocked reason on the relevant task state, and appears in the `待處理` view as repair guidance. A redesign can make needs-human work more visible, but it must not become a seventh board-facing state.
 
 ### Workflow Recipe Steps
 
 For coding tasks, the first recipe is:
 
 ```text
-Discuss -> Explore -> Prototype -> Spec -> Usage -> Tkt -> Dev -> Auto-Review -> Unit-test fe/be -> Integration-test -> E2E-test -> REVIEW -> DONE
+Discuss -> Explore -> Prototype -> Spec -> Usage -> Tkt -> Dev -> Unit-test -> Integration-test -> E2E-test -> release
 ```
 
-Each main step has an automatic `sub-Review -> sub-Rating -> sub-Fix` quality loop until `quality_score > 9`. Release evidence is stored inside the DONE task when cleanup, delivery summary, retro, or follow-up proposal exists.
+Each main step has an automatic `Review -> Rating -> Gate -> Fix` quality loop. Release evidence is stored inside the DONE task when cleanup, delivery summary, retro, or follow-up proposal exists.
 
 These are internal workflow semantics. They should be inspectable, but the main product surface should stay task-oriented.
 
@@ -319,7 +317,7 @@ Design needs:
 3. If all pass, an Agent Claim is created.
 4. Task enters `RUNNING`.
 5. Agent runs recipe steps in a worktree/sandbox and reports evidence.
-6. If checks fail, task becomes `BLOCKED / NEEDS_HUMAN`.
+6. If checks fail, task stays in the relevant state with a `NEEDS_HUMAN` repair reason.
 
 Design needs:
 
@@ -333,7 +331,7 @@ Design needs:
 
 ### Flow E. Review And Approve
 
-1. Dev, Auto-Review, Unit-test fe/be, Integration-test and E2E-test evidence are complete.
+1. Dev, Unit-test, Integration-test and E2E-test evidence are complete.
 2. Quality loop and required evidence are complete.
 3. Task enters `REVIEW`.
 4. Human reviews Definition Package, execution outputs, quality score, diff, tests, risk notes, retro, reviewer findings, and fix history.
@@ -469,7 +467,7 @@ Design notes:
 
 - The current board is useful as a process overview, but may become too wide as states or task count grow.
 - At narrow desktop widths, horizontal board scrolling exists but is not strongly signaled.
-- For redesign, consider whether `REVIEW` and `BLOCKED` need inbox-style prominence beyond columns.
+- For redesign, consider whether `REVIEW` and `NEEDS_HUMAN` repair work need inbox-style prominence beyond columns.
 
 ### 8.2 Task Details Pane / Drawer
 
@@ -587,7 +585,7 @@ Design notes:
 - When Chat is collapsed or represented from a card/detail summary, show only recent messages, key summary, open questions, and attachment count.
 - Attachments are not labels, source metadata, or board-level chips. Keep them in Chat/detail, and promote them to Review Materials only when they are evidence for approval.
 
-### 8.6 Blockers / Needs-Human View
+### 8.6 Needs-Human View
 
 Current purpose:
 
@@ -595,7 +593,7 @@ Current purpose:
 
 Current data:
 
-- Blocked task id.
+- Needs-human task id.
 - Reason from `gaps`.
 - Suggestion: permissions, user decision, or return to Chat.
 
@@ -631,7 +629,7 @@ Current purpose:
 Current UI:
 
 - Recipe state mapping table.
-- Quality loop list: `審查`, `評分`, `修正`, `quality_score > 9`.
+- Quality loop list: `Review`, `Rating`, `Gate`, `Fix`.
 
 Design notes:
 
@@ -748,7 +746,7 @@ Responsive design questions:
 - Should mobile use a board, list, inbox, or state-tabs pattern?
 - Should desktop prioritize all columns visible, or prioritize selected task + review detail?
 - Should `REVIEW` be an inbox separate from the board on small screens?
-- Should `BLOCKED` be globally surfaced as a status banner or persistent inbox count?
+- Should `NEEDS_HUMAN` repair work be globally surfaced as a status banner or persistent inbox count?
 - Should project path be always visible, collapsed, or behind a project switcher?
 
 ---
@@ -825,9 +823,9 @@ Why it matters:
 - `READY` does not mean Grimo is running a 24/7 background auto-dispatch loop.
 - The UI should show assignment, dependencies, capability checks, risk, whether claim is allowed, whether a dispatch window is active, and when that window ends.
 
-### Issue 7. `BLOCKED` Is Separate From Main Board
+### Issue 7. Needs-Human Repair Is Separate From Main Board
 
-Current board does not include `BLOCKED`; it appears in `待處理`.
+Current board does not add a `BLOCKED` column; repair work appears in `待處理` through `NEEDS_HUMAN` / blocked reason.
 
 Why it matters:
 
@@ -902,7 +900,7 @@ Recommended design deliverables:
 - Task-forming chat design.
 - Create task flow.
 - Project onboarding / project switcher flow.
-- Blocked / needs-human repair flow.
+- Needs-human repair flow.
 - Workflow recipe / quality loop explanation view.
 - Visual design system: colors, typography, spacing, radius, elevation, icons.
 - Component state matrix.
@@ -929,7 +927,6 @@ Needs states:
 - Hover.
 - Focus.
 - Selected.
-- Blocked.
 - Needs human.
 - Ready.
 - Running.
@@ -954,7 +951,7 @@ Needs states:
 - Running.
 - Review pending.
 - Rejected.
-- Blocked.
+- Needs-human repair.
 - Done.
 
 ### Evidence Item
@@ -1118,7 +1115,7 @@ A proposed redesign should be considered incomplete unless it covers:
 - `READY` human confirmation and dispatcher/preflight distinction.
 - `RUNNING` execution progress and recoverability.
 - `REVIEW` human approval with complete review materials.
-- `BLOCKED / NEEDS_HUMAN` repair guidance.
+- `NEEDS_HUMAN` repair guidance.
 - Evidence, quality score, fix history, risk, and reviewer findings.
 - Local-first project/repo ownership.
 - Responsive behavior for desktop, tablet, and mobile.
@@ -1146,7 +1143,7 @@ These are intentionally left open for the designer:
 
 1. Should the primary task surface be a Kanban board, grouped list, inbox, timeline, or hybrid?
 2. Should `REVIEW` be a dedicated inbox instead of just another state column?
-3. Should `BLOCKED` live in the main board, a separate needs-human inbox, or both?
+3. Should `NEEDS_HUMAN` repair work live only in a separate inbox, or also appear as a persistent cue on board cards?
 4. How should quality score be visualized so it feels trustworthy, not decorative?
 5. How should evidence scale from three chips to dozens of artifacts?
 6. What is the best mobile model for task state navigation?

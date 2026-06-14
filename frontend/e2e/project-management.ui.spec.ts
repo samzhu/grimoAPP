@@ -20,7 +20,7 @@ const workflowRecipes = {
           primarySteps: ["Discuss"],
         },
       ],
-      qualityLoopSummary: "Review -> Rating -> Fix until quality_score > 9",
+      qualityLoopSummary: "Review -> Rating -> Gate -> Fix until Gate passes",
     },
   ],
 };

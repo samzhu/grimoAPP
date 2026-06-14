@@ -25,7 +25,7 @@ Grimo 的問題不是 agent 能力不夠，而是能力如果只住在一個聊�
 | 研究概念 | 白話意思 | 對 Grimo 的設計要求 |
 | --- | --- | --- |
 | 預設用途 (affordance) | 一個東西實際允許哪些動作。 | `Task Card` 不能只像靜態摘要；如果能開 detail、回 Chat、approve/reject，就要有對應可操作區。 |
-| 指意 (signifier) | 使用者看得到的線索，告訴他哪裡能做什麼。 | `READY` 要 signifier 出「可以開始 dispatch」，`REVIEW` 要 signifier 出「需要人工審查」，`BLOCKED` 要 signifier 出「要修哪個前置條件」。 |
+| 指意 (signifier) | 使用者看得到的線索，告訴他哪裡能做什麼。 | `READY` 要 signifier 出「可以開始 dispatch」，`REVIEW` 要 signifier 出「需要人工審查」，needs-human repair cue 要 signifier 出「要修哪個前置條件」。 |
 | 可探索性 (discoverability) | 使用者不讀說明也能找到可能動作。 | 首次使用、空狀態、error state 都要給清楚下一步；不能只顯示空白 Chat 或空表格。 |
 | 對應性 (mapping) | 控制項和結果之間的關係要自然。 | `Start Dispatch Window` 應靠近 `READY` queue；`Approve / Reject` 應靠近 review materials；folder browser 的 `使用此資料夾` 只回填 path，不建立 Project。 |
 | 回饋 (feedback) | 動作後要立刻知道發生什麼。 | 建立 Task、啟動 agent、測試完成、審查被 reject，都要顯示 state change、時間、證據或下一步。 |
@@ -66,7 +66,8 @@ Grimo 的 state 不是工程 metadata，而是使用者決策提示。
 | `RUNNING` | Agent 正在做什麼？卡在哪裡？ | current step、worker log、elapsed time、stop/recover path |
 | `REVIEW` | 我要根據哪些證據 approve/reject？ | review summary、tests、risk notes、Approve / Reject |
 | `DONE` | 完成了什麼？後續學到什麼？ | release evidence、summary、follow-up |
-| `BLOCKED` | 誰要處理？要修什麼？修完回哪裡？ | blocker reason、repair action、retry |
+
+`NEEDS_HUMAN` / blocked reason 不是第七個主狀態；它是顯示在相關 Task State 上的修復提示，要回答「誰要處理、要修什麼、修完回哪裡」。
 
 ### P3. 把知識放在畫面上，減少使用者記憶負擔
 
@@ -108,7 +109,7 @@ Agent 執行的防護層：
 | 防護層 | 目的 | UI / UX 形式 |
 | --- | --- | --- |
 | Scope signifier | 使用者知道 agent 會碰哪個 Project / Task。 | App Header project context、Task identity、selected repo path |
-| Readiness gate | 開始前發現缺資訊或缺工具。 | READY gate、preflight result、BLOCKED reason |
+| Readiness gate | 開始前發現缺資訊或缺工具。 | READY gate、preflight result、NEEDS_HUMAN repair reason |
 | Explicit confirmation | 高影響動作不能默默發生。 | Start Dispatch、Approve / Reject、release confirmation |
 | Bounded execution | agent 只能在可理解範圍內工作。 | Dispatch Window、task claim、worktree / sandbox indicator |
 | Continuous feedback | 使用者看得到目前做了什麼。 | current step、logs、quality score、test status |
@@ -232,7 +233,7 @@ AI 產品很容易為了表現「很聰明」而使用陌生互動，但陌生�
 ### Task Workbench
 
 - Task card 要幫使用者 triage，不要展示系統內部。
-- `REVIEW` 和 `BLOCKED` 必須比一般 backlog 更有行動 signifier。
+- `REVIEW` 和 needs-human repair 必須比一般 backlog 更有行動 signifier。
 - Search、filter、create 和 focus tray 都要維持一個清楚的 command hierarchy。
 
 ### Task Detail

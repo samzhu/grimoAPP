@@ -90,11 +90,6 @@ export function AssistantChat({ selectedTask }: { selectedTask: Task | null }) {
             </>
           )}
         </Panel>
-        <Panel title="Runtime 策略">
-          <p className="panel-copy">
-            POC 使用 assistant-ui LocalRuntime 與自訂 model adapter。正式版改接 Spring Boot REST/SSE 後端。
-          </p>
-        </Panel>
       </aside>
     </section>
   );

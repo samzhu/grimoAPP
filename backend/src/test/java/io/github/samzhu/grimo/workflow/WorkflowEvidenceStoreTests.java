@@ -70,7 +70,7 @@ class WorkflowEvidenceStoreTests {
 				SELECT COUNT(*)
 				FROM task_workflow_run_steps
 				WHERE workflow_run_id = :runId
-				""", firstRun.id())).isEqualTo(9);
+				""", firstRun.id())).isEqualTo(11);
 		assertRunStep(firstRun.id(), "discuss", "Discuss", "DEFINING", 10, "ACTIVE");
 		assertRunStep(firstRun.id(), "explore", "Explore", "DEFINING", 20, "PENDING");
 		assertRunStep(firstRun.id(), "dev", "Dev", "RUNNING", 70, "PENDING");

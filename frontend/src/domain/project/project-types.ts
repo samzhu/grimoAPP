@@ -11,7 +11,7 @@ export type WorkflowRecipe = {
 export type WorkflowStep = {
   id: string;
   name: string;
-  taskState: "BACKLOG" | "DEFINING" | "READY" | "RUNNING" | "REVIEW" | "DONE" | "BLOCKED";
+  taskState: "BACKLOG" | "DEFINING" | "READY" | "RUNNING" | "REVIEW" | "DONE";
 };
 
 export type WorkflowRole = {

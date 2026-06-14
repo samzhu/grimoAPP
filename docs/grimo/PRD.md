@@ -32,14 +32,14 @@ flowchart TD
   Detail --> Evidence["Review Materials"]
   Detail --> Dispatch["Dispatcher"]
   Dispatch --> Agent["Agent Claim"]
-  Agent --> Review["Human Review"]
+  Agent --> Review["REVIEW"]
   Review --> Done["Done"]
 ```
 
 重點：
 
 - `Project` 決定工作流和品質基準。
-- `Task State Machine` 用 BACKLOG、DEFINING、READY、RUNNING、REVIEW、DONE、BLOCKED 呈現外層進度。
+- `Task State Machine` 用 BACKLOG、DEFINING、READY、RUNNING、REVIEW、DONE 呈現外層進度；阻塞原因用 NEEDS_HUMAN / blocked reason 呈現，不作為主線狀態。
 - `Workflow Recipe` 把使用者原本手動切換的 skill 開發流，拆成可由角色各司其職推進的 steps。
 - `Task` 是使用者真正管理的一件工作。
 - `Chat` 是 Task 的討論入口，不是產品本體。
@@ -79,17 +79,12 @@ flowchart LR
 ```mermaid
 stateDiagram-v2
   [*] --> BACKLOG
-  BACKLOG --> DEFINING: start discussion
+  BACKLOG --> DEFINING: start definition
   DEFINING --> READY: Ready Gate confirmed
   READY --> RUNNING: user starts dispatch
-  RUNNING --> REVIEW: implementation and verification evidence complete
+  RUNNING --> REVIEW: workflow evidence complete
   REVIEW --> DONE: approve
-  REVIEW --> RUNNING: reject or fix
-  DEFINING --> BLOCKED: missing decision
-  READY --> BLOCKED: preflight failed
-  RUNNING --> BLOCKED: dependency or runtime stop
-  BLOCKED --> DEFINING: more discussion
-  BLOCKED --> READY: dependency fixed
+  REVIEW --> DEFINING: reject, redefine
   DONE --> [*]
 ```
 
@@ -100,10 +95,11 @@ stateDiagram-v2
 | `BACKLOG` | 有這件事，但還沒認真定義 | 保存想法、外部匯入或 follow-up；還不啟動主動定義流程。 |
 | `DEFINING` | 正在透過 Chat / research / spec 把需求問清楚 | 展開 Discuss、Explore、Prototype、Spec、Usage、Tkt 等 definition workflow steps。 |
 | `READY` | 定義和品質門檻已確認，可以排程，但還沒自動跑 | 等待使用者啟動 Dispatch Window 或手動開始；Dispatcher 做 preflight。 |
-| `RUNNING` | Agent 已 claim 任務，正在 worktree/sandbox 裡開發、驗測與自審 | 展開 Dev、Auto-Review、Unit-test fe/be、Integration-test、E2E-test 等 execution workflow steps。 |
-| `REVIEW` | 執行和驗測證據已交齊，等人 approve/reject | 人類檢視 Review Materials，決定 approve 或 reject。 |
+| `RUNNING` | Agent 已 claim 任務，正在 worktree/sandbox 裡推進實際 workflow | 展開 Dev、Unit-test、Integration-test、E2E-test、release 等 workflow steps。 |
+| `REVIEW` | 工作流證據已交齊，等人 approve/reject | 人類檢視 Review Materials，決定 approve 或 reject。 |
 | `DONE` | 原 Task 完成，進入 release 收尾 | 保存完成紀錄、release evidence；若有新方向，建立 Follow-up Task 回 BACKLOG。 |
-| `BLOCKED` | 缺決策、環境、權限、依賴或資訊，需要人處理 | 停下並顯示 blocked reason；解除後回到適合的 Task State。 |
+
+`NEEDS_HUMAN` / blocked reason 是某個狀態下的修復原因，例如 READY preflight 失敗、RUNNING 缺 runtime 或 DEFINING 缺決策；修復後回到原本適合的 Task State，不作為主線狀態機節點。
 
 ### 0.4 Task 裡面有哪些資料
 
@@ -136,7 +132,7 @@ flowchart TD
 
 ### 0.5 Coding Task Recipe
 
-MVP 預設 workflow 是軟體開發工作流。每個主要 Workflow Step 都有自己的 Step Sub-workflow；目前最重要的 Step Sub-workflow 是 Quality Loop，通過 `quality_score > 9` 才前進。Web 開發 recipe 會在 `RUNNING` 底下展開開發、自審與驗測，讓使用者在 Task detail 裡知道目前是在寫 code、跑自審，還是在補 unit / integration / E2E evidence。
+MVP 預設 workflow 是軟體開發工作流。實際 workflow 節點是 Discuss / Explore / Prototype / Spec / Usage / Tkt / Dev / Unit-test / Integration-test / E2E-test / release。每個節點都會經過同一個 Step Sub-workflow：Review -> Rating -> Gate -> Fix；Gate 通過才前進，Gate 失敗則 Fix 後重新 Review。
 
 ```mermaid
 flowchart LR
@@ -145,6 +141,7 @@ flowchart LR
   Ready -->|已分配進行| Running
   Running -->|已完成待檢視| Review
   Review -->|人類已確認完成| Done
+  Review -->|退回重談定義| Defining
 
   Defining --> DEFINING_WORKFLOW
   Running --> RUNNING_WORKFLOW
@@ -157,25 +154,29 @@ flowchart LR
 
   subgraph RUNNING_WORKFLOW["Running 底下的 workflow"]
     direction LR
-    Dev -->|AI自動| AutoReview["Auto-Review"]
-    AutoReview --> UnitTest["Unit-test fe/be"]
+    Dev --> UnitTest["Unit-test"]
     UnitTest --> IntegrationTest["Integration-test"]
     IntegrationTest --> E2ETest["E2E-test"]
+    E2ETest --> Release["release"]
   end
 
   subgraph DONE_WORKFLOW["Done 底下的 workflow"]
     direction LR
-    Release
+    DoneEvidence["Release evidence"]
   end
 
   subgraph SUB_WORKFLOW["Sub-workflow"]
     direction TB
     SW_IN((入口))
-    subReview["sub-Review"] --> subRating["sub-Rating"] --> subFix["sub-Fix"] --> subReview
-    SW_IN --> subReview
+    ReviewStep["Review"] --> Rating["Rating"]
+    Rating --> Gate{"Gate pass?"}
+    Gate -- "no" --> Fix["Fix"]
+    Fix --> ReviewStep
+    Gate -- "yes" --> SW_OUT((出口))
+    SW_IN --> ReviewStep
   end
 
-  Release --> SW_IN
+  DoneEvidence --> SW_IN
 
   Discuss --> SW_IN
   Explore --> SW_IN
@@ -184,13 +185,13 @@ flowchart LR
   Usage --> SW_IN
   Tkt --> SW_IN
   Dev --> SW_IN
-  AutoReview --> SW_IN
   UnitTest --> SW_IN
   IntegrationTest --> SW_IN
   E2ETest --> SW_IN
+  Release --> SW_IN
 ```
 
-`Release` 是 DONE 底下的收尾 workflow，不是新的看板狀態。原 Task 在 REVIEW approve 後進 DONE；如果需要 merge、cleanup、delivery summary、short retro 或 learning proposal，這些收尾證據會保存在 DONE task 裡。若收尾結論產生新的優化方向，Grimo 會建立帶來源的 Follow-up Task 回到 BACKLOG。
+`release` 是實際 workflow 的最後一個節點；Task 通過 REVIEW approve 後進 DONE。如果 release 節點產生 merge、cleanup、delivery summary、short retro 或 learning proposal，這些會保存成 DONE task 的 Release evidence。若收尾結論產生新的優化方向，Grimo 會建立帶來源的 Follow-up Task 回到 BACKLOG。
 
 ### 0.6 Dispatch Window
 
@@ -206,7 +207,7 @@ flowchart TD
   Capacity -- "no" --> Queue["Wait in READY queue"]
   Capacity -- "yes" --> Preflight
   Preflight -- "pass" --> Claim["Agent Claim"]
-  Preflight -- "fail" --> Blocked["BLOCKED / NEEDS_HUMAN"]
+  Preflight -- "fail" --> ReadyRepair["READY + NEEDS_HUMAN"]
   Claim --> Running["RUNNING"]
   Window --> Expire["Window expires"]
   Expire --> Stop["Stop claiming new tasks"]
@@ -225,7 +226,7 @@ flowchart TD
 4. **Task 若只是待辦卡，品質仍然靠運氣。** 只把工作拆成 Task 不夠；每個 Task 都要經過穩定 workflow，從討論、探索、原型、規格、使用情境、票據化、開發、審查到收尾，都要有 review、rating、fix 的品質循環。
 5. **AI 寫 code 後，人類缺少完整驗收包。** 單看 diff 不夠；使用者需要看到 Definition Package、每個 execution step 分數、跑了哪些測試、AI 自己檢討了什麼、另一個 reviewer agent 查出什麼、修過幾次、剩餘風險是什麼。
 6. **流程知識沒有回流。** 每次任務的 retro、review、rating、fix、驗收結果，如果沒有沉澱到 skills / workflow recipes / project docs，下一次仍然會犯同樣錯。
-7. **本地產品不能假設使用者環境完美。** Grimo 跑在使用者自己的電腦上；Java、Docker、git、CLI agent、模型登入、filesystem 權限、native library、SQLite driver、port binding 都可能缺失或版本不同。產品不能把這些當成安裝前提後直接失敗，而要能檢查、提示、降級或把 Task 標成可理解的 BLOCKED / NEEDS_HUMAN。
+7. **本地產品不能假設使用者環境完美。** Grimo 跑在使用者自己的電腦上；Java、Docker、git、CLI agent、模型登入、filesystem 權限、native library、SQLite driver、port binding 都可能缺失或版本不同。產品不能把這些當成安裝前提後直接失敗，而要能檢查、提示、降級或把 Task 標出可理解的 NEEDS_HUMAN 修復原因。
 8. **雲端工作台容易讓使用者失去工作資料正本。** Coding agent workflow 會產生大量有價值的資料：Task、討論脈絡、Definition Package、step output、quality score、fix history、review result、retro、learning proposal。如果這些只存在遠端 SaaS 或 provider session，使用者失去網路、帳號、訂閱或服務時，就失去自己的開發歷史和流程知識。
 
 市場也正在往這個方向走：Symphony 把 Linear 類 issue tracker 變成 Codex orchestration control surface；Multica 用 issue 指派 + 本地 daemon + 本地 coding tools；Linear 把 agents 當 workspace 裡的 contributor；GitHub 把 Claude / Codex / Copilot coding agents 放到 Issues、PR comments、Agents tab 和 VS Code 裡；Helio 用 AI coworkers / channels 包裝多角色任務協作；Nezha 把本機多專案 coding agent session、任務和檔案視圖收在桌面 app 裡。Grimo 的定位要跟上這個變化：不是另一個 chat，不是另一個模型選單，而是把本機 AI 開發工作變成可排隊、可指派、可執行、可審查、可學習的工作台。
@@ -249,7 +250,7 @@ Grimo Workflow Task Management 是兩種視圖背後的核心。Project 層級�
 
 Grimo 也會把使用者目前手動維護的 skill 開發流收斂成 Project workflow：使用者不用同時扮演 PM、Architect、Frontend、Backend、QA 和 Release，也不用記得每一步該切哪個 skill、跑哪些品質檢查。Project 選定 Workflow Recipe 後，Grimo 依 step 帶出對應 Agent Profile、skills、Quality Loop 和 evidence；使用者主要負責補決策、開啟 dispatch window、審查 Review Materials，以及決定是否接受 Release evidence 產生的 follow-up。
 
-Grimo 的產品語言維持 Task 工作台：一般使用者在 list / board 上看到簡化 Task State Machine，例如 BACKLOG、DEFINING、READY、RUNNING、REVIEW、DONE、BLOCKED，不需要理解底層 agent workflow 實作。卡片可以顯示留言數、附件數、最近對話提示或重點摘要，但不顯示完整 raw transcript。完整 Task Conversation Thread、Task Attachments、CLAIMED、DEV、Release evidence、recipe steps、Step Sub-workflow、Quality Loop、quality_score、fix history、worker log、run history、diff、測試輸出或其他領域 evidence，都屬於 Task detail evidence。內部 execution substrate 則以 Pollack AI Lab `Agent Workflow` 為主：Workflow Recipe 映射成 `Workflow`；每個 recipe step 底下都跑自動 `sub-Review -> sub-Rating -> sub-Fix` 的 Quality Loop，直到 `quality_score > 9` 才能進下一個主要 step。Quality Loop 是每個主要 step 的 Step Sub-workflow，不是頂層 workflow step。Coding Task Recipe 是 MVP 的第一個具體 recipe，涵蓋 Discuss / Explore / Prototype / Spec / Usage / Tkt / Dev / Auto-Review / Unit-test fe/be / Integration-test / E2E-test / Release；完成這些 RUNNING evidence 後才進產品狀態 REVIEW。需要 merge、cleanup、delivery summary 或 learning proposal 時，收尾內容保存在 DONE task 的 Release evidence 裡。這套 SDD 開發流程適合軟體開發，不是所有 Project workflow 的固定流程。流程控制、品質門檻與可恢復執行分別透過 `Step`、`Gate`、`StepRunner`、checkpoint、trace 與 sandbox / judge 相關套件落地。
+Grimo 的產品語言維持 Task 工作台：一般使用者在 list / board 上看到簡化 Task State Machine，例如 BACKLOG、DEFINING、READY、RUNNING、REVIEW、DONE，不需要理解底層 agent workflow 實作。卡片可以顯示留言數、附件數、最近對話提示或重點摘要，但不顯示完整 raw transcript。完整 Task Conversation Thread、Task Attachments、CLAIMED、DEV、Release evidence、recipe steps、Step Sub-workflow、Quality Loop、quality_score、fix history、worker log、run history、diff、測試輸出或其他領域 evidence，都屬於 Task detail evidence。內部 execution substrate 則以 Pollack AI Lab `Agent Workflow` 為主：Workflow Recipe 映射成 `Workflow`；每個 recipe step 底下都跑自動 `Review -> Rating -> Gate -> Fix` 的 Quality Loop，直到 Gate 通過才能進下一個主要 step。Quality Loop 是每個主要 step 的 Step Sub-workflow，不是頂層 workflow step。Coding Task Recipe 是 MVP 的第一個具體 recipe，涵蓋 Discuss / Explore / Prototype / Spec / Usage / Tkt / Dev / Unit-test / Integration-test / E2E-test / release；RUNNING 完成 Dev 到 E2E-test 的 evidence 後才進產品狀態 REVIEW。release 產生的 merge、cleanup、delivery summary 或 learning proposal 會保存成 DONE task 的 Release evidence。這套 SDD 開發流程適合軟體開發，不是所有 Project workflow 的固定流程。流程控制、品質門檻與可恢復執行分別透過 `Step`、`Gate`、`StepRunner`、checkpoint、trace 與 sandbox / judge 相關套件落地。
 
 核心流程：
 
@@ -260,17 +261,17 @@ graph TD
   Planning --> Entry["Work Entry - Codex, Claude Code, Grimo Chat, Local Task, External Work Item"]
   Entry --> Task["Task - source, discussion context, inherits Project Workflow Recipe"]
   Task --> Definition["Definition steps - Discuss, Explore, Prototype, Spec, Usage, Tkt"]
-  Definition --> DefQL["Quality Loop on each step - sub-Review, sub-Rating, sub-Fix, quality score gt 9"]
+  Definition --> DefQL["Quality Loop on each step - Review, Rating, Gate, Fix"]
   DefQL --> Package["Definition Package"]
   Package --> Ready["READY - human confirms and assigns thin Agent Profile"]
   Ready --> Dispatch["Dispatch Window or manual start - time boxed, concurrency limited"]
   Dispatch --> Claim["Dispatcher preflight - dependencies, runtime, permissions"]
   Claim --> Running["Agent Claim - RUNNING"]
-  Running --> Execution["RUNNING workflow - Dev, Auto-Review, Unit-test fe/be, Integration-test, E2E-test"]
+  Running --> Execution["RUNNING workflow - Dev, Unit-test, Integration-test, E2E-test, release"]
   Execution --> ExecQL["Quality Loop plus Project and Task Gate evidence"]
   ExecQL --> HumanReview["REVIEW - human approve or reject"]
   HumanReview -- "approve" --> Done["DONE"]
-  HumanReview -- "reject / fix" --> Running
+  HumanReview -- "reject / redefine" --> Definition
   Done --> ReleaseEvidence["Release evidence - cleanup, summary, retro if needed"]
   ReleaseEvidence --> Learning["Follow-up proposal - optional skill or recipe improvement"]
 ```
@@ -304,16 +305,11 @@ stateDiagram-v2
   Ready --> Running: active Dispatch Window and Dispatcher claim
   Running --> Review: evidence complete
   Review --> Done: approve
-  Review --> Running: reject or fix required
-  Running --> Blocked: dependency, runtime, or quality stop
-  Defining --> Blocked: missing decision or dependency
-  Ready --> Blocked: preflight failed
-  Blocked --> Defining: needs more discussion
-  Blocked --> Ready: dependency fixed
+  Review --> Defining: reject, redefine
   Done --> [*]
 ```
 
-`Discuss / Explore / Prototype / Spec / Usage / Tkt / Dev / Auto-Review / Unit-test fe/be / Integration-test / E2E-test / Release` 不作為看板欄位；它們是 Task detail 裡的 workflow evidence。REVIEW 是看板上的人類審查狀態，Release evidence 放在 DONE task 裡檢視，不是讓原 Task 多跑一個看板狀態。
+`Discuss / Explore / Prototype / Spec / Usage / Tkt / Dev / Unit-test / Integration-test / E2E-test / release` 不作為看板欄位；它們是 Task detail 裡的 workflow evidence。REVIEW 是看板上的人類審查狀態，Release evidence 放在 DONE task 裡檢視，不是讓原 Task 多跑一個看板狀態。
 
 #### Coding Task Recipe 與 Quality Loop
 
@@ -330,24 +326,23 @@ graph LR
   Ready --> Dispatch["Dispatch Window - 手動啟動，可設定並行數"]
 
   subgraph Running["RUNNING detail - Coding execution recipe"]
-    Dev --> AutoReview["Auto-Review step"]
-    AutoReview --> UnitTest
-    UnitTest["Unit-test fe/be"] --> IntegrationTest["Integration-test"] --> E2ETest["E2E-test"]
+    Dev --> UnitTest
+    UnitTest["Unit-test"] --> IntegrationTest["Integration-test"] --> E2ETest["E2E-test"]
   end
 
   Dispatch --> Dev
   E2ETest --> HumanReview["REVIEW - 人類 approve 或 reject"]
-  HumanReview -- "reject / fix" --> Dev
+  HumanReview -- "reject / redefine" --> Discuss
   HumanReview -- "approve" --> Done["DONE"]
-  Done --> Release["Release<br/>cleanup, summary, retro if needed"]
+  Done --> Release["release<br/>cleanup, summary, retro if needed"]
   Release --> Followup["Follow-up Task<br/>if improvement proposal exists"]
 
-  Step["任一主要 step"] --> QReview["sub-Review"]
-  QReview --> Rating["sub-Rating"]
-  Rating --> Score{"quality score gt 9？"}
-  Score -- "否" --> Fix["sub-Fix"]
+  Step["任一主要 step"] --> QReview["Review"]
+  QReview --> Rating["Rating"]
+  Rating --> Gate{"Gate pass？"}
+  Gate -- "否" --> Fix["Fix"]
   Fix --> QReview
-  Score -- "是" --> Next["進下一個主要 step"]
+  Gate -- "是" --> Next["進下一個主要 step"]
 ```
 
 #### Dispatch Window 與並行規則
@@ -359,7 +354,7 @@ graph TD
   Window -- "是" --> Capacity{"並行數有空位？"}
   Capacity -- "否" --> Queue["等待下一個 slot"]
   Capacity -- "是" --> Preflight{"Preflight pass？ profile, dependencies, runtime, permissions"}
-  Preflight -- "否" --> Blocked["BLOCKED / NEEDS_HUMAN"]
+  Preflight -- "否" --> ReadyRepair["READY + NEEDS_HUMAN repair reason"]
   Preflight -- "是" --> Claim["Agent Claim"]
   Claim --> Running["RUNNING"]
   Running --> Review["REVIEW"]
@@ -391,7 +386,7 @@ graph TD
   Backlog --> Defining["DEFINING - 開始收斂 Definition Package"]
 
   subgraph DefinitionRecipe["DEFINING detail - Coding definition recipe"]
-    Discuss["Discuss - Chat 探索與釐清"] --> DiscussQL["Quality Loop - sub-Review, sub-Rating, sub-Fix, quality score gt 9"]
+    Discuss["Discuss - Chat 探索與釐清"] --> DiscussQL["Quality Loop - Review, Rating, Gate, Fix"]
     DiscussQL --> Explore["Explore - 技術調研與可行性"]
     Explore --> ExploreQL["Quality Loop"]
     ExploreQL --> Prototype["Prototype - 必要時做低保真驗證"]
@@ -417,7 +412,7 @@ graph TD
   Window --> Capacity{"並行 slot 有空？"}
   Capacity -- "否" --> Ready
   Capacity -- "是" --> Preflight{"Dispatcher preflight - profile, dependencies, runtime, permissions"}
-  Preflight -- "失敗" --> Blocked["BLOCKED / NEEDS_HUMAN - 顯示修復路徑"]
+  Preflight -- "失敗" --> ReadyRepair["READY + NEEDS_HUMAN - 顯示修復路徑"]
   Preflight -- "通過" --> Claim["Agent Claim"]
   Claim --> Running["RUNNING - worktree, sandbox, worker log"]
 
@@ -426,17 +421,15 @@ graph TD
   Running --> Continue["已 RUNNING 不硬殺 - 執行到結束"]
 
   subgraph ExecutionRecipe["RUNNING detail - Coding execution recipe"]
-    Dev["Dev - 實作 + Project/Task Quality Gate evidence"] --> DevQL["Quality Loop - sub-Review, sub-Rating, sub-Fix, quality score gt 9"]
-    DevQL --> AutoReview["Auto-Review - AI self-review + Review Materials"]
-    AutoReview --> ReviewQL["Quality Loop - quality score gt 9"]
-    ReviewQL --> UnitTest["Unit-test fe/be - save verification evidence"]
+    Dev["Dev - 實作 + Project/Task Quality Gate evidence"] --> DevQL["Quality Loop - Review, Rating, Gate, Fix"]
+    DevQL --> UnitTest["Unit-test - save verification evidence"]
     UnitTest --> IntegrationTest["Integration-test - save verification evidence"]
     IntegrationTest --> E2ETest["E2E-test - save verification evidence"]
   end
 
   Continue --> Dev
   E2ETest --> HumanReview["REVIEW - 人類 approve 或 reject"]
-  HumanReview -- "reject / fix required" --> Dev
+  HumanReview -- "reject / redefine" --> Defining
   HumanReview -- "approve" --> Done["DONE"]
   Done --> ReleaseEvidence["Release evidence - merge, cleanup, delivery summary, short retro if needed"]
   ReleaseEvidence --> Learning{"建議優化 skill / recipe？"}
@@ -444,8 +437,8 @@ graph TD
   Learning -- "否" --> FinishedEvidence["只保留 DONE evidence"]
   Proposal --> Followup["Follow-up Task - BACKLOG / pending human review"]
 
-  Blocked -- "需要更多討論" --> Defining
-  Blocked -- "依賴修復 / preflight 通過" --> Ready
+  ReadyRepair -- "需要更多討論" --> Defining
+  ReadyRepair -- "依賴修復 / preflight 通過" --> Ready
   Done --> Finished["結束 - local evidence preserved"]
 ```
 
@@ -480,11 +473,11 @@ graph TD
 - **Skill 開發流由角色各司其職。** 使用者原本要自己切換 planning、frontend、backend、testing、release 等 skills；在 Grimo 裡，Project Workflow Recipe 會把這些能力分配到對應 Agent Profile 和 workflow steps。使用者仍負責決策與最後審查，但不需要手動扮演所有工程角色或追每個品質循環。
 - **需求定義落成文件。** Discuss step 透過 chat 與研究分析產出的 task title/body/source/labels/acceptance hints 會進入 Project 選定的開發工作流；MVP 依 Coding Task Recipe 執行 Explore、Prototype（必要時）、Spec、Usage、Tkt，並讓每個主要 step 的自動 Quality Loop 通過後才前進，最後形成 Definition Package。
 - **人類確認 Ready Task。** 使用者確認 Definition Package 與該 Task 採用的 Quality Gate 後，才把 Task 移到「待執行」狀態，指定「Backend Engineer」這個薄 Agent Profile。
-- **AI 自主領走任務。** READY 任務都可以被排程執行，但自動派工必須由使用者手動啟動 dispatch window；Grimo 不會 24 小時常駐自動領任務。Agent Claim 後，Grimo 建 worktree、套用 skills，進入 RUNNING；細節頁顯示 CLAIMED / DEV / Auto-Review、Unit-test fe/be、Integration-test、E2E-test、Quality Loop、worker log、run history 與 evidence；DONE task 內可檢視 Release evidence。
+- **AI 自主領走任務。** READY 任務都可以被排程執行，但自動派工必須由使用者手動啟動 dispatch window；Grimo 不會 24 小時常駐自動領任務。Agent Claim 後，Grimo 建 worktree、套用 skills，進入 RUNNING；細節頁顯示 CLAIMED / DEV / Unit-test、Integration-test、E2E-test、release、Quality Loop、worker log、run history 與 evidence；DONE task 內可檢視 Release evidence。
 - **外部 coding agent 接任務。** Codex / Claude Code 可透過 Agent-Facing Task API 取得 Ready Task、claim、回報 step output；Grimo 仍保存 workflow state、quality score、review result 與 Release evidence。
 - **Dispatcher 守住可執行邊界。** READY 不等於馬上跑；Dispatcher 只有在使用者手動開啟 dispatch window 或手動開始單一 Task 時，才會檢查 assignee/profile、dependencies、runtime availability 與人類核准狀態，並建立 Agent Claim。Dispatch window 是有期限的執行窗口，不是永久開關；MVP UI 應提供「執行 1 小時」「執行到明早 8 點」「只跑選取任務」這類明確選項，並可設定並行數。Window 到期後不再 claim 新任務，但已經 RUNNING 的任務會執行到結束。
-- **每個階段都被品質出口守住。** Coding recipe 中的 Discuss / Explore / Prototype / Spec / Usage / Tkt / Dev / Auto-Review / Unit-test fe/be / Integration-test / E2E-test / Release 每個主要 step 都先跑 Quality Loop；其他 Project workflow 的 recipe steps 也套用同一個 Quality Loop 機制。`quality_score > 9` 後預設自動進下一個主要 step。RUNNING 的出口必須依 Project Quality Gate 與 Task/Spec Acceptance Gate 保存足夠 verification evidence；REVIEW 是人類審查狀態；Release evidence 只在 DONE task 需要時整理交付摘要、短 retro 與是否邀請優化流程的建議。
-- **人類在 REVIEW 審完整資料。** 使用者 approve/reject 發生在 REVIEW；REVIEW 代表 Auto-Review、Quality Loop、測試或不適用理由和 Review Materials 已完成，現在等人類判斷。審查資料包含 Definition Package、execution step outputs、quality scores、final diff、verification evidence、retro、review findings、fix history、risk notes、PR link。Release evidence 只在 DONE task 需要時保存收尾摘要、cleanup 與流程優化邀請。
+- **每個階段都被品質出口守住。** Coding recipe 中的 Discuss / Explore / Prototype / Spec / Usage / Tkt / Dev / Unit-test / Integration-test / E2E-test / release 每個主要 step 都先跑 Quality Loop；其他 Project workflow 的 recipe steps 也套用同一個 Quality Loop 機制。Gate 通過後預設自動進下一個主要 step。RUNNING 的出口必須依 Project Quality Gate 與 Task/Spec Acceptance Gate 保存足夠 verification evidence；REVIEW 是人類審查狀態；Release evidence 只在 DONE task 需要時整理交付摘要、短 retro 與是否邀請優化流程的建議。
+- **人類在 REVIEW 審完整資料。** 使用者 approve/reject 發生在 REVIEW；REVIEW 代表 Quality Loop、測試或不適用理由和 Review Materials 已完成，現在等人類判斷。approve 後 Task 進 DONE；reject 代表 Definition Package 或驗收理解不被接受，Task 回 DEFINING 重新討論定義，不直接回 RUNNING 原地修。審查資料包含 Definition Package、execution step outputs、quality scores、final diff、verification evidence、retro、review findings、fix history、risk notes、PR link。Release evidence 只在 DONE task 需要時保存收尾摘要、cleanup 與流程優化邀請。
 - **Follow-up Task 只提案，不自動開工。** Agent 在執行或審查中發現額外工作時，可以建立帶來源、理由與建議 priority 的 Follow-up Task，但預設只能進 BACKLOG 或 DEFINING，不能直接 READY 或 RUNNING。
 - **任務系統逐步接入。** MVP 使用 Grimo Local Connector；未來 Project 建立時可選 GitHub Issues、Linear、Jira connector，title/body/source/labels/assignee/status/執行結果雙向同步，衝突時停下等人處理。
 
@@ -492,7 +485,7 @@ graph TD
 
 ### P1 — Workbench first, provider second
 
-使用者先看到 Project、Task、Backlog、Ready Task、Agent Assignment、Running、Review、Done、Blocked，而不是先選 Claude / Codex / Gemini。Provider 是 runtime 選項；工作台主語是工作本身。
+使用者先看到 Project、Task、Backlog、Ready Task、Agent Assignment、Running、Review、Done，以及需要修復的 next action，而不是先選 Claude / Codex / Gemini。Provider 是 runtime 選項；工作台主語是工作本身。
 
 ### P2 — Chat creates work; execution needs confirmation
 
@@ -504,19 +497,19 @@ Agent Profile 是給人類看的薄角色入口：名稱、用途、預設 provi
 
 ### P4 — Workflow Recipe over hope-based prompting
 
-Skill 是能力包；Workflow Recipe 是穩定流程。Task 只是管理單位，真正保證品質與完整落實的是 recipe-controlled work：Project 層級選擇 Workflow Recipe，Task 繼承該 Project workflow，不在新增 Task 時要求使用者選擇工作流。每個 step 底下都有自動 sub-Review、sub-Rating、sub-Fix 的 Quality Loop 子流程。只有該節點的 `quality_score > 9`，流程才前進；未達標則自動回到該節點的修正循環，而不是只希望 AI 讀完 prompt 後照做。Coding Task Recipe 的 Discuss / Explore / Prototype / Spec / Usage / Tkt / Dev / Auto-Review / Unit-test fe/be / Integration-test / E2E-test / Release 是軟體開發案例；完成 RUNNING evidence 後才進產品狀態 REVIEW；Release evidence 是 DONE task 需要時才保存的 cleanup、delivery summary、short retro 或 learning proposal。研究、分析、行銷、影片製作等未來工作流應由 Project 選擇，不干擾單筆 Task 建立。Grimo 不新增抽象方法論名稱；它把可重複的專業工作實務工程化為 Workflow Recipe、Skills、Quality Gate 和 Review Materials。
+Skill 是能力包；Workflow Recipe 是穩定流程。Task 只是管理單位，真正保證品質與完整落實的是 recipe-controlled work：Project 層級選擇 Workflow Recipe，Task 繼承該 Project workflow，不在新增 Task 時要求使用者選擇工作流。每個 step 底下都有自動 Review、Rating、Gate、Fix 的 Quality Loop 子流程。只有該節點的 Gate 通過，流程才前進；未達標則自動回到該節點的修正循環，而不是只希望 AI 讀完 prompt 後照做。Coding Task Recipe 的 Discuss / Explore / Prototype / Spec / Usage / Tkt / Dev / Unit-test / Integration-test / E2E-test / release 是軟體開發案例；完成 RUNNING evidence 後才進產品狀態 REVIEW；Release evidence 是 DONE task 需要時才保存的 cleanup、delivery summary、short retro 或 learning proposal。研究、分析、行銷、影片製作等未來工作流應由 Project 選擇，不干擾單筆 Task 建立。Grimo 不新增抽象方法論名稱；它把可重複的專業工作實務工程化為 Workflow Recipe、Skills、Quality Gate 和 Review Materials。
 
 ### P5 — Quality-gated progress
 
-每個主要流程節點都有出口條件：不論該節點來自 coding、research、analysis、marketing 或 video production recipe，都各自先跑自動 sub-Review、sub-Rating、sub-Fix 的 Quality Loop；該節點預設 `quality_score > 9` 才能進下一節點，且通過後自動前進。未達標時，Quality Loop 會自動執行 fix attempt 並重新 review / rating，直到通過或碰到明確停止條件。人類確認保留在特定產品 gate，例如 Definition Package 轉 READY、REVIEW approve/reject，或高風險操作。具體驗收不是固定 checklist：Project 設計階段先依 repo/codebase 型態定義 Project Quality Gate；Task / Spec 再挑選、補充或覆寫為 Task/Spec Acceptance Gate。Release evidence 只在 DONE task 需要收尾時整理 delivery summary、short retro 與是否邀請優化流程的建議；若發現可重複改善項，只建立提案，不自動套用。
+每個主要流程節點都有出口條件：不論該節點來自 coding、research、analysis、marketing 或 video production recipe，都各自先跑自動 Review、Rating、Gate、Fix 的 Quality Loop；該節點預設 Gate 通過才能進下一節點，且通過後自動前進。未達標時，Quality Loop 會自動執行 fix attempt 並重新 review / rating，直到通過或碰到明確停止條件。人類確認保留在特定產品 gate，例如 Definition Package 轉 READY、REVIEW approve/reject，或高風險操作。具體驗收不是固定 checklist：Project 設計階段先依 repo/codebase 型態定義 Project Quality Gate；Task / Spec 再挑選、補充或覆寫為 Task/Spec Acceptance Gate。Release evidence 只在 DONE task 需要收尾時整理 delivery summary、short retro 與是否邀請優化流程的建議；若發現可重複改善項，只建立提案，不自動套用。
 
 ### P6 — Human-gated autonomy
 
-AI 可以自主領 Ready Task，但 Ready Task 必須先由人類確認 Definition Package 和 Quality Gate，且自動派工必須由使用者手動啟動 dispatch window。READY 代表可被排程，不代表 Grimo 24 小時自動執行；Dispatcher 只會在 active dispatch window 或單一 Task 手動開始時，把符合 assignment、dependency 與 runtime 條件的 Ready Task 轉成 Agent Claim。Dispatch window 必須 time-boxed、可設定並行數，並可停止 claim 新任務；window 到期或停止後，已經 RUNNING 的任務不硬殺，會執行到結束。Claim 後 Task 在 board 上進入 RUNNING，細節頁顯示 CLAIMED / DEV / Auto-Review / verification evidence 等執行狀態；DONE task 內可檢視 Release evidence。Auto-Review、必要測試與 Review Materials 完成後，Task 才進 REVIEW 等待人類審查。任何主要 workflow step 的 Quality Loop 不通過時，系統會依停止條件自動 fix / review / rating；仍無法通過時才停下給人看。
+AI 可以自主領 Ready Task，但 Ready Task 必須先由人類確認 Definition Package 和 Quality Gate，且自動派工必須由使用者手動啟動 dispatch window。READY 代表可被排程，不代表 Grimo 24 小時自動執行；Dispatcher 只會在 active dispatch window 或單一 Task 手動開始時，把符合 assignment、dependency 與 runtime 條件的 Ready Task 轉成 Agent Claim。Dispatch window 必須 time-boxed、可設定並行數，並可停止 claim 新任務；window 到期或停止後，已經 RUNNING 的任務不硬殺，會執行到結束。Claim 後 Task 在 board 上進入 RUNNING，細節頁顯示 CLAIMED / DEV / verification evidence 等執行狀態；DONE task 內可檢視 Release evidence。必要測試與 Review Materials 完成後，Task 才進 REVIEW 等待人類審查。任何主要 workflow step 的 Quality Loop 不通過時，系統會依停止條件自動 fix / review / rating；仍無法通過時才停下給人看。
 
 ### P7 — Review owns approval; DONE owns release evidence
 
-人類 approve/reject 發生在產品狀態 REVIEW，不是 Release 之後。這個 REVIEW gate 不等於每個主要 step 內部的 sub-Review 子流程；它代表 Auto-Review、Quality Loop、必要 verification evidence 和 Review Materials 已完成，現在輪到人類拿完整審查資料判斷是否可收尾。審查資料包含 Definition Package、execution step outputs、quality scores、final diff、Project/Task Quality Gate evidence、Implementer Retro、Reviewer Agent 結果、Fix Attempt 歷史與風險說明。Task 通過後進 DONE；若任務需要 merge/cleanup、delivery summary、release short retro 或流程優化邀請，這些內容保存成 DONE task 的 Release evidence。
+人類 approve/reject 發生在產品狀態 REVIEW，不是 Release 之後。這個 REVIEW gate 不等於每個主要 step 內部的 Quality Loop Review 子流程；它代表 Quality Loop、必要 verification evidence 和 Review Materials 已完成，現在輪到人類拿完整審查資料判斷是否可收尾。審查資料包含 Definition Package、execution step outputs、quality scores、final diff、Project/Task Quality Gate evidence、Implementer Retro、Reviewer Agent 結果、Fix Attempt 歷史與風險說明。Task 通過後進 DONE；Task 被退回時進 DEFINING，先重新討論定義與驗收，再重新通過 Ready Gate，而不是直接回 RUNNING 修 code。若任務需要 merge/cleanup、delivery summary、release short retro 或流程優化邀請，這些內容保存成 DONE task 的 Release evidence。
 
 ### P8 — Learning Loop proposes, never silently applies
 
@@ -544,7 +537,7 @@ Codex、Claude Code、Grimo Chat 是工作入口；Grimo 的任務管理介面�
 
 ### P14 — Local environment is variable, product must absorb it
 
-Grimo 是跑在使用者電腦上的本地產品，不是受控雲端環境；因此設計不能預設 Java、Docker、git、CLI provider、模型登入、native library、filesystem 權限或 port 都已經正確。所有 runtime capability 都要能被 preflight check 檢查，缺失時提供可理解的診斷、安裝/登入提示、fallback 或明確的 `BLOCKED / NEEDS_HUMAN` 狀態。SQLite、file-backed journal/memory、provider adapter 與 sandbox 都要服務這個原則：先讓單機 MVP 在更少外部前提下可靠運作，再逐步啟用更重的能力。
+Grimo 是跑在使用者電腦上的本地產品，不是受控雲端環境；因此設計不能預設 Java、Docker、git、CLI provider、模型登入、native library、filesystem 權限或 port 都已經正確。所有 runtime capability 都要能被 preflight check 檢查，缺失時提供可理解的診斷、安裝/登入提示、fallback 或明確的 `NEEDS_HUMAN` 修復原因。SQLite、file-backed journal/memory、provider adapter 與 sandbox 都要服務這個原則：先讓單機 MVP 在更少外部前提下可靠運作，再逐步啟用更重的能力。
 
 ### P15 — Product direction before project architecture
 
@@ -596,9 +589,9 @@ And    後續 Definition、Ready、RUNNING workflow、REVIEW、DONE 與 Release 
 
 ```gherkin
 Given  Task #42 已透過 chat 完成 Discuss phase
-When   Discuss step 的 Quality Loop 通過 quality_score > 9
+When   Discuss step 的 Quality Loop Gate 通過
 Then   Grimo 自動進入 Explore / Prototype / Spec / Usage / Tkt 等後續主要 workflow steps
-And    每個主要 workflow step 通過 quality_score > 9 後自動進下一步
+And    每個主要 workflow step Gate 通過 後自動進下一步
 And    Grimo 產生或更新 Spec、Usage stories 與 ticketized Tasks
 And    保存 Definition Package
 And    使用者可以 approve Definition Package
@@ -628,13 +621,13 @@ Then   Grimo 建立每任務 git worktree
 And    將相關 skills 投影到 worktree
 And    將 Discuss phase 摘要與 Definition Package 作為 Task context
 And    以 Pollack Agent Workflow 執行 Coding Task Recipe
-And    Discuss / Explore / Prototype / Spec / Usage / Tkt / Dev / Auto-Review / Unit-test fe/be / Integration-test / E2E-test / Release 都是主要 workflow steps
-And    每個主要 workflow step 都執行 sub-Review -> sub-Rating -> sub-Fix 的 Quality Loop 子流程
+And    Discuss / Explore / Prototype / Spec / Usage / Tkt / Dev / Unit-test / Integration-test / E2E-test / release 都是主要 workflow steps
+And    每個主要 workflow step 都執行 Review -> Rating -> Gate -> Fix 的 Quality Loop 子流程
 And    每個主要 workflow step 的 quality_score 必須大於 9 才能自動進入下一個主要 step
 And    Task detail 顯示目前主要 step 與其 Quality Loop 子流程狀態
 And    進入 Dev step 後完成實作
-And    RUNNING workflow 依序保存 Auto-Review、unit test、integration test、E2E test 或明確不適用理由
-And    Auto-Review step 會聚合 Definition Package、diff、測試證據、Implementer Retro、fix history 與風險說明作為 Review Materials
+And    RUNNING workflow 依序保存 unit test、integration test、E2E test 或明確不適用理由
+And    Review Materials 會聚合 Definition Package、diff、測試證據、Implementer Retro、fix history 與風險說明作為 Review Materials
 And    E2E-test step 的 quality_score 必須大於 9 且人類 approve 才能完成任務
 And    Release evidence 只在 DONE task 需要 merge/cleanup、delivery summary、short retro 或流程優化邀請時出現
 And    保存每個 step 的 output、review findings、quality_score、fix history
@@ -646,11 +639,11 @@ And    保存 review result 與 Release evidence（如有）
 ```gherkin
 Given  Task #42 已完成 DEV 並進入 REVIEW
 And    Reviewer Agent 給出 quality_score = 8/10
-When   Grimo 的 Quality Loop 判斷未達 quality_score > 9
+When   Grimo 的 Quality Loop 判斷Gate 未通過
 Then   Grimo 自動啟動 Fix Attempt
 And    執行 AI 收到 reviewer findings 並修正該主要 workflow step 的 output
 And    修正後自動再次進入 review、rating
-And    若仍未達 quality_score > 9，Quality Loop 依停止條件決定繼續自動 fix 或停在 NEEDS_HUMAN 狀態
+And    若仍Gate 未通過，Quality Loop 依停止條件決定繼續自動 fix 或停在 NEEDS_HUMAN 狀態
 And    每次 review、rating、fix attempt 都保存到 step trace 與 Review Materials
 ```
 
@@ -658,7 +651,7 @@ And    每次 review、rating、fix attempt 都保存到 step trace 與 Review M
 
 ```gherkin
 Given  Task #42 已完成 RUNNING 階段
-And    Auto-Review、Quality Loop 與 Task Quality Gate evidence 都已完成
+And    Quality Loop 與 Task Quality Gate evidence 都已完成
 And    Grimo 已產生 Review Materials
 When   使用者打開 REVIEW
 Then   使用者看到 final diff、verification evidence、Implementer Retro、Reviewer Agent 結果、Fix Attempt 歷史與風險說明
@@ -742,7 +735,7 @@ And    Task 狀態與執行結果仍透過 Work Item Connector 同步
    將 Discuss 結果交給 Pollack Agent Workflow 繼續跑 Explore / Prototype（必要時）/ Spec / Usage / Tkt；每個主要 step 都先通過自動 Quality Loop，最後形成可審查的 Definition Package 和 Task/Spec Acceptance Gate。
 
 6. **Minimal Task Management Interface**
-   Grimo MVP 必須提供任務管理介面，讓使用者看到 Project、Task list/detail、簡化 Task State Machine（BACKLOG / DEFINING / READY / RUNNING / REVIEW / DONE / BLOCKED）、dependencies、assignment、dispatcher、worker log、run history、Review Materials，並能執行 Ready / Review approve / reject 等必要操作。Task State Machine 是跨任務類型的外層狀態機；CLAIMED、DEV、Auto-Review、Unit-test fe/be、Integration-test、E2E-test、Release evidence、recipe steps、Step Sub-workflow 和 Quality Loop 放在 detail evidence，不作為 board 主欄位。
+   Grimo MVP 必須提供任務管理介面，讓使用者看到 Project、Task list/detail、簡化 Task State Machine（BACKLOG / DEFINING / READY / RUNNING / REVIEW / DONE）、dependencies、assignment、dispatcher、worker log、run history、Review Materials，並能執行 Ready / Review approve / reject 等必要操作。Task State Machine 是跨任務類型的外層狀態機；CLAIMED、DEV、Unit-test、Integration-test、E2E-test、release、Release evidence、recipe steps、Step Sub-workflow 和 Quality Loop 放在 detail evidence，不作為 board 主欄位。
 
 7. **Ready Task + Agent Assignment**
    人類確認 Task 可執行、Definition Package 與 Quality Gate 已清楚後，指定薄 Agent Profile；READY 任務都可被排程，但自動派工必須由使用者手動啟動 dispatch window，或手動開始單一 Task。Dispatch window 可設定並行數；到期後不再 claim 新任務，但不硬殺已 RUNNING 任務。AI 自選依 label / skill match / 任務難度判斷放到後續。外部入口建立的 Task 預設只能到 BACKLOG / DEFINING，不能直接 READY。
@@ -754,7 +747,7 @@ And    Task 狀態與執行結果仍透過 Work Item Connector 同步
    Dispatcher 只在 active dispatch window 或單一 Task 手動開始時檢查 assignment、dependencies、runtime availability 後建立 Agent Claim；Ready Task 被 claim 後在 board 上進入 RUNNING，建立 git worktree，並在 Docker sandbox 中執行。
 
 10. **Coding Task Recipe + Review + Release**
-   MVP Project 預設選擇 Coding Task Recipe。Coding recipe 是第一個領域 recipe，適合軟體開發：Discuss 由 chat 互動完成並沉澱為 Task context；Explore / Prototype / Spec / Usage / Tkt 形成 Definition Package；Dev、Auto-Review、Unit-test fe/be、Integration-test、E2E-test 是 RUNNING detail，不是 board 欄位；完成實作、自審與 Project/Task Quality Gate evidence 後才進產品狀態 REVIEW；每個主要 workflow step 內部的 Quality Loop 會依停止條件自動 review / rating / fix；Release evidence 只在 DONE task 需要時整理交付摘要、短 retro 與流程優化邀請。未來 research、analysis、marketing、video production、finance 等工作流可在 Project 層級選擇，但單筆 Task 不顯示 workflow 選擇，仍共用 Task State Machine、Ready Gate、Dispatcher、Review Materials 與 Quality Loop 機制。
+   MVP Project 預設選擇 Coding Task Recipe。Coding recipe 是第一個領域 recipe，適合軟體開發：Discuss 由 chat 互動完成並沉澱為 Task context；Explore / Prototype / Spec / Usage / Tkt 形成 Definition Package；Dev、Unit-test、Integration-test、E2E-test、release 是 RUNNING detail，不是 board 欄位；完成實作、自審與 Project/Task Quality Gate evidence 後才進產品狀態 REVIEW；每個主要 workflow step 內部的 Quality Loop 會依停止條件自動 review / rating / fix；Release evidence 只在 DONE task 需要時整理交付摘要、短 retro 與流程優化邀請。未來 research、analysis、marketing、video production、finance 等工作流可在 Project 層級選擇，但單筆 Task 不顯示 workflow 選擇，仍共用 Task State Machine、Ready Gate、Dispatcher、Review Materials 與 Quality Loop 機制。
 
 ### 支援性關注點
 
@@ -865,13 +858,13 @@ flowchart TD
   Claim --> Running["Board shows RUNNING"]
   Running --> Workspace["Worktree + sandbox + skills"]
   Workspace --> Dev["Dev evidence complete"]
-  Dev --> AutoReview["Auto-Review + Review Materials"]
-  AutoReview --> UnitTest["Unit-test fe/be evidence"]
+  Dev --> UnitTest["Unit-test evidence"]
   UnitTest --> IntegrationTest["Integration-test evidence"]
   IntegrationTest --> E2ETest["E2E-test evidence"]
-  E2ETest --> HumanReview["Human approve / reject"]
+  E2ETest --> ReviewMaterials["Review Materials"]
+  ReviewMaterials --> HumanReview["Human approve / reject"]
   HumanReview -- "approve" --> Done["DONE"]
-  HumanReview -- "reject" --> Dev
+  HumanReview -- "reject" --> Definition
   Done --> Learning["Learning Loop proposal later"]
 ```
 
@@ -886,10 +879,10 @@ flowchart TD
 | D4 | MVP 人工指定 Agent Profile 為主 | 指派給「Backend Engineer」「Code Reviewer」比指派給 provider 更符合工作台語言；MVP 先人工指定降低錯派風險。 | 全自動排程；需要成熟 skill matching / complexity routing。 |
 | D5 | Agent Profile 必須薄 | 對 AI 有用的是 skills、recipe、task context、project docs；profile 主要給人類理解和指派。 | 厚 AI coworker profile（獨立 inbox、日程、長期人格）；太像 Helio workforce，超出 MVP。 |
 | D5.1 | Skill 開發流由 Workflow Recipe 和 Agent Profile 承接 | 使用者想要 Grimo 最終整合目前手動的 skill 開發流，讓 PM、Architect、Frontend、Backend、QA、Release 類角色各司其職。產品上，使用者只需要建立 Project、選 workflow、補決策、啟動 dispatch、審查 Review Materials；技術上，Workflow Recipe 定義 steps，Agent Profile 綁定 skills / runtime / assignment rules，Quality Loop 負責品管。 | 讓使用者每次手動選 skill、切角色、記品質步驟；會把 Grimo 退回 prompt / skill launcher。把角色做成厚 AI coworker；會超出 MVP 並模糊 workflow source of truth。 |
-| D6 | MVP Project 預設 Coding Task Recipe | 現有程式已靠近 worktree + Docker + diff review；coding recipe 最能落地。Recipe 涵蓋 Discuss / Explore / Prototype / Spec / Usage / Tkt / Dev / Auto-Review / Unit-test fe/be / Integration-test / E2E-test / Release；需要收尾時，結果保存成 DONE task 的 Release evidence。其中 Discuss 由 chat 高頻互動與研究分析完成，其餘主要 step 由 Pollack Agent Workflow 控制並通過自動 Quality Loop，確保 Task 不是單純待辦卡。這是 Project 層級選定的第一個開發工作流，不要求每張 Task 選 workflow。 | Full SDD Release Recipe；價值大但範圍太大。只做 Dev/Review/Release；會缺少需求定義與品質驅動的前段證據。Task 建立時選 workflow；太複雜且干擾記錄工作。 |
-| D7 | RUNNING 完成 Quality Gate evidence 後才進產品狀態 REVIEW | 設計品質與完整落實不能只靠最後看 diff；coding recipe 先以 Discuss / Explore / Prototype / Spec / Usage / Tkt 形成 Definition Package，RUNNING detail 需完成 Dev、Auto-Review、Unit-test fe/be、Integration-test、E2E-test、Quality Loop 與 Project/Task Quality Gate evidence，才進產品狀態 REVIEW 等待人類 approve/reject。其他 Project workflow 也需依自己的 recipe steps 形成 Definition Package 與 evidence。各主要 step 內部的 sub-Review / sub-Rating / sub-Fix 屬於自動 Quality Loop，不等於產品狀態 REVIEW。 | 寫完 code 就進人類 review；會讓測試責任落到 reviewer 身上。把內部 Review 子流程和產品 REVIEW gate 混在一起；會讓狀態語意混亂。 |
+| D6 | MVP Project 預設 Coding Task Recipe | 現有程式已靠近 worktree + Docker + diff review；coding recipe 最能落地。Recipe 涵蓋 Discuss / Explore / Prototype / Spec / Usage / Tkt / Dev / Unit-test / Integration-test / E2E-test / release；需要收尾時，結果保存成 DONE task 的 Release evidence。其中 Discuss 由 chat 高頻互動與研究分析完成，其餘主要 step 由 Pollack Agent Workflow 控制並通過自動 Quality Loop，確保 Task 不是單純待辦卡。這是 Project 層級選定的第一個開發工作流，不要求每張 Task 選 workflow。 | Full SDD Release Recipe；價值大但範圍太大。只做 Dev/Review/Release；會缺少需求定義與品質驅動的前段證據。Task 建立時選 workflow；太複雜且干擾記錄工作。 |
+| D7 | RUNNING 完成 Quality Gate evidence 後才進產品狀態 REVIEW | 設計品質與完整落實不能只靠最後看 diff；coding recipe 先以 Discuss / Explore / Prototype / Spec / Usage / Tkt 形成 Definition Package，RUNNING detail 需完成 Dev、Unit-test、Integration-test、E2E-test、release、Quality Loop 與 Project/Task Quality Gate evidence，才進產品狀態 REVIEW 等待人類 approve/reject。其他 Project workflow 也需依自己的 recipe steps 形成 Definition Package 與 evidence。各主要 step 內部的 Review / Rating / Gate / Fix 屬於自動 Quality Loop，不等於產品狀態 REVIEW。 | 寫完 code 就進人類 review；會讓測試責任落到 reviewer 身上。把內部 Review 子流程和產品 REVIEW gate 混在一起；會讓狀態語意混亂。 |
 | D8 | Implementer Retro 與 Reviewer Agent 分離 | 實作 AI 在 context 尚未清空前產生 retro；另一個 reviewer agent 審 step output / diff / tests / task / retro，避免自己審自己。 | 同一 AI 自己 review；容易漏掉同樣盲點。 |
-| D9 | Quality Loop 不通過時自動 review / rating / fix | 每個主要 workflow step 都有自動 Quality Loop；未達 `quality_score > 9` 時，系統依 reviewer findings 自動 fix，再重新 review / rating，直到通過或碰到停止條件。 | 每步只自動 fix 一次；可能太早停下，無法體現品質驅動流程。無限制重試；資源與信任風險高。 |
+| D9 | Quality Loop 不通過時自動 review / rating / fix | 每個主要 workflow step 都有自動 Quality Loop；Gate 未通過時，系統依 reviewer findings 自動 fix，再重新 review / rating，直到通過或碰到停止條件。 | 每步只自動 fix 一次；可能太早停下，無法體現品質驅動流程。無限制重試；資源與信任風險高。 |
 | D10 | 人類在 REVIEW approve 完整審查資料 | 使用者需要看到 Definition Package 如何形成、每個 execution step 如何過關、AI 怎麼做、怎麼自檢、怎麼被審、修過什麼，而不只是 diff；通過後若需要收尾，cleanup 和 summary 保存為 DONE task 的 Release evidence。 | Release 後才 approve 一包交付物；會和 REVIEW 職責重疊。 |
 | D11 | Release short retro 與 Learning Loop 都只提案，不自動套用 | Release 只在單筆任務需要收尾時提醒是否優化流程；Learning Loop 從多筆任務找模式。兩者都保留人類控制，避免技能或流程漂移。 | 自動更新 skills / recipes；信任風險高。 |
 | D12 | MVP connector 先 Grimo local | 核心工作流不應被 GitHub / Linear OAuth、webhook、sync conflict 阻塞。 | MVP 就接 GitHub / Linear；範圍過大。 |
@@ -898,17 +891,17 @@ flowchart TD
 | D16 | Agent Client / provider adapter 視為高變動依賴 | Grimo 應擁有自己的 Task / Session / Recipe / Execution / Evidence 模型；provider 與 agent client libraries 只是 adapter，版本與 namespace 變動不應改變產品核心。 | 把產品核心綁死在單一 provider、agent-client API 或 Spring AI runtime。 |
 | D17 | Grimo 也可作為 Agent-Facing Task System | Codex / Claude Code 可以像接 Linear issue 一樣接 Grimo Ready Task；但 Workflow Recipe、Quality Loop、Review Materials、Release evidence 與 connector sync 仍由 Grimo 管。 | 只把 Grimo 做成主動 launch subagent 的工具；會限制未來接不同 runtime 與背景 worker。 |
 | D18 | Dispatcher 是 Ready Task 到 Agent Claim 的守門元件 | Hermes Agent 參考設計顯示 READY 與 IN PROGRESS 中間需要 dispatcher tick；Grimo 也需要檢查 dependencies、assignment 與 runtime availability，避免 READY 直接等於執行。Dispatcher 只在使用者手動開啟 dispatch window 或手動開始單一 Task 時運作，不做 24 小時常駐自動派工。 | 使用者一按 READY 就直接啟動 worker；會跳過依賴與派工檢查。READY 後背景常駐自動跑；會模糊使用者控制感。 |
-| D19 | 對使用者維持 Task 工作台，內部 execution 以 Pollack Agent Workflow 為主 | 一般使用者不需要理解底層 workflow engine；產品畫面維持 Task、狀態、Review Materials 與 dispatcher。內部需要更縝密的 workflow semantics，因此 Workflow Recipe 應映射到 Pollack `Workflow` / `Step` / `Gate` / `StepRunner`；每個 recipe step 下方都以自動 sub-Review -> sub-Rating -> sub-Fix 作為 Quality Loop，通過 `quality_score > 9` 才進下一步，並使用 checkpoint、trace、Agent Client、Agent Sandbox、Agent Judge 等 AgentWorks 套件。Coding recipe 的 Discuss / Explore / Prototype / Spec / Usage / Tkt / Dev / Auto-Review / Unit-test fe/be / Integration-test / E2E-test / Release 是第一個落地案例；Release evidence 屬於 DONE task detail。 | 把產品改成 Pollack Workflow console；會讓使用者直接面對 Step/Gate/Runner 等工程概念。只把 Pollack 當 adapter；無法充分利用 Agent Workflow 的 durable execution 與 quality gates。 |
-| D20 | Quality Loop 是主要 workflow step 的自動子流程 | 使用者應該理解 Task 卡在某個 recipe-defined 主要流程節點，而不是被 sub-Review / sub-Rating / sub-Fix 的內部迴圈打散。內部 trace 仍需保存子流程狀態、評分、review findings 與 fix attempt；子流程會自動循環直到通過或碰到停止條件。 | 把 sub-Review / sub-Rating / sub-Fix 攤平成頂層 workflow steps；會讓 Task 進度難讀，且弱化主要 recipe step 的語意。手動觸發每次 fix；會破壞品質循環的自動化價值。 |
-| D21 | 主要 workflow step 通過品質門檻後自動前進 | 每個 Workflow Recipe 定義的主要 step 都由 workflow 控制；當該 step 的 Quality Loop 通過 `quality_score > 9` 後，自動進下一個主要 step。人類確認只保留在產品 gate，例如 Definition Package 轉 READY、REVIEW approve/reject，或高風險操作。 | 每個 step 都要求人類按確認；會造成 approval fatigue，也破壞 workflow 自動化價值。完全取消人工 gate；會讓 READY 與 Review approval 的責任邊界不清。 |
+| D19 | 對使用者維持 Task 工作台，內部 execution 以 Pollack Agent Workflow 為主 | 一般使用者不需要理解底層 workflow engine；產品畫面維持 Task、狀態、Review Materials 與 dispatcher。內部需要更縝密的 workflow semantics，因此 Workflow Recipe 應映射到 Pollack `Workflow` / `Step` / `Gate` / `StepRunner`；每個 recipe step 下方都以自動 Review -> Rating -> Gate -> Fix 作為 Quality Loop，Gate 通過才進下一步，並使用 checkpoint、trace、Agent Client、Agent Sandbox、Agent Judge 等 AgentWorks 套件。Coding recipe 的 Discuss / Explore / Prototype / Spec / Usage / Tkt / Dev / Unit-test / Integration-test / E2E-test / release 是第一個落地案例；Release evidence 屬於 DONE task detail。 | 把產品改成 Pollack Workflow console；會讓使用者直接面對 Step/Gate/Runner 等工程概念。只把 Pollack 當 adapter；無法充分利用 Agent Workflow 的 durable execution 與 quality gates。 |
+| D20 | Quality Loop 是主要 workflow step 的自動子流程 | 使用者應該理解 Task 卡在某個 recipe-defined 主要流程節點，而不是被 Review / Rating / Gate / Fix 的內部迴圈打散。內部 trace 仍需保存子流程狀態、評分、review findings 與 fix attempt；子流程會自動循環直到通過或碰到停止條件。 | 把 Review / Rating / Gate / Fix 攤平成頂層 workflow steps；會讓 Task 進度難讀，且弱化主要 recipe step 的語意。手動觸發每次 fix；會破壞品質循環的自動化價值。 |
+| D21 | 主要 workflow step 通過品質門檻後自動前進 | 每個 Workflow Recipe 定義的主要 step 都由 workflow 控制；當該 step 的 Quality Loop Gate 通過後，自動進下一個主要 step。人類確認只保留在產品 gate，例如 Definition Package 轉 READY、REVIEW approve/reject，或高風險操作。 | 每個 step 都要求人類按確認；會造成 approval fatigue，也破壞 workflow 自動化價值。完全取消人工 gate；會讓 READY 與 Review approval 的責任邊界不清。 |
 | D22 | Pollack storage surface 以 SQLite POC 分層處理 | Grimo 需要 local-first workflow evidence；ADR-001 已接受 SQLite 作為 MVP local persistence path，並確認 Pollack `workflow-batch` 的 checkpoint / trace 可走 SQLite。 | 把整個 Pollack stack 都當成 DB framework；會製造不必要的實作量。只用 H2；無法符合 local-first 方向。 |
-| D23 | 使用者電腦環境不可預設滿足所有 runtime 要求 | Grimo 是本地產品，必須把 Java / Docker / git / CLI provider / model login / native library / filesystem / port 等環境差異視為產品設計輸入。MVP 需要 capability detection、preflight diagnostics、fallback 與 `BLOCKED / NEEDS_HUMAN` 狀態，讓使用者知道缺什麼、怎麼補、哪些任務仍可繼續。 | 把完整環境列為硬性安裝前提；會讓產品在真實使用者電腦上脆弱。全部包進 heavy VM/container；會增加安裝、認證、效能與本地 CLI 整合成本。 |
+| D23 | 使用者電腦環境不可預設滿足所有 runtime 要求 | Grimo 是本地產品，必須把 Java / Docker / git / CLI provider / model login / native library / filesystem / port 等環境差異視為產品設計輸入。MVP 需要 capability detection、preflight diagnostics、fallback 與 `NEEDS_HUMAN` 修復原因，讓使用者知道缺什麼、怎麼補、哪些任務仍可繼續。 | 把完整環境列為硬性安裝前提；會讓產品在真實使用者電腦上脆弱。全部包進 heavy VM/container；會增加安裝、認證、效能與本地 CLI 整合成本。 |
 | D24 | Grimo local store 是 workflow evidence 的正本 | Local-first 案例強調速度、離線、可持續性、隱私與所有權；Grimo 應把 Task、Task Conversation Thread、attachments metadata、Definition Package、workflow trace、quality scores、review materials、fix history、Release evidence 與 learning proposals 保存在使用者可掌握的本地 store。外部 issue tracker、雲端同步和 agent provider session 都應視為 projection / execution channel。 | 以雲端 SaaS 或外部 issue tracker 作正本；會讓使用者在斷網、帳號停權、服務關閉或 provider session 遺失時失去自己的 workflow history。只存 provider chat transcript；無法形成可審查、可備份、可遷移的產品資料。 |
 | D25 | MVP 不承諾 full local-first sync engine | Grimo MVP 先把 single-user local store、workflow evidence、export/backup、connector projection 做穩；跨裝置或多人即時協作放入後續 spec。 | 一開始就做 CRDT / OT 多端同步；風險高且會拖慢核心 Task Workflow。假裝只要加一個 sync library 就完成；會低估 domain-specific conflict 與權限問題。 |
 | D26 | MVP Project 代表一個本機 repo / codebase | Worktree、sandbox、test commands、Project Quality Gate 和 evidence path 都天然綁定 repo；MVP 先讓 Project 邊界清楚。 | Project 代表多 repo product workspace；未來可做，但會讓第一版 execution path 和品質門檻複雜化。 |
-| D27 | Task 是使用者層級的一件工作 | 使用者追蹤的是「這件工作完成了沒」；底層 recipe steps、Quality Loop、CLAIMED / DEV / Auto-Review / Unit-test fe/be / Integration-test / E2E-test / Release evidence 是 Task detail evidence。新增 Task 的可見表單只捕捉 title、body、labels；source 由系統自動標註，workflow 由 Project 層級設定繼承。 | 把 workflow step 也稱為 Task；會讓 board 變成 workflow console，使用者需要理解太多內部環節。讓 Task 建立時選 workflow；會把記錄工作變成流程配置。讓使用者在手動建立時選 source；會暴露系統 provenance 細節。 |
-| D28 | Board 顯示簡化 Task State Machine | BACKLOG / DEFINING / READY / RUNNING / REVIEW / DONE / BLOCKED 是跨 Project workflow 的外層狀態機，足以回答進度和是否需要人類介入；細節頁依 State Workflow / Workflow Recipe 顯示開發、研究、分析、行銷、影片製作等專業步驟、Quality Loop 和 evidence。 | 把 Discuss / Explore / Prototype / Spec / Usage / Tkt / Dev / Auto-Review / Unit-test fe/be / Integration-test / E2E-test / Release 或其他領域步驟都當 board columns；會讓進度難讀，也把 coding recipe 誤當成所有任務的固定流程。 |
-| D29 | REVIEW 代表等待人類 approve / reject | REVIEW 只在 Auto-Review、Quality Loop、必要 verification evidence 和 Review Materials 完成後出現，讓 REVIEW 欄等同於人類待審工作。 | 把 AI reviewer 正在跑、自動 fix 中和人類 review 都混在 REVIEW；會讓使用者不知道是否該介入。 |
+| D27 | Task 是使用者層級的一件工作 | 使用者追蹤的是「這件工作完成了沒」；底層 recipe steps、Quality Loop、CLAIMED / DEV / Unit-test / Integration-test / E2E-test / Release evidence 是 Task detail evidence。新增 Task 的可見表單只捕捉 title、body、labels；source 由系統自動標註，workflow 由 Project 層級設定繼承。 | 把 workflow step 也稱為 Task；會讓 board 變成 workflow console，使用者需要理解太多內部環節。讓 Task 建立時選 workflow；會把記錄工作變成流程配置。讓使用者在手動建立時選 source；會暴露系統 provenance 細節。 |
+| D28 | Board 顯示簡化 Task State Machine | BACKLOG / DEFINING / READY / RUNNING / REVIEW / DONE 是跨 Project workflow 的外層狀態機，足以回答進度和是否需要人類介入；細節頁依 State Workflow / Workflow Recipe 顯示開發、研究、分析、行銷、影片製作等專業步驟、Quality Loop 和 evidence。 | 把 Discuss / Explore / Prototype / Spec / Usage / Tkt / Dev / Unit-test / Integration-test / E2E-test / release 或其他領域步驟都當 board columns；會讓進度難讀，也把 coding recipe 誤當成所有任務的固定流程。 |
+| D29 | REVIEW 代表等待人類 approve / reject | REVIEW 只在 Quality Loop、必要 verification evidence 和 Review Materials 完成後出現，讓 REVIEW 欄等同於人類待審工作。Approve 後進 DONE；reject 後回 DEFINING 重新討論 Definition Package 與驗收理解，不直接回 RUNNING 修 code。 | 把 AI reviewer 正在跑、自動 fix 中和人類 review 都混在 REVIEW；會讓使用者不知道是否該介入。Reject 直接回 RUNNING；會跳過定義重談，讓 agent 在錯誤驗收理解上原地修。 |
 | D30 | Project onboarding 先 Product Definition，再 Project Planning | 先定義要做什麼、目標使用者、核心價值、MVP 範圍和成功條件，再設計架構、standards、QA strategy 和 Project Quality Gate。 | 建立 Project 後直接做 architecture；容易在產品方向未明時過早設計。 |
 | D31 | 已有 PRD 時 Product Definition Task 轉成 Product Definition Review | 對既有 Project 不必從零重寫產品方向，但要檢查定位、補 glossary、更新 open questions，確保 planning-project 不基於過時 PRD。 | 有 PRD 就跳過產品定義；可能把模糊或過時方向直接帶進架構。 |
 | D32 | Project Quality Gate 是 planning-project 必產物 | 合格線應在 Project 設計階段依 repo/codebase 型態與最佳實踐定義 baseline，Task / Spec 再挑選、補充或覆寫。 | 每個 Task 臨場決定測試和 evidence；會造成標準不一致。固定所有 coding task 都跑同一套測試；不符合前端、後端、全端、docs/config 等差異。 |
@@ -942,7 +935,7 @@ PRD 只保留產品結論；研究細節放在 reference notes，需要時再讀
 | R8 | 外部 agent worker 接任務後繞過 Grimo workflow | 中 | 高 | Agent-Facing Task API 只接受 Definition Package + execution step-based 回報；未回報 quality score / fix history / review result 的任務不能 DONE。 |
 | R9 | Task Board 太早變成 UI 重心 | 中 | 中 | MVP 先把 Task status、dependencies、dispatcher、events、worker log、run history 做成領域能力；看板是這些資料的投影，不是第一個核心交付。 |
 | R10 | AgentWorks BOM 文件、Maven metadata 與 published BOM POM 不一致 | 中 | 中 | `/planning-project` 固定版本策略；每次新增 Pollack dependency 都先跑 Gradle resolution。預設省略版本使用 BOM；若 BOM 指到不存在 artifact，才用明確 released version 並在 ADR 記錄原因。 |
-| R11 | 使用者電腦缺少必要 runtime 或權限，導致 Task 執行失敗 | 高 | 高 | 設計 Environment Capability Registry 與 preflight checks；READY -> CLAIMED 前檢查 Java、git、Docker、provider CLI、登入狀態、filesystem、SQLite/native access、port availability。缺失時 Task 進 `BLOCKED / NEEDS_HUMAN` 並顯示修復指引。 |
+| R11 | 使用者電腦缺少必要 runtime 或權限，導致 Task 執行失敗 | 高 | 高 | 設計 Environment Capability Registry 與 preflight checks；READY -> CLAIMED 前檢查 Java、git、Docker、provider CLI、登入狀態、filesystem、SQLite/native access、port availability。缺失時 Task 保持適合的主狀態並帶 `NEEDS_HUMAN` 修復原因，顯示修復指引。 |
 | R12 | 外部 connector 或 provider session 被誤當 workflow evidence 正本 | 中 | 高 | Grimo domain model 必須保存本地正本；connector sync、provider transcript、PR comment 都只是 projection。離線時至少可讀取既有任務、review materials、trace、summary 與 learning proposals。 |
 | R13 | 過早承諾跨裝置 / 多人 local-first sync | 中 | 高 | MVP 明確限定為 single-user local-first + connector projection。若未來要同步，先設計 operation log、conflict policy、partial sync、schema migration、permission model 與 audit story，再選 CRDT / OT / sync engine。 |
 
@@ -966,12 +959,12 @@ PRD 只保留產品結論；研究細節放在 reference notes，需要時再讀
 
 ## 12. 開放問題
 
-1. `TaskStatus` 採用 board-facing `BACKLOG / DEFINING / READY / RUNNING / REVIEW / DONE / BLOCKED`，並用 execution detail 表示 `CLAIMED / DEV / NEEDS_HUMAN / REJECTED / ARCHIVED / CONFLICT`；Release evidence 是 DONE task detail，不是 TaskStatus。
+1. `TaskStatus` 採用 board-facing `BACKLOG / DEFINING / READY / RUNNING / REVIEW / DONE`，並用 execution detail 表示 `CLAIMED / DEV / NEEDS_HUMAN / REJECTED / ARCHIVED / CONFLICT`；Release evidence 是 DONE task detail，不是 TaskStatus。
 2. Dispatch Window 已決定為 time-boxed manual automation window，可設定並行數；到期後不再 claim 新任務，已 RUNNING 任務執行到結束。仍需設計預設時間長度、夜間排程 UI、並行數預設值與停止控制細節。
 3. `Agent Profile` 是否需要資料表，或先以 config / skill bundle 表示？
 4. Project-level `Workflow Recipe` 的格式：YAML、JSON、DB rows，或 skills directory 下的 recipe file？
 5. Project Quality Gate 應主要寫在 `docs/grimo/qa-strategy.md`、`docs/grimo/development-standards.md`，還是獨立 `quality-gates.md`？
-6. `Quality Loop` 的 rubrics 與 `quality_score > 9/10` 門檻是否每個 execution step 可 override？
+6. `Quality Loop` 的 rubrics 與 Gate 規則是否每個 execution step 可 override？
 7. `Review Materials` 是動態聚合 view、獨立 tables，還是 JSON document？
 8. Reviewer Agent 使用同 provider 還是不同 provider？
 9. Learning Loop agent CLI 的排程方式：cron、app scheduler、手動 trigger？

@@ -109,11 +109,11 @@ _Avoid_: MVP promise
 _Avoid_: One-off prompt, rigid user-facing state machine
 
 **Task State Machine**:
-Task 在 board/list 上呈現的外層狀態機，用來回答「這件工作現在在哪裡、需不需要人介入」。MVP 狀態包含 BACKLOG、DEFINING、READY、RUNNING、REVIEW、DONE 和 BLOCKED。
+Task 在 board/list 上呈現的外層狀態機，用來回答「這件工作現在在哪裡、可不可以執行、是否正在跑、是否等待人類審查」。MVP 主線狀態包含 BACKLOG、DEFINING、READY、RUNNING、REVIEW、DONE。阻塞原因用 NEEDS_HUMAN / blocked reason 表示，不作為主線狀態。
 _Avoid_: Workflow Recipe, detailed execution trace, individual recipe step
 
 **Task State**:
-Task State Machine 裡的一個狀態，例如 BACKLOG、DEFINING、READY、RUNNING、REVIEW、DONE 或 BLOCKED。它是使用者看進度的語言，不是 agent 內部執行步驟。
+Task State Machine 裡的一個狀態，例如 BACKLOG、DEFINING、READY、RUNNING、REVIEW、DONE。它是使用者看進度的語言，不是 agent 內部執行步驟。
 _Avoid_: Workflow Step, role responsibility, quality sub-step
 
 **State Workflow**:
@@ -136,12 +136,12 @@ _Avoid_: Issue draft, chat summary
 AI agent 完成開發後，人類用來 approve 或 reject 的審查資料包。
 _Avoid_: Final diff only, loose transcript
 
-**Human Review State**:
-Task State Machine 中等待人類 approve 或 reject 的狀態；Task 必須先完成 Auto-Review、必要測試和 Review Materials，才會停在這裡。
+**REVIEW State**:
+Task State Machine 中等待人類 approve 或 reject 的狀態；Task 必須先完成 workflow evidence、必要測試和 Review Materials，才會停在這裡。Approve 後進 DONE；reject 後回 DEFINING 重新討論定義。
 _Avoid_: AI reviewer still running, internal Quality Loop review
 
 **Workflow Step**:
-Grimo 在 Task 底下自動推進工作的內部階段；具體步驟由 Task Type / Workflow Recipe 決定，例如 coding recipe 會有 Discuss、Explore、Prototype、Spec、Usage、Tkt、Dev、Auto-Review、Unit-test fe/be、Integration-test、E2E-test、Release。完成 RUNNING evidence 後才進產品狀態 REVIEW；需要收尾時，結果保存成 DONE task 的 Release evidence，不把 Release 當成新的看板狀態。
+Grimo 在 Task 底下自動推進工作的內部階段；具體步驟由 Task Type / Workflow Recipe 決定，例如 coding recipe 會有 Discuss、Explore、Prototype、Spec、Usage、Tkt、Dev、Unit-test、Integration-test、E2E-test、release。完成 RUNNING evidence 後才進產品狀態 REVIEW；release 結果保存成 DONE task 的 Release evidence，不把 release 當成新的看板狀態。
 _Avoid_: User-level Task
 
 **Step Sub-workflow**:
@@ -149,7 +149,7 @@ Workflow Step 底下可重複使用的子流程，用來確保該 step 的 outpu
 _Avoid_: Board state, separate user Task, standalone project workflow
 
 **Quality Loop**:
-Grimo 在每個 Workflow Step 中自動執行的 Review、Rating、Fix 循環，用來提高輸出品質並決定是否能推進狀態。
+Grimo 在每個 Workflow Step 中自動執行的 Review、Rating、Gate、Fix 循環，用來提高輸出品質並決定是否能推進狀態。
 _Avoid_: Manual user checklist, top-level Task status
 
 **Quality Bar**:
@@ -193,7 +193,7 @@ Grimo 用來查看 Task list、Task detail、READY、DEV、REVIEW、worker log �
 _Avoid_: Hiding task state behind chat history
 
 **Task List State**:
-Task list / board 上給使用者追蹤進度的跨領域簡化狀態，也是 Task State Machine 的可見狀態集合，例如 BACKLOG、DEFINING、READY、RUNNING、REVIEW、DONE 和 BLOCKED；開發、研究、分析、行銷、影片製作等任務共用這組外層狀態。
+Task list / board 上給使用者追蹤進度的跨領域簡化狀態，也是 Task State Machine 的可見狀態集合，例如 BACKLOG、DEFINING、READY、RUNNING、REVIEW、DONE；開發、研究、分析、行銷、影片製作等任務共用這組外層狀態。
 _Avoid_: Discuss, Explore, Prototype, Spec, Usage, Tkt, or domain-specific steps as board columns
 
 **BACKLOG**:
@@ -201,7 +201,7 @@ _Avoid_: Discuss, Explore, Prototype, Spec, Usage, Tkt, or domain-specific steps
 _Avoid_: Work that is already being actively clarified
 
 **Task Detail Evidence**:
-Task detail 中用來建立信任和除錯的詳細證據，例如 CLAIMED、DEV、Auto-Review、Unit-test fe/be、Integration-test、E2E-test、Release evidence、Workflow Step、Quality Loop、quality_score、fix history、worker log、run history、diff、測試輸出或其他 Task Type 的領域 evidence。
+Task detail 中用來建立信任和除錯的詳細證據，例如 CLAIMED、DEV、Unit-test、Integration-test、E2E-test、release、Release evidence、Workflow Step、Quality Loop、quality_score、fix history、worker log、run history、diff、測試輸出或其他 Task Type 的領域 evidence。
 _Avoid_: Hiding evidence in raw chat transcript only
 
 **Task-Forming Chat**:
@@ -257,11 +257,11 @@ _Avoid_: Agent-created work that starts execution automatically
 - A **State Workflow** explains what happens under a **Task State**; some states run workflow steps, while others are gates, queues, review points or evidence holders.
 - A **Follow-up Task** may be proposed by an agent, but it still requires human confirmation before READY.
 - **BACKLOG** holds low-commitment work before Grimo actively defines it.
-- **Human Review State** starts only after Auto-Review, required tests and Review Materials are ready.
+- **REVIEW State** starts only after workflow evidence, required tests and Review Materials are ready.
 - **Task Type** selects the relevant **Workflow Recipe** and **Quality Bar**; Project rules may add local constraints.
 - MVP ships with **coding** as the only built-in **Task Type**, while the model remains extensible to research, analysis, marketing, video production and finance.
 - **Project Quality Gate** is the baseline; **Task/Spec Acceptance Gate** adapts it for a specific Task.
-- **Quality Gate** is used by **Quality Loop** and **Human Review State** to decide whether evidence is sufficient.
+- **Quality Gate** is used by **Quality Loop** and **REVIEW State** to decide whether evidence is sufficient.
 - **Product Definition Task** establishes product direction before **Project Planning Task** designs architecture and **Project Quality Gate**.
 - **Product Definition Review** is the existing-artifact path of a **Product Definition Task**.
 
@@ -273,14 +273,14 @@ _Avoid_: Agent-created work that starts execution automatically
 > **Dev:** "Project 可以先代表一整個產品 workspace 嗎？"
 > **Domain expert:** "MVP 先不要。Project 先是一個本機 repo/codebase，這樣 worktree、測試和審查證據才有明確歸屬。"
 >
-> **Dev:** "使用者要看到 Discuss、Explore、Prototype、Spec、Usage、Tkt、Dev、Auto-Review、Unit-test、Integration-test、E2E-test、Release 每個階段嗎？"
+> **Dev:** "使用者要看到 Discuss、Explore、Prototype、Spec、Usage、Tkt、Dev、Unit-test、Integration-test、E2E-test、release 每個階段嗎？"
 > **Domain expert:** "使用者追蹤 Task 狀態就好；這些 Workflow Step 和 Quality Loop 是 Grimo 自動優化與推進任務的內部機制。"
 >
 > **Dev:** "BACKLOG、DEFINING、READY、RUNNING、REVIEW、DONE 算不算一種狀態機？"
 > **Domain expert:** "算。它是 Task State Machine，負責呈現外層進度；每個狀態底下可以有 State Workflow，但不代表每個狀態都會自動跑 agent。"
 >
 > **Dev:** "每個 workflow step 底下還有自己的子流程嗎？"
-> **Domain expert:** "有。這叫 Step Sub-workflow；目前最重要的子流程是 Quality Loop，也就是 Review、Rating、Fix，直到 output 可信才往下一步。"
+> **Domain expert:** "有。這叫 Step Sub-workflow；目前最重要的子流程是 Quality Loop，也就是 Review、Rating、Gate、Fix，Gate 通過才往下一步。"
 >
 > **Dev:** "第一版只要把 chat 變成任務就算成功嗎？"
 > **Domain expert:** "不算。那只是 Definition Package；第一版要讓 Ready Task 被 AI 做完，並交 Review Materials 給人審。"
@@ -319,10 +319,10 @@ _Avoid_: Agent-created work that starts execution automatically
 > **Domain expert:** "不要。Task board 顯示簡化 Task State Machine；細節頁才展開 Workflow Step、Quality Loop 和執行證據。"
 >
 > **Dev:** "Board 要顯示 CLAIMED、DEV、WRAP 嗎？"
-> **Domain expert:** "不要。Board 顯示 RUNNING；CLAIMED、DEV、Auto-Review 和測試 evidence 是細節頁的執行證據，Release evidence 則保存在 DONE task 裡，而且不是每筆任務都會出現。"
+> **Domain expert:** "不要。Board 顯示 RUNNING；CLAIMED、DEV 和測試 evidence 是細節頁的執行證據，Release evidence 則保存在 DONE task 裡，而且不是每筆任務都會出現。"
 >
 > **Dev:** "AI reviewer 還在跑時，Task 要放 REVIEW 嗎？"
-> **Domain expert:** "不要。REVIEW 代表等人類 approve；Auto-Review、單元測試、integration test 和 E2E 等 RUNNING 內部證據要先補齊。"
+> **Domain expert:** "不要。REVIEW 代表等人類 approve；單元測試、integration test 和 E2E 等 RUNNING 內部證據要先補齊。"
 >
 > **Dev:** "進 REVIEW 前到底要跑哪些測試，可以執行時再猜嗎？"
 > **Domain expert:** "不行。合格線要在 Project、spec 或 Workflow Recipe 設計階段先定義，執行時照那份 Quality Bar 收集 evidence。"
@@ -357,7 +357,7 @@ _Avoid_: Agent-created work that starts execution automatically
 - "Grimo 是否是泛 AI 工作台" 曾因非開發 Agent Profile 擴展而變模糊。Resolved: MVP positioning remains **AI 開發工作台**; **Future General Workbench Extension** is architectural runway only.
 - "Project" 曾可能指產品 workspace 或多 repo 容器。Resolved: MVP **Project** means one local repo/codebase; multi-repo workspace is future scope.
 - "Task" 曾可能指使用者工作或 workflow 拆出的步驟。Resolved: **Task** is user-level work; **Workflow Step** is the internal execution/evidence unit under a Task.
-- "Task board 狀態" 曾可能被理解成一般欄位名稱。Resolved: BACKLOG / DEFINING / READY / RUNNING / REVIEW / DONE / BLOCKED form the **Task State Machine**.
+- "Task board 狀態" 曾可能被理解成一般欄位名稱。Resolved: BACKLOG / DEFINING / READY / RUNNING / REVIEW / DONE form the **Task State Machine**.
 - "每個狀態都有 workflow" 曾可能被理解成每個狀態都會自動跑 agent。Resolved: use **State Workflow** for the work rules under a state; only some states expand into active **Workflow Step** execution.
 - "每個 work 都有 sub workflow" 曾可能混淆 work / step。Resolved: use **Workflow Step** for the main step and **Step Sub-workflow** for the reusable child flow such as **Quality Loop**.
 - "Agent" 曾可能指厚 AI coworker、薄 runtime profile 或 coding-only role。Resolved: MVP uses thin **Agent Profile**; teammate-like naming is UI language only, and the model remains extensible to non-coding roles through skills.
@@ -369,8 +369,8 @@ _Avoid_: Agent-created work that starts execution automatically
 - "外部入口權限" 曾可能讓 Codex 直接把工作送到 READY。Resolved: external clients can create or advance defining work only; **Ready Gate** is human-confirmed inside Grimo.
 - "READY 自動執行" 曾可能代表 24/7 background auto-run。Resolved: **READY** means schedulable; execution requires a user-started **Dispatch Window** or manual single-task start.
 - "Task 進度呈現" 曾可能把 SDD 階段或其他領域步驟直接當 board columns。Resolved: board/list uses shared **Task State Machine**; recipe steps and Quality Loop live in **Task Detail Evidence**.
-- "RUNNING" 曾可能被拆成 CLAIMED / DEV / verification / WRAP board columns。Resolved: board uses **RUNNING** for Dev, Auto-Review and verification evidence; Release evidence belongs inside the DONE task rather than a separate board state.
-- "REVIEW" 曾可能同時代表 Auto-Review 和 human review。Resolved: **Human Review State** means Auto-Review/testing/evidence are complete and the task is waiting for human approval.
+- "RUNNING" 曾可能被拆成 CLAIMED / DEV / verification / WRAP board columns。Resolved: board uses **RUNNING** for Dev and verification evidence; Release evidence belongs inside the DONE task rather than a separate board state.
+- "REVIEW" 曾可能同時代表 workflow step review 和 human review。Resolved: **REVIEW** is the Task State where workflow evidence、必要測試與 evidence 都已完成，Task 正在等待 human approval；Quality Loop 的 Review 只檢查單一 Workflow Step output。
 - "測試與驗收門檻" 曾可能在每次 run 中臨場判斷或套固定 checklist。Resolved: **Project Quality Gate** is defined during Project design; **Task/Spec Acceptance Gate** adapts it for each Task.
 - "planning-project" 曾可能只被理解成手動 workflow command。Resolved: project planning can be represented as a **Project Planning Task** assigned to an architect-like **Agent Profile**.
 - "Project onboarding" 曾可能直接從 architecture 開始。Resolved: start with **Product Definition Task**; only after direction is clear should **Project Planning Task** define architecture and quality gates.

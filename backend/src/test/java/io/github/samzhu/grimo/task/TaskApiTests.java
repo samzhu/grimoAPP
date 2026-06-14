@@ -117,7 +117,7 @@ class TaskApiTests {
 				FROM task_workflow_steps steps
 				JOIN task_workflows workflow ON workflow.id = steps.task_workflow_id
 				WHERE workflow.task_id = :taskId
-				""", taskId, projectId)).isEqualTo(9);
+				""", taskId, projectId)).isEqualTo(11);
 		assertThat(singleInt("SELECT COUNT(*) FROM task_workflow_runs WHERE task_id = :taskId", taskId, projectId))
 				.isZero();
 	}

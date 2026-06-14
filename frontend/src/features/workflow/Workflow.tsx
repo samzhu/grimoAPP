@@ -29,7 +29,7 @@ export function Workflow() {
         </Panel>
         <Panel title="Quality Loop">
           <div className="loop-list">
-            {["審查", "評分", "修正", "quality_score > 9"].map((item, index) => (
+            {["Review", "Rating", "Gate", "Fix"].map((item, index) => (
               <div className="loop-item" key={item}>
                 <span>{String(index + 1).padStart(2, "0")}</span>
                 <strong>{item}</strong>

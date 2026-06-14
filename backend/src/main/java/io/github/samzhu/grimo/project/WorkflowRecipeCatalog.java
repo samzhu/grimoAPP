@@ -17,7 +17,7 @@ public class WorkflowRecipeCatalog {
 				new WorkflowRecipeResponse(
 						"web-service-development",
 						"Web 服務開發",
-						"Discuss / Explore / Prototype / Spec / Usage / Tkt / Dev / Review for web services",
+						"Discuss / Explore / Prototype / Spec / Usage / Tkt / Dev / Unit-test / Integration-test / E2E-test / release for web services",
 						"development",
 						List.of(
 								new WorkflowStepResponse("discuss", "Discuss", "DEFINING"),
@@ -27,8 +27,10 @@ public class WorkflowRecipeCatalog {
 								new WorkflowStepResponse("usage", "Usage", "DEFINING"),
 								new WorkflowStepResponse("tkt", "Tkt", "DEFINING"),
 								new WorkflowStepResponse("dev", "Dev", "RUNNING"),
-								new WorkflowStepResponse("ai-review", "AI Review", "RUNNING"),
-								new WorkflowStepResponse("human-review", "Human Review", "REVIEW")
+								new WorkflowStepResponse("unit-test", "Unit-test", "RUNNING"),
+								new WorkflowStepResponse("integration-test", "Integration-test", "RUNNING"),
+								new WorkflowStepResponse("e2e-test", "E2E-test", "RUNNING"),
+								new WorkflowStepResponse("release", "release", "DONE")
 						),
 						List.of(
 								new WorkflowRoleResponse(
@@ -59,21 +61,21 @@ public class WorkflowRecipeCatalog {
 										"qa-reviewer",
 										"QA Reviewer",
 										"定義驗收策略、測試覆蓋與 Review Materials。",
-										List.of("Usage", "Tkt", "AI Review", "Human Review")
+										List.of("Usage", "Tkt", "Unit-test", "Integration-test", "E2E-test", "REVIEW")
 								),
 								new WorkflowRoleResponse(
 										"release-engineer",
 										"Release Engineer",
 										"負責 release gate、CI/CD、packaging、cleanup/wrap。",
-										List.of("Tkt", "Dev", "Wrap")
+										List.of("Tkt", "Dev", "release")
 								)
 						),
-						"Review → Rating → Fix until quality_score > 9"
+						"Review → Rating → Gate → Fix until Gate passes"
 				),
 				new WorkflowRecipeResponse(
 						"coding",
 						"開發工作流",
-						"Discuss / Explore / Prototype / Spec / Usage / Tkt / Dev / Review",
+						"Discuss / Explore / Prototype / Spec / Usage / Tkt / Dev / Unit-test / Integration-test / E2E-test / release",
 						"development",
 						List.of(),
 						List.of(),

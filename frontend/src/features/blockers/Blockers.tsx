@@ -20,12 +20,14 @@ export function Blockers({
   tasks: Task[];
   onOpenChat: (taskId: string) => void;
 }) {
-  const blocked = tasks.filter((task) => task.state === "BLOCKED");
   const review = tasks.filter((task) => task.state === "REVIEW");
-  const definitionGaps = tasks.filter(
-    (task) => task.gaps.length > 0 && task.state !== "BLOCKED" && task.state !== "REVIEW",
+  const repairTasks = tasks.filter(
+    (task) => (task.state === "READY" || task.state === "RUNNING") && task.gaps.length > 0,
   );
-  const attentionTasks = [...review, ...blocked];
+  const definitionGaps = tasks.filter(
+    (task) => (task.state === "BACKLOG" || task.state === "DEFINING") && task.gaps.length > 0,
+  );
+  const attentionTasks = [...review, ...repairTasks];
 
   return (
     <section className="attention-page">
@@ -42,8 +44,8 @@ export function Blockers({
           <strong>{review.length}</strong>
         </div>
         <div>
-          <span>阻塞任務</span>
-          <strong>{blocked.length}</strong>
+          <span>修復項</span>
+          <strong>{repairTasks.length}</strong>
         </div>
         <div>
           <span>待補定義</span>
@@ -57,7 +59,7 @@ export function Blockers({
             <div className="attention-section-head">
               <div>
                 <h2 id="attention-queue-title">優先處理</h2>
-                <p>先處理 REVIEW 和 BLOCKED；它們會卡住 wrap 或 dispatcher。</p>
+                <p>先處理 REVIEW 和 NEEDS_HUMAN 修復項；它們會卡住 release 或 dispatcher。</p>
               </div>
               <Badge tone={attentionTasks.length > 0 ? "warn" : "good"}>
                 {attentionTasks.length} 個

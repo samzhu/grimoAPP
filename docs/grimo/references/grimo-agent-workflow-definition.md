@@ -31,11 +31,11 @@ Code blocks labeled `Pollack shape` are design sketches, not compile-ready Java.
 
 ## Assumptions
 
-1. Grimo 的 board-facing state 仍維持 PRD 定義：`BACKLOG`、`DEFINING`、`READY`、`RUNNING`、`REVIEW`、`DONE`、`BLOCKED`。
+1. Grimo 的 board-facing state 仍維持 PRD 定義：`BACKLOG`、`DEFINING`、`READY`、`RUNNING`、`REVIEW`、`DONE`。`NEEDS_HUMAN` 是修復原因或例外標記，不是主線狀態。
 2. Board state 不是 Pollack workflow step；它是產品狀態 projection。
 3. MVP Project 預設使用 Coding Task Recipe。
-4. Coding recipe 的主要 steps 是 `Discuss`、`Explore`、`Prototype`、`Spec`、`Usage`、`Tkt`、`Dev`、`Auto-Review`、`Unit-test fe/be`、`Integration-test`、`E2E-test`、`Release`；人類 approve / reject 是 `REVIEW` 產品 gate，不是 recipe step。
-5. 每個主要 step 都包一個 `QualityLoop` sub-workflow：`sub-Review -> sub-Rating -> sub-Fix`，通過條件是 `quality_score > 9`。
+4. Coding recipe 的主要 steps 是 `Discuss`、`Explore`、`Prototype`、`Spec`、`Usage`、`Tkt`、`Dev`、`Unit-test`、`Integration-test`、`E2E-test`、`release`；人類 approve / reject 是 `REVIEW` 產品 gate，不是 recipe step。
+5. 每個主要 step 都包一個 `QualityLoop` sub-workflow：`Review -> Rating -> Gate -> Fix`，通過條件由 Gate 判斷，Rating 的 quality_score 是 Gate 的輸入之一。
 6. 人類確認保留在產品 gate：`ReadyGate` 與 `HumanReviewGate`。
 7. `CheckpointingStepRunner` 是 MVP local durability path；Temporal 是未來 scale-out path。
 
@@ -46,13 +46,12 @@ Code blocks labeled `Pollack shape` are design sketches, not compile-ready Java.
 | Project Workflow Recipe | `Workflow` definition | Project 選定 recipe；Task 繼承 Project workflow。 |
 | Task workflow run | `WorkflowExecutor` run with stable `runId` | `runId` 對應 Grimo task run / claim attempt。 |
 | Recipe main step | `Step` or sub-workflow-as-step | `Discuss` 可以是 chat/research sub-workflow；`Dev` 可以是 agentic CLI step。 |
-| Quality Loop | `Workflow` used as sub-workflow | `sub-Review -> sub-Rating -> Gate -> sub-Fix` repeat until pass or stop condition。 |
-| Ready Gate | `Gate` plus human decision state | Gate output 更新產品 state；失敗回 `DEFINING` 或 `BLOCKED`。 |
+| Quality Loop | `Workflow` used as sub-workflow | `Review -> Rating -> Gate -> Fix` repeat until pass or stop condition。 |
+| Ready Gate | `Gate` plus human decision state | Gate output 更新產品 state；失敗回 `DEFINING`，或在原 state 標出 `NEEDS_HUMAN` 修復原因。 |
 | Dispatcher preflight | deterministic `Step` + branch / gate | 檢查 profile、dependencies、runtime、permissions。 |
 | Agent Claim | deterministic `Step` | 建立 claim、worktree/sandbox、execution context。 |
-| Auto-Review | `Step` or review sub-workflow | 自動整理 execution findings 與 Review Materials 草稿，仍屬於 `RUNNING`。 |
-| Unit / Integration / E2E evidence | `Step` sequence inside ExecutionWorkflow | Unit-test fe/be、Integration-test、E2E-test 產生進 REVIEW 前的 evidence，仍屬於 `RUNNING`。 |
-| Human Review Gate | product gate projected from workflow output | approve -> `DONE`；reject -> `RUNNING` fix path。 |
+| Unit / Integration / E2E evidence | `Step` sequence inside ExecutionWorkflow | Unit-test、Integration-test、E2E-test 產生進 REVIEW 前的 evidence，仍屬於 `RUNNING`。 |
+| REVIEW Gate | product gate projected from workflow output | approve -> `DONE`；reject -> `DEFINING` redefine path。 |
 | Workflow Evidence | trace + Grimo evidence tables | Pollack trace 記 transition；Grimo 保存 definition、score、findings、fix history。 |
 | Crash recovery | `CheckpointingStepRunner` | 已完成 step 用 checkpoint skip；FAILED step 需 operator decision 後 reset。 |
 
@@ -73,14 +72,14 @@ flowchart TD
 
   Definition --> QualityLoopA["QualityLoopWorkflow"]
   Execution --> QualityLoopB["QualityLoopWorkflow"]
-  Execution --> Unit["Unit-test fe/be"]
+  Execution --> Unit["Unit-test"]
   Unit --> Integration["Integration-test"]
   Integration --> E2E["E2E-test"]
   Release --> QualityLoopC["QualityLoopWorkflow"]
 
-  QualityLoopA --> Review["sub-ReviewStep"]
-  QualityLoopA --> Rating["sub-RatingStep"]
-  QualityLoopA --> Fix["sub-FixStep"]
+  QualityLoopA --> Review["ReviewStep"]
+  QualityLoopA --> Rating["RatingStep"]
+  QualityLoopA --> Fix["FixStep"]
 
   TaskWorkflow --> Evidence["Workflow Evidence Projection"]
   Evidence --> Trace["Pollack trace"]
@@ -99,20 +98,20 @@ flowchart TD
   Definition --> ReadyGate{"ReadyGate: Definition Package accepted?"}
 
   ReadyGate -- "no: needs clarification" --> Definition
-  ReadyGate -- "no: dependency/runtime missing" --> Blocked["Project state projection: BLOCKED"]
+  ReadyGate -- "no: dependency/runtime missing" --> NeedsHuman["Project state projection: NEEDS_HUMAN repair reason"]
   ReadyGate -- "yes" --> Ready["Project state projection: READY"]
 
   Ready --> DispatchStart{"User starts single task or dispatch window?"}
   DispatchStart -- "no" --> Ready
   DispatchStart -- "yes" --> Dispatch["DispatchClaimWorkflow"]
   Dispatch --> PreflightGate{"Preflight pass?"}
-  PreflightGate -- "no" --> Blocked
+  PreflightGate -- "no" --> NeedsHuman
   PreflightGate -- "yes" --> Execution["ExecutionWorkflow"]
 
   Execution --> ReviewPackage["Review Materials"]
-  ReviewPackage --> HumanReview{"HumanReviewGate: approve?"}
-  HumanReview -- "reject or fix required" --> Execution
-  HumanReview -- "approve" --> Done["Project state projection: DONE"]
+  ReviewPackage --> ReviewGate{"REVIEW Gate: approve?"}
+  ReviewGate -- "reject or redefine required" --> Definition
+  ReviewGate -- "approve" --> Done["Project state projection: DONE"]
   Done --> Release["ReleaseWorkflow"]
 
   Release --> Learning{"Learning proposal needed?"}
@@ -120,8 +119,8 @@ flowchart TD
   Learning -- "no" --> Done
   Proposal --> Done
 
-  Blocked -- "more discussion" --> Definition
-  Blocked -- "dependency fixed" --> Ready
+  NeedsHuman -- "more discussion" --> Definition
+  NeedsHuman -- "dependency fixed" --> Ready
 ```
 
 ## Sub-Workflow: Task Intake
@@ -201,17 +200,17 @@ Workflow.define("definition")
 
 ## Sub-Workflow: Quality Loop
 
-Goal: 對任一主要 step 的 output 做 review、rating、fix，直到 `quality_score > 9` 或達到明確停止條件。
+Goal: 對任一主要 step 的 output 做 review、rating、fix，直到 Gate 通過或達到明確停止條件。
 
 ```mermaid
 flowchart TD
-  StepOutput["Main step output"] --> Review["sub-Review"]
-  Review --> Rating["sub-Rating"]
-  Rating --> Score{"quality_score > 9?"}
+  StepOutput["Main step output"] --> Review["Review"]
+  Review --> Rating["Rating"]
+  Rating --> Score{"Gate pass?"}
   Score -- "yes" --> Pass["Pass output to next main step"]
   Score -- "no" --> Stop{"Stop condition reached?"}
-  Stop -- "yes" --> Block["Emit BLOCKED / NEEDS_HUMAN evidence"]
-  Stop -- "no" --> Fix["sub-Fix"]
+  Stop -- "yes" --> Block["Emit NEEDS_HUMAN evidence"]
+  Stop -- "no" --> Fix["Fix"]
   Fix --> Review
 ```
 
@@ -222,7 +221,7 @@ Workflow.define("quality-loop")
     .repeatUntilOutput(qualityPassedOrStopped)
         .step(review)
         .then(rating)
-        .then(routeScoreToPassFixOrBlocked)
+        .then(routeScoreToPassFixOrNeedsHuman)
         .then(fixIfNeeded)
     .end();
 ```
@@ -242,7 +241,7 @@ flowchart TD
   Capacity -- "no" --> Wait["Wait in READY queue"]
   Capacity -- "yes" --> Preflight
   Preflight --> Runtime{"Profile, dependency, runtime, permission pass?"}
-  Runtime -- "no" --> Blocked["BLOCKED / NEEDS_HUMAN"]
+  Runtime -- "no" --> NeedsHuman["READY + NEEDS_HUMAN"]
   Runtime -- "yes" --> Claim["Create Agent Claim"]
   Claim --> Workspace["Prepare worktree / sandbox / runId"]
   Workspace --> Running["RUNNING projection"]
@@ -258,21 +257,19 @@ Workflow.define("dispatch-claim")
     .then(preflight)
     .gate(preflightGate)
         .onPass(createAgentClaim)
-        .onFail(markBlocked)
+        .onFail(markNeedsHuman)
     .end();
 ```
 
 ## Sub-Workflow: Execution
 
-Goal: 執行正式寫入工作，並在 `RUNNING` 裡完成 Dev、Auto-Review、unit、integration 和 E2E evidence。
+Goal: 執行正式寫入工作，並在 `RUNNING` 裡完成 Dev、unit、integration 和 E2E evidence。
 
 ```mermaid
 flowchart TD
   Claim["Agent Claim context"] --> Dev["Dev"]
   Dev --> DevQL["QualityLoop"]
-  DevQL --> AutoReview["Auto-Review"]
-  AutoReview --> ReviewQL["QualityLoop"]
-  ReviewQL --> Unit["Unit-test fe/be"]
+  DevQL --> Unit["Unit-test"]
   Unit --> UnitQL["QualityLoop"]
   UnitQL --> Integration["Integration-test"]
   Integration --> IntegrationQL["QualityLoop"]
@@ -287,10 +284,8 @@ Pollack shape:
 Workflow.define("execution")
     .step(devAgentStep)
     .then(qualityLoop("dev"))
-    .then(autoReview)
-    .then(qualityLoop("auto-review"))
     .then(runUnitTests)
-    .then(qualityLoop("unit-test-fe-be"))
+    .then(qualityLoop("unit-test"))
     .then(runIntegrationTests)
     .then(qualityLoop("integration-test"))
     .then(runE2eTests)
@@ -298,14 +293,14 @@ Workflow.define("execution")
     .then(buildReviewMaterials);
 ```
 
-## Gate: Human Review And Release
+## Gate: REVIEW And Release
 
 Goal: 人類 approve / reject 是產品 gate；Release 是 DONE 底下的收尾 workflow。
 
 ```mermaid
 flowchart TD
   Materials["Review Materials"] --> HumanGate{"Human approve?"}
-  HumanGate -- "reject" --> FixPath["Return to ExecutionWorkflow"]
+  HumanGate -- "reject" --> RedefinePath["Return to DefinitionWorkflow"]
   HumanGate -- "approve" --> Done["DONE"]
   Done --> Release["Release: merge, cleanup, delivery summary, short retro"]
   Release --> ReleaseQL["QualityLoop if evidence is required"]
@@ -314,9 +309,9 @@ flowchart TD
 Pollack shape:
 
 ```java
-Workflow.define("human-review-release")
+Workflow.define("review-release")
     .gate(humanApprovalGate)
-        .onFail(returnToExecution)
+        .onFail(returnToDefinition)
         .onPass(markDone)
     .then(releaseAndQualityLoop);
 ```
@@ -364,7 +359,7 @@ Minimum typed context keys for the MVP definition:
 | `review_findings` | `ReviewFindings` | review step | fix / materials |
 | `fix_history` | `FixHistory` | fix step | review / materials |
 | `acceptance_evidence` | `AcceptanceEvidence` | execution workflow | human review |
-| `review_materials` | `ReviewMaterials` | Auto-Review / execution workflow | human review |
+| `review_materials` | `ReviewMaterials` | execution workflow | human review |
 | `release_evidence` | `ReleaseEvidence` | DONE task evidence | done / learning / follow-up task |
 
 ## Execution Runner Decision
@@ -385,7 +380,7 @@ MVP decision: use `CheckpointingStepRunner` for Task execution runs that need du
 
 ## Open Design Questions
 
-1. How long should a `QualityLoopWorkflow` run before emitting `BLOCKED / NEEDS_HUMAN`?
+1. How long should a `QualityLoopWorkflow` run before emitting `NEEDS_HUMAN` evidence?
 2. Should `Discuss` be one interactive sub-workflow instance, or multiple resumable chat turns under the same step checkpoint?
 3. Should `ReadyGate` be represented as a paused workflow state, a separate workflow run, or a deterministic projection waiting for human input?
 4. Which workflow evidence belongs in Pollack trace only, and which must be duplicated into Grimo domain tables for user-facing review?

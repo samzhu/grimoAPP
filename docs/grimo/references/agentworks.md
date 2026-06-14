@@ -5,8 +5,8 @@
 ## Product Takeaways For Grimo
 
 1. Grimo presents a Task workbench to users, while internal orchestration can be Pollack Agent Workflow.
-2. The main SDD phases are workflow steps: Discuss, Explore, Prototype, Spec, Usage, Tkt, Dev, Auto-Review, Unit-test fe/be, Integration-test, E2E-test and Release; human approval is the REVIEW product gate after RUNNING evidence is complete.
-3. Each main step runs an automatic Quality Loop subworkflow: sub-Review -> sub-Rating -> sub-Fix until the step passes its quality threshold.
+2. The main SDD phases are workflow steps: Discuss, Explore, Prototype, Spec, Usage, Tkt, Dev, Unit-test, Integration-test, E2E-test and release; human approval is the REVIEW product gate after RUNNING evidence is complete.
+3. Each main step runs an automatic Quality Loop subworkflow: Review -> Rating -> Gate -> Fix until the step passes its quality gate.
 4. Discuss remains an interactive chat/research step; users do not need to understand workflow internals.
 5. AgentWorks components should be adopted by role:
    - Agent Workflow for orchestration, gates, step runners, checkpointing and trace.

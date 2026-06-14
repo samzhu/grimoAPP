@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     title TEXT NOT NULL,
     body TEXT NOT NULL DEFAULT '',
     source TEXT NOT NULL CHECK (source IN ('manual')),
-    state TEXT NOT NULL CHECK (state IN ('BACKLOG', 'DEFINING', 'READY', 'RUNNING', 'REVIEW', 'DONE', 'BLOCKED')),
+    state TEXT NOT NULL CHECK (state IN ('BACKLOG', 'DEFINING', 'READY', 'RUNNING', 'REVIEW', 'DONE')),
     workflow_recipe_id TEXT NOT NULL,
     labels TEXT NOT NULL DEFAULT '[]',
     created_at TEXT NOT NULL,
@@ -136,7 +136,7 @@ CREATE INDEX IF NOT EXISTS idx_task_workflow_run_steps_run_state_order
 ON task_workflow_run_steps(workflow_run_id, state, step_order);
 
 -- table: task_workflow_quality_runs
--- 用途: 保存某個 workflow run step 的 sub-Review -> sub-Rating -> sub-Fix 嘗試紀錄。
+-- 用途: 保存某個 workflow run step 的 Review -> Rating -> Gate -> Fix 嘗試紀錄。
 -- owner: task_workflow_run_steps.id。每個 attempt 是 immutable evidence row。
 -- 不存: 大型 artifact 內容、完整 Task Conversation Thread、final Review Materials bundle。
 CREATE TABLE IF NOT EXISTS task_workflow_quality_runs (

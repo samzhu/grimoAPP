@@ -32,17 +32,13 @@ _Avoid_: Delete Project, archive Project, remove repo
 單一 Task 執行時使用的隔離工作目錄。
 _Avoid_: Project Path, Project, Workspace
 
-**Auto-Review**:
-Agent 完成主要工作後，先自動檢查成果是否足以交給人類審查的 RUNNING 內部工作步驟。
-_Avoid_: Human Review, Review board state, AI Review
+**Human Approval**:
+人類根據 Review Materials 決定 approve 或 reject 的審查動作。
+_Avoid_: Workflow Step Review, internal Quality Loop review
 
-**Human Review**:
-人類根據 Review Materials 決定 approve 或 reject 的審查點。
-_Avoid_: Auto-Review, internal Quality Loop review
-
-**Human Review State**:
+**REVIEW State**:
 Task State Machine 中等待人類 approve 或 reject 的外層狀態。
-_Avoid_: Auto-Review still running, internal Quality Loop review
+_Avoid_: Workflow Step Review, internal Quality Loop review
 
 **Workflow Recipe**:
 內建的一種 **Workflow Definition**，決定 Task 會經過哪些內部步驟與需要哪些能力。
@@ -101,16 +97,16 @@ _Avoid_: Permanent details pane, full Task page
 - `workflowSummary.currentStep` describes active execution progress only; a **Task Workflow** first step must not be projected as current progress.
 - The first Chat open for a `BACKLOG` **Task** atomically moves the Task to `DEFINING`, starts the **Workflow Run**, copies execution steps from the **Task Workflow**, and activates the opening step.
 - A **Skill** is selected through **Workflow Definition** steps and Agent Profile responsibilities, not by the user during Task creation.
-- **Auto-Review** happens before **Human Review**.
-- **Human Review** is the user-facing decision point inside **Human Review State**.
-- **Auto-Review** is still agent work; **Human Review State** starts only after Review Materials are ready.
+- **Human Approval** is the user-facing decision point inside **REVIEW State**.
+- Every **Workflow Step** runs the same **Quality Loop**: Review, Rating, Gate, then Fix when the Gate fails.
+- **REVIEW State** starts only after workflow step evidence and Review Materials are ready.
 - The **App Header** and **Side Navigation** frame the app; the selected page is shown in the **Main Content Area**.
 - A **Task Details Pane** belongs to the selected **Task** and may appear as a **Task Details Drawer** when it floats over the **Main Content Area**.
 
 ## Example dialogue
 
-> **Dev:** "Can we show one Review step for both AI and human review?"
-> **Domain expert:** "No. **Auto-Review** is still agent work, while **Human Review** is where the user approves or rejects the result."
+> **Dev:** "Can workflow Review and human approval be the same thing?"
+> **Domain expert:** "No. **Review** inside the **Quality Loop** checks one workflow step output. **REVIEW State** is where the user approves or rejects the Task."
 >
 > **Dev:** "Should the create form ask for a Workspace or a projectPathSource?"
 > **Domain expert:** "No. MVP uses one **Project Path** field; **Project Home** is internal, and **Task Worktree** is a later execution detail."
@@ -147,7 +143,7 @@ _Avoid_: Permanent details pane, full Task page
 
 ## Flagged ambiguities
 
-- "Review" was used for both **Auto-Review** and **Human Review**; resolved: recipe previews should name `Auto-Review` as RUNNING evidence and reserve REVIEW for human approval.
+- "Review" was used for both workflow-step review and **Human Approval**; resolved: workflow steps do not include a separate `品質檢驗` / Auto-Review node. Every workflow step runs the Quality Loop `Review -> Rating -> Gate -> Fix`, and REVIEW remains the human approval state.
 - "Workspace" was used for Project identity, local path and future isolated execution; resolved: MVP product language uses **Project** and **Project Path**, while isolated execution uses **Task Worktree**.
 - "`projectPathSource` / `projectDataPath`" were considered as API fields; resolved: S003 exposes only **Project Path**, and keeps **Project Home** internal.
 - "`skill`" appeared as a Task creation field in prototype UI; resolved: Task creation does not choose Skill because the Project **Workflow Definition** defines the fixed development flow and required skills.

@@ -1,8 +1,7 @@
 export const workflowRows = [
   ["Discuss / Explore / Prototype / Spec / Usage / Tkt", "DEFINING", "Definition Package"],
   ["Ready boundary", "READY", "Assignment + runtime preflight"],
-  ["Dev", "RUNNING", "Execution evidence complete"],
-  ["Review", "REVIEW", "Human approve / reject"],
-  ["Wrap", "DONE", "Delivery summary + learning proposal"],
-  ["Any stop condition", "BLOCKED", "補依賴、權限或回到 Chat"],
+  ["Dev / Unit-test / Integration-test / E2E-test", "RUNNING", "Execution evidence complete"],
+  ["Review", "REVIEW", "Approve to DONE / reject to DEFINING"],
+  ["release", "DONE", "Release evidence + learning proposal"],
 ] as const;

@@ -14,15 +14,18 @@ import type { CreateTaskInput } from "./task-api";
 import { TaskDetail } from "../task-detail/TaskDetail";
 import { TaskDetailPage } from "../task-detail/TaskDetailPage";
 
-const attentionStates = new Set<Task["state"]>(["REVIEW", "BLOCKED"]);
-const mobileListStates: TaskState[] = [...stateColumns, "BLOCKED"];
+const mobileListStates: TaskState[] = [...stateColumns];
 
 function getAttentionLabel(task: Task) {
   if (task.state === "REVIEW") {
     return "等待人工審查";
   }
 
-  return "需要補齊條件";
+  if (task.state === "READY" || task.state === "RUNNING") {
+    return "需要修復條件";
+  }
+
+  return "需要補齊定義";
 }
 
 export function TaskWorkbench({
@@ -70,7 +73,11 @@ export function TaskWorkbench({
   canCreateTask: boolean;
   taskLoadError: string;
 }) {
-  const attentionTasks = filteredTasks.filter((task) => attentionStates.has(task.state));
+  const reviewTasks = filteredTasks.filter((task) => task.state === "REVIEW");
+  const repairTasks = filteredTasks.filter(
+    (task) => (task.state === "READY" || task.state === "RUNNING") && task.gaps.length > 0,
+  );
+  const attentionTasks = [...reviewTasks, ...repairTasks];
   const hasAttentionTasks = attentionTasks.length > 0;
 
   if (isTaskPageOpen) {

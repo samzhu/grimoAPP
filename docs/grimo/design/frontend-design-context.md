@@ -166,7 +166,7 @@ main.main-content-area
 | 選單項目 | 有 active Project 時 | 沒有 active Project 時 |
 | --- | --- | --- |
 | `Task 管理` | 顯示 Task Workbench、待處理焦點、Kanban/list、Task Detail、`新增 Task`。 | first-run / missing-session 顯示 Project Selection Gate；closed session 首頁先進 `專案管理`。 |
-| `待處理` | 顯示 `REVIEW` / `BLOCKED` 人工處理 queue，可回到 Chat。 | 顯示 Project Selection Gate，避免看見沒有 Project context 的假 attention list。 |
+| `待處理` | 顯示 `REVIEW` approvals、`NEEDS_HUMAN` 修復項與 definition gaps，可回到 Chat。 | 顯示 Project Selection Gate，避免看見沒有 Project context 的假 attention list。 |
 | `專案` | 顯示 Project list / create，可建立、管理、切換 Project。 | 仍可進入 Project list / create，因為這是建立 Project context 的地方。 |
 | `Chat` | 顯示目前 selected Task 的 Task Chat；沒有 selected Task 時，可作為形成新 Task 的討論入口。 | 顯示 Project Selection Gate，避免開啟沒有 Project context 的 generic blank Chat。 |
 | `Workflow` | 顯示 workflow reference，說明 Project recipe steps 和 Task List State 的對應。 | 仍可顯示 workflow reference，但 App Header 保持 `尚未開啟 Project`，不暗示已有 Project context。 |
@@ -277,7 +277,7 @@ main.main-content-area
 
 **目前版面決策：**
 
-- 桌面版使用 `Focus + Board`：上方 attention tray 顯示 `REVIEW` 和 `BLOCKED` tasks；Kanban board 留在下方用來掃描 workflow state。
+- 桌面版使用 `Focus + Board`：上方 attention tray 顯示 `REVIEW` tasks 和帶 gaps / `NEEDS_HUMAN` repair reason 的 tasks；Kanban board 留在下方用來掃描六個 Task State。
 - Focus tray 可收合。使用者不一定想立刻處理待處理項目，所以 tray 可以縮成 summary row。
 - Focus header 是單行：`待處理焦點` 後面接小型 `需要你處理` 狀態標籤。這個標籤不應該獨占一行。
 - 桌面版上 search 和 `新增 Task` 保持在同一列 toolbar。手機版可以堆疊。
@@ -296,13 +296,13 @@ main.main-content-area
 - `.focus-strip`：給人類行動用的 attention tray，必須支援 expanded / collapsed states。
 - `.focus-toggle`：控制 focus tray 收合/展開，visible labels 必須精確使用 `收合` 和 `展開`。
 - `.board-grid`：只給桌面版 board 使用。不要把 Kanban columns 硬塞到手機版。
-- `.mobile-task-list`：手機版和平板的 list surface。它依 board-facing state 分組，並包含 `BLOCKED`。
+- `.mobile-task-list`：手機版和平板的 list surface。它依六個 board-facing Task State 分組；needs-human repair 以 row 內提示呈現，不新增 `BLOCKED` 分組。
 - Side Navigation 的 S011 target class 是 `.side-navigation`：unpinned main nav 是 overlay。只有 `.nav-pinned` 可以配置左側 column。
 
 **未決問題：**
 
 - 有 user preferences 後，focus collapse state 是否要跨 reload 保存。
-- Attention tasks 是否要除了 `REVIEW` 和 `BLOCKED` 外也包含 `READY`，特別是在 user-started dispatch window 開啟時。
+- Attention tasks 是否要除了 `REVIEW` 和 needs-human repair 外也包含 `READY`，特別是在 user-started dispatch window 開啟時。
 
 ### Task 詳情（Task Detail）
 
@@ -330,12 +330,12 @@ main.main-content-area
 
 ### 待處理頁（Attention Page）
 
-**目的：** 專門處理人類行動的 queue，包含 `REVIEW` approvals、`BLOCKED` recovery，以及需要更多討論或明確使用者決策的 definition gaps。
+**目的：** 專門處理人類行動的 queue，包含 `REVIEW` approvals、`NEEDS_HUMAN` recovery，以及需要更多討論或明確使用者決策的 definition gaps。
 
 **目前版面決策：**
 
-- 這個頁面不是第二個 Kanban board。它先摘要 action counts，再把 `REVIEW` 和 `BLOCKED` tasks 列成 priority queue。
-- `REVIEW` 和 `BLOCKED` 共用主 queue，因為兩者都會卡住進度：`REVIEW` 卡住 `DONE`，`BLOCKED` 卡住 dispatcher 或 workflow recovery。Release evidence 若存在，會在 `DONE` task 內 review。
+- 這個頁面不是第二個 Kanban board。它先摘要 action counts，再把 `REVIEW` tasks 和 needs-human repair tasks 列成 priority queue。
+- `REVIEW` 和 needs-human repair 共用主 queue，因為兩者都會卡住進度：`REVIEW` 卡住 `DONE`，needs-human repair 卡住 dispatcher 或 workflow recovery。Release evidence 若存在，會在 `DONE` task 內 review。
 - Definition gaps 是右欄的次要 decision material，讓使用者可以掃描未完成 tasks，但不把它們混進 urgent queue。
 - Attention cards 顯示真實 task labels，不顯示 recipe steps。`Prototype`、`Spec`、`Review` 等 recipe steps 屬於 Task detail / Workflow evidence，不是 list-level label chips。
 
@@ -392,11 +392,11 @@ main.main-content-area
 **目前版面決策：**
 
 - Web development workflow 把 verification 保留在 `RUNNING` 裡，不把它做成一個 first-class Task List State。
-- `RUNNING` 顯示 implementation 和 evidence work：`Dev / Auto-Review / Unit-test fe/be / Integration-test / E2E-test`。
+- `RUNNING` 顯示 implementation 和 evidence work：`Dev / Unit-test / Integration-test / E2E-test`。
 - `REVIEW` 保持在 verification evidence 完成後的人類 approve/reject state。
 - `DONE` 顯示 `Release` 作為 web development workflow 的 completion subflow；release evidence 留在 DONE task 裡，不成為另一個 board column。
 
-**不要做：** 不要新增 `VERIFYING` board/list state，也不要把 human approval 標成 `Auto-Review`。
+**不要做：** 不要新增 `VERIFYING` board/list state，也不要把 Quality Loop 裡的 `Review` 當成 human approval。
 
 **驗證：** `npm run build`；backend `ProjectApiTests.exposesWebServiceDevelopmentRecipeDefinition`。
 
@@ -488,7 +488,7 @@ main.main-content-area
 ### 待處理佇列
 
 - **決策：** `待處理` 是 human-action queue，包含 count summary、priority task cards 和 diagnostic sidebar。
-- **原因：** Plain BLOCKED-only list 會隱藏 `REVIEW` approvals，也無法說明是哪個 action 卡住進度。
+- **原因：** Plain needs-human-only list 會隱藏 `REVIEW` approvals，也無法說明是哪個 action 卡住進度。
 - **不要做：** 不要複製完整 board，不要讓每個 task 權重相同，也不要新增獨立 list-level `審查材料` / `查看缺口` buttons。
 - **驗證：** Playwright test `attention page baseline` 斷言 `優先處理`、不存在 `審查材料` / `查看缺口`，並顯示 `Chat`；snapshot `attention-page-chromium-darwin.png`。
 
@@ -536,7 +536,7 @@ main.main-content-area
 - **指令：** `npm run build`、`npm run test:visual:update`、`npm run test:visual`
 - **結果：** 通過
 - **截圖基準變更：** `frontend/e2e/task-workbench.visual.spec.ts-snapshots/attention-page-chromium-darwin.png`
-- **原因：** `待處理` 現在顯示 human-action counts、`REVIEW`/`BLOCKED` priority queue、definition gaps、blocker summary 和 handling notes。
+- **原因：** `待處理` 現在顯示 human-action counts、`REVIEW`/needs-human priority queue、definition gaps、repair summary 和 handling notes。
 
 ### 2026-05-28 — Source Metadata Demotion
 
